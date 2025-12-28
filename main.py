@@ -1,60 +1,32 @@
 import os
-import csv
-import requests
-from telegram import Update
+import threading
+from flask import Flask
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram import Update
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
-TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-def load_data():
-    response = requests.get(CSV_URL)
-    response.encoding = "utf-8"
-    rows = list(csv.DictReader(response.text.splitlines()))
-    return rows
-
+# --- Telegram bot ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "🤖 Бот-локер готовий!\n\n"
-        "/find Прізвище — знайти працівника\n"
-        "/stats — статистика ножів"
-    )
+    await update.message.reply_text("Бот працює ✅")
 
-async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("❗ Вкажи прізвище після /find")
-        return
+def run_bot():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.run_polling()
 
-    surname = context.args[0].lower()
-    data = load_data()
+# --- Flask app (для Render Free) ---
+flask_app = Flask(__name__)
 
-    for row in data:
-        if row["Прізвище"].lower() == surname:
-            knife = "✅ Є" if row["Ніж"] == "1" else "❌ Немає"
-            text = (
-                f"👤 {row['Прізвище']} {row['Імʼя']}\n"
-                f"🗄 Шафка: {row['Шафка']}\n"
-                f"🔪 Ніж: {knife}"
-            )
-            await update.message.reply_text(text)
-            return
+@flask_app.route("/")
+def home():
+    return "OK", 200
 
-    await update.message.reply_text("❌ Працівника не знайдено")
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    flask_app.run(host="0.0.0.0", port=port)
 
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    with_knife = sum(1 for r in data if r["Ніж"] == "1")
-    without_knife = len(data) - with_knife
-
-    await update.message.reply_text(
-        f"📊 Статистика:\n"
-        f"🔪 З ножами: {with_knife}\n"
-        f"❌ Без ножів: {without_knife}"
-    )
-
-app = ApplicationBuilder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("find", find))
-app.add_handler(CommandHandler("stats", stats))
-
-app.run_polling()
+# --- Start both ---
+if __name__ == "__main__":
+    threading.Thread(target=run_bot).start()
+    run_flask()

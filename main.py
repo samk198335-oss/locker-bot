@@ -1,131 +1,122 @@
 import os
 import csv
+import io
+import logging
 import requests
-from io import StringIO
-from flask import Flask
-from threading import Thread
-
 from telegram import Update
 from telegram.ext import (
-    Application,
+    ApplicationBuilder,
     CommandHandler,
     ContextTypes,
 )
 
-# ================== CONFIG ==================
+# ---------------- CONFIG ----------------
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-BOT_TOKEN = "PASTE_YOUR_BOT_TOKEN"
-CSV_URL = "PASTE_YOUR_CSV_LINK"
-ADMIN_ID = 123456789  # <-- вставиш свій ID після /myid
+SHEET_CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1blFK5rFOZ2PzYAQldcQd8GkmgK/export?format=csv"
+)
 
-PORT = int(os.environ.get("PORT", 10000))
+# ---------------- LOGGING ----------------
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
 
-# ================== FLASK (Render needs open port) ==================
-
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Bot is running"
-
-def run_flask():
-    app.run(host="0.0.0.0", port=PORT)
-
-# ================== HELPERS ==================
-
-def load_data():
-    response = requests.get(CSV_URL)
-    response.encoding = "utf-8"
-    csv_data = StringIO(response.text)
-    reader = csv.DictReader(csv_data)
+# ---------------- HELPERS ----------------
+def load_sheet():
+    response = requests.get(SHEET_CSV_URL, timeout=20)
+    response.raise_for_status()
+    csv_file = io.StringIO(response.text)
+    reader = csv.DictReader(csv_file)
     return list(reader)
+
+def filter_rows(rows, knife=None, locker=None):
+    result = []
+    for row in rows:
+        if knife is not None and row.get("knife") != knife:
+            continue
+        if locker is not None and row.get("locker") != locker:
+            continue
+        result.append(row)
+    return result
 
 def format_rows(rows):
     if not rows:
-        return "❌ Нічого не знайдено"
-    text = ""
-    for r in rows:
-        text += (
-            f"👤 {r['Прізвище']}\n"
-            f"🔪 Ніж: {r['Ніж']}\n"
-            f"🗄 Шафка: {r['Шафка'] or '—'}\n"
-            f"📍 Адреса: {r['Адреса']}\n\n"
+        return "❌ Nothing found"
+
+    lines = []
+    for r in rows[:20]:
+        line = (
+            f"🔹 {r.get('name', '—')}\n"
+            f"   Knife: {r.get('knife', '—')}\n"
+            f"   Locker: {r.get('locker', '—')}"
         )
-    return text
+        lines.append(line)
 
-# ================== COMMANDS ==================
+    if len(rows) > 20:
+        lines.append(f"\n…and {len(rows) - 20} more")
 
+    return "\n\n".join(lines)
+
+# ---------------- COMMANDS ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Вітаю!\n\n"
-        "/find – знайти всіх\n"
-        "/knife – з ножем\n"
-        "/no_knife – без ножа\n"
-        "/with_locker – з шафкою\n"
-        "/no_locker – без шафки\n\n"
-        "/myid – показати мій Telegram ID"
+        "👋 Hello!\n\n"
+        "Available commands:\n"
+        "/find\n"
+        "/knife\n"
+        "/no_knife\n"
+        "/with_locker\n"
+        "/no_locker\n"
+        "/myid"
     )
 
 async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🆔 Твій Telegram ID: {update.effective_user.id}")
+    await update.message.reply_text(f"🆔 Your ID: {update.effective_user.id}")
 
-async def find_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_data()
+async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_sheet()
     await update.message.reply_text(format_rows(rows))
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [r for r in load_data() if r["Ніж"].lower() == "так"]
-    await update.message.reply_text(format_rows(rows))
+    rows = load_sheet()
+    filtered = filter_rows(rows, knife="yes")
+    await update.message.reply_text(format_rows(filtered))
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [r for r in load_data() if r["Ніж"].lower() != "так"]
-    await update.message.reply_text(format_rows(rows))
+    rows = load_sheet()
+    filtered = filter_rows(rows, knife="no")
+    await update.message.reply_text(format_rows(filtered))
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [r for r in load_data() if r["Шафка"].strip()]
-    await update.message.reply_text(format_rows(rows))
+    rows = load_sheet()
+    filtered = filter_rows(rows, locker="yes")
+    await update.message.reply_text(format_rows(filtered))
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [r for r in load_data() if not r["Шафка"].strip()]
-    await update.message.reply_text(format_rows(rows))
+    rows = load_sheet()
+    filtered = filter_rows(rows, locker="no")
+    await update.message.reply_text(format_rows(filtered))
 
-# ================== ADMIN ==================
-
-async def add_employee(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Немає доступу")
-        return
-
-    try:
-        data = " ".join(context.args)
-        surname, knife, locker, address = [x.strip() for x in data.split(",")]
-    except:
-        await update.message.reply_text(
-            "❌ Формат:\n/add Прізвище,ніж,шафка,адреса"
-        )
-        return
-
-    # Google Sheet append через Google Form / Apps Script (наступний крок)
-    await update.message.reply_text(
-        "✅ Дані прийняті.\n(Додавання в таблицю — наступний крок)"
-    )
-
-# ================== MAIN ==================
-
+# ---------------- MAIN ----------------
 def main():
-    Thread(target=run_flask).start()
+    if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN is not set")
 
-    application = Application.builder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("myid", myid))
-    application.add_handler(CommandHandler("find", find_all))
+    application.add_handler(CommandHandler("find", find))
     application.add_handler(CommandHandler("knife", knife))
     application.add_handler(CommandHandler("no_knife", no_knife))
     application.add_handler(CommandHandler("with_locker", with_locker))
     application.add_handler(CommandHandler("no_locker", no_locker))
-    application.add_handler(CommandHandler("add", add_employee))
+    application.add_handler(CommandHandler("myid", myid))
 
+    logger.info("Bot started")
     application.run_polling()
 
 if __name__ == "__main__":

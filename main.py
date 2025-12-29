@@ -1,8 +1,9 @@
 import os
-import csv
+import threading
 import requests
+import csv
 from io import StringIO
-
+from flask import Flask
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -10,60 +11,38 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# =========================
-# НАЛАШТУВАННЯ
-# =========================
+# ================== НАСТРОЙКИ ==================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-TOKEN = os.getenv("BOT_TOKEN")
+CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgK/export?format=csv"
 
-# 🔗 ПРЯМЕ CSV-посилання на Google Sheets
-GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgK/export?format=csv"
+# Назви колонок (ТОЧНО як у таблиці)
+COL_KNIFE = "Ніж"
+COL_LOCKER = "Шафка"
+COL_NAME = "Назва"
 
-# =========================
-# ДОПОМІЖНІ ФУНКЦІЇ
-# =========================
+# ================== FLASK (для Render) ==================
+app = Flask(__name__)
 
+@app.route("/")
+def home():
+    return "Bot is running"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+# ================== CSV ==================
 def load_data():
-    response = requests.get(GOOGLE_SHEET_CSV_URL)
-    response.encoding = "utf-8"
-    csv_data = csv.DictReader(StringIO(response.text))
-    return list(csv_data)
+    response = requests.get(CSV_URL)
+    response.raise_for_status()
+    csv_file = StringIO(response.text)
+    return list(csv.DictReader(csv_file))
 
+def normalize(val):
+    return str(val).strip().lower()
 
-def filter_data(**conditions):
-    data = load_data()
-    result = []
-
-    for row in data:
-        ok = True
-        for key, value in conditions.items():
-            if row.get(key, "").strip().lower() != value.lower():
-                ok = False
-                break
-        if ok:
-            result.append(row)
-
-    return result
-
-
-def format_result(rows):
-    if not rows:
-        return "❌ Нічого не знайдено"
-
-    text = "✅ Знайдено локери:\n\n"
-    for r in rows:
-        text += (
-            f"📦 Локер: {r.get('locker', '-')}\n"
-            f"🔪 Ніж: {r.get('knife', '-')}\n"
-            f"🗄️ Шафка: {r.get('locker_box', '-')}\n\n"
-        )
-    return text
-
-
-# =========================
-# КОМАНДИ БОТА
-# =========================
-
+# ================== COMMANDS ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Вітаю!\n\n"
@@ -75,49 +54,65 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/no_locker – без шафки"
     )
 
-
-async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def find_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_data()
-    await update.message.reply_text(format_result(rows))
+    if not rows:
+        await update.message.reply_text("❌ Нічого не знайдено")
+        return
 
+    text = "\n".join(f"• {r[COL_NAME]}" for r in rows)
+    await update.message.reply_text(text)
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = filter_data(knife="так")
-    await update.message.reply_text(format_result(rows))
-
+    rows = [
+        r for r in load_data()
+        if normalize(r.get(COL_KNIFE)) in ("так", "yes", "1")
+    ]
+    await update.message.reply_text(
+        "\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено"
+    )
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = filter_data(knife="ні")
-    await update.message.reply_text(format_result(rows))
-
+    rows = [
+        r for r in load_data()
+        if normalize(r.get(COL_KNIFE)) in ("ні", "no", "0", "")
+    ]
+    await update.message.reply_text(
+        "\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено"
+    )
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = filter_data(locker_box="так")
-    await update.message.reply_text(format_result(rows))
-
+    rows = [
+        r for r in load_data()
+        if normalize(r.get(COL_LOCKER)) in ("так", "yes", "1")
+    ]
+    await update.message.reply_text(
+        "\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено"
+    )
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = filter_data(locker_box="ні")
-    await update.message.reply_text(format_result(rows))
+    rows = [
+        r for r in load_data()
+        if normalize(r.get(COL_LOCKER)) in ("ні", "no", "0", "")
+    ]
+    await update.message.reply_text(
+        "\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено"
+    )
 
-
-# =========================
-# ЗАПУСК БОТА
-# =========================
-
+# ================== MAIN ==================
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+    threading.Thread(target=run_flask).start()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("find", find))
-    app.add_handler(CommandHandler("knife", knife))
-    app.add_handler(CommandHandler("no_knife", no_knife))
-    app.add_handler(CommandHandler("with_locker", with_locker))
-    app.add_handler(CommandHandler("no_locker", no_locker))
+    app_tg = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    print("🤖 Бот запущений")
-    app.run_polling()
+    app_tg.add_handler(CommandHandler("start", start))
+    app_tg.add_handler(CommandHandler("find", find_all))
+    app_tg.add_handler(CommandHandler("knife", knife))
+    app_tg.add_handler(CommandHandler("no_knife", no_knife))
+    app_tg.add_handler(CommandHandler("with_locker", with_locker))
+    app_tg.add_handler(CommandHandler("no_locker", no_locker))
 
+    app_tg.run_polling()
 
 if __name__ == "__main__":
     main()

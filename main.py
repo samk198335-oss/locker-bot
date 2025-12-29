@@ -10,7 +10,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# ---------------- CONFIG ----------------
+# ================== CONFIG ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 SHEET_CSV_URL = (
@@ -18,14 +18,14 @@ SHEET_CSV_URL = (
     "1blFK5rFOZ2PzYAQldcQd8GkmgK/export?format=csv"
 )
 
-# ---------------- LOGGING ----------------
+# ================== LOGGING ==================
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
 
-# ---------------- HELPERS ----------------
+# ================== DATA ==================
 def load_sheet():
     response = requests.get(SHEET_CSV_URL, timeout=20)
     response.raise_for_status()
@@ -33,14 +33,28 @@ def load_sheet():
     reader = csv.DictReader(csv_file)
     return list(reader)
 
+def has_knife(value: str) -> bool:
+    return str(value).strip() in ("1", "2")
+
+def has_locker(value: str) -> bool:
+    value = str(value).strip()
+    return value.isdigit()
+
 def filter_rows(rows, knife=None, locker=None):
     result = []
+
     for row in rows:
-        if knife is not None and row.get("knife") != knife:
+        knife_val = row.get("knife", "")
+        locker_val = row.get("locker", "")
+
+        if knife is not None and has_knife(knife_val) != knife:
             continue
-        if locker is not None and row.get("locker") != locker:
+
+        if locker is not None and has_locker(locker_val) != locker:
             continue
+
         result.append(row)
+
     return result
 
 def format_rows(rows):
@@ -49,19 +63,19 @@ def format_rows(rows):
 
     lines = []
     for r in rows[:20]:
-        line = (
-            f"🔹 {r.get('name', '—')}\n"
-            f"   Knife: {r.get('knife', '—')}\n"
-            f"   Locker: {r.get('locker', '—')}"
+        lines.append(
+            f"📍 {r.get('Adress', '—')}\n"
+            f"👤 {r.get('surname', '—')}\n"
+            f"🔪 Knife: {r.get('knife', '—')}\n"
+            f"🔐 Locker: {r.get('locker', '—')}"
         )
-        lines.append(line)
 
     if len(rows) > 20:
         lines.append(f"\n…and {len(rows) - 20} more")
 
     return "\n\n".join(lines)
 
-# ---------------- COMMANDS ----------------
+# ================== COMMANDS ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Hello!\n\n"
@@ -75,7 +89,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🆔 Your ID: {update.effective_user.id}")
+    await update.message.reply_text(
+        f"🆔 Your ID: {update.effective_user.id}"
+    )
 
 async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_sheet()
@@ -83,41 +99,45 @@ async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_sheet()
-    filtered = filter_rows(rows, knife="yes")
-    await update.message.reply_text(format_rows(filtered))
+    await update.message.reply_text(
+        format_rows(filter_rows(rows, knife=True))
+    )
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_sheet()
-    filtered = filter_rows(rows, knife="no")
-    await update.message.reply_text(format_rows(filtered))
+    await update.message.reply_text(
+        format_rows(filter_rows(rows, knife=False))
+    )
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_sheet()
-    filtered = filter_rows(rows, locker="yes")
-    await update.message.reply_text(format_rows(filtered))
+    await update.message.reply_text(
+        format_rows(filter_rows(rows, locker=True))
+    )
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_sheet()
-    filtered = filter_rows(rows, locker="no")
-    await update.message.reply_text(format_rows(filtered))
+    await update.message.reply_text(
+        format_rows(filter_rows(rows, locker=False))
+    )
 
-# ---------------- MAIN ----------------
+# ================== MAIN ==================
 def main():
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN is not set")
 
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("find", find))
-    application.add_handler(CommandHandler("knife", knife))
-    application.add_handler(CommandHandler("no_knife", no_knife))
-    application.add_handler(CommandHandler("with_locker", with_locker))
-    application.add_handler(CommandHandler("no_locker", no_locker))
-    application.add_handler(CommandHandler("myid", myid))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("find", find))
+    app.add_handler(CommandHandler("knife", knife))
+    app.add_handler(CommandHandler("no_knife", no_knife))
+    app.add_handler(CommandHandler("with_locker", with_locker))
+    app.add_handler(CommandHandler("no_locker", no_locker))
+    app.add_handler(CommandHandler("myid", myid))
 
     logger.info("Bot started")
-    application.run_polling()
+    app.run_polling()
 
 if __name__ == "__main__":
     main()

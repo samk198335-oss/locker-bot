@@ -5,48 +5,41 @@ import csv
 from io import StringIO
 from flask import Flask
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# ================== НАСТРОЙКИ ==================
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+# ================= CONFIG =================
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgK/export?format=csv"
 
-# Назви колонок (ТОЧНО як у таблиці)
+COL_NAME = "Назва"
 COL_KNIFE = "Ніж"
 COL_LOCKER = "Шафка"
-COL_NAME = "Назва"
 
-# ================== FLASK (для Render) ==================
+# ================= FLASK =================
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Bot is running"
+    return "OK"
 
 def run_flask():
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-# ================== CSV ==================
+# ================= CSV =================
 def load_data():
-    response = requests.get(CSV_URL)
-    response.raise_for_status()
-    csv_file = StringIO(response.text)
-    return list(csv.DictReader(csv_file))
+    r = requests.get(CSV_URL, timeout=15)
+    r.raise_for_status()
+    return list(csv.DictReader(StringIO(r.text)))
 
-def normalize(val):
-    return str(val).strip().lower()
+def norm(v):
+    return str(v).strip().lower()
 
-# ================== COMMANDS ==================
+# ================= COMMANDS =================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Вітаю!\n\n"
-        "Доступні команди:\n"
         "/find – знайти всі\n"
         "/knife – з ножем\n"
         "/no_knife – без ножа\n"
@@ -59,60 +52,30 @@ async def find_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not rows:
         await update.message.reply_text("❌ Нічого не знайдено")
         return
-
-    text = "\n".join(f"• {r[COL_NAME]}" for r in rows)
-    await update.message.reply_text(text)
+    await update.message.reply_text("\n".join(f"• {r[COL_NAME]}" for r in rows))
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [
-        r for r in load_data()
-        if normalize(r.get(COL_KNIFE)) in ("так", "yes", "1")
-    ]
-    await update.message.reply_text(
-        "\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено"
-    )
-
-async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [
-        r for r in load_data()
-        if normalize(r.get(COL_KNIFE)) in ("ні", "no", "0", "")
-    ]
-    await update.message.reply_text(
-        "\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено"
-    )
+    rows = [r for r in load_data() if norm(r.get(COL_KNIFE)) in ("так", "yes", "1")]
+    await update.message.reply_text("\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено")
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [
-        r for r in load_data()
-        if normalize(r.get(COL_LOCKER)) in ("так", "yes", "1")
-    ]
-    await update.message.reply_text(
-        "\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено"
-    )
+    rows = [r for r in load_data() if norm(r.get(COL_LOCKER)) in ("так", "yes", "1")]
+    await update.message.reply_text("\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено")
 
-async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [
-        r for r in load_data()
-        if normalize(r.get(COL_LOCKER)) in ("ні", "no", "0", "")
-    ]
-    await update.message.reply_text(
-        "\n".join(f"• {r[COL_NAME]}" for r in rows) or "❌ Нічого не знайдено"
-    )
-
-# ================== MAIN ==================
+# ================= MAIN =================
 def main():
-    threading.Thread(target=run_flask).start()
+    print("Starting Flask...")
+    threading.Thread(target=run_flask, daemon=True).start()
 
-    app_tg = ApplicationBuilder().token(BOT_TOKEN).build()
+    print("Starting Telegram bot polling...")
+    tg_app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app_tg.add_handler(CommandHandler("start", start))
-    app_tg.add_handler(CommandHandler("find", find_all))
-    app_tg.add_handler(CommandHandler("knife", knife))
-    app_tg.add_handler(CommandHandler("no_knife", no_knife))
-    app_tg.add_handler(CommandHandler("with_locker", with_locker))
-    app_tg.add_handler(CommandHandler("no_locker", no_locker))
+    tg_app.add_handler(CommandHandler("start", start))
+    tg_app.add_handler(CommandHandler("find", find_all))
+    tg_app.add_handler(CommandHandler("knife", knife))
+    tg_app.add_handler(CommandHandler("with_locker", with_locker))
 
-    app_tg.run_polling()
+    tg_app.run_polling()
 
 if __name__ == "__main__":
     main()

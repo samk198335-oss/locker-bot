@@ -1,132 +1,181 @@
 import os
 import csv
+import threading
 import requests
 from io import StringIO
-from collections import defaultdict
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# ==============================
-# CONFIG
-# ==============================
+# ==================================================
+# 🔧 RENDER FREE STABILIZATION (Health Check)
+# ==================================================
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_health_server, daemon=True).start()
+
+# ==================================================
+# ⚙️ CONFIG
+# ==================================================
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI"
+    "/export?format=csv"
+)
 
-# можливі "ТАК"
-YES_VALUES = {"так", "yes", "+", "1", "true", "y"}
+YES_VALUES = {"yes", "+", "так", "y"}
+NO_VALUES = {"no", "-", "ні", "n"}
 
-# ==============================
-# CSV LOAD
-# ==============================
+# ==================================================
+# 📥 CSV LOADER
+# ==================================================
+
 def load_csv():
-    resp = requests.get(CSV_URL, timeout=15)
-    resp.raise_for_status()
+    response = requests.get(CSV_URL, timeout=20)
+    response.raise_for_status()
+    content = response.content.decode("utf-8")
+    reader = csv.DictReader(StringIO(content))
+    return list(reader)
 
-    data = []
-    reader = csv.DictReader(StringIO(resp.text))
+def normalize(value: str):
+    if not value:
+        return None
+    value = value.strip().lower()
+    if value in YES_VALUES:
+        return True
+    if value in NO_VALUES:
+        return False
+    return None
 
-    for row in reader:
-        clean = {k.strip().lower(): (v or "").strip().lower() for k, v in row.items()}
-        data.append(clean)
+# ==================================================
+# 📊 LOGIC
+# ==================================================
 
-    return data
+def analyze_data(rows):
+    total = 0
 
-# ==============================
-# HELPERS
-# ==============================
-def is_yes(value: str) -> bool:
-    return value in YES_VALUES
+    knife_yes = 0
+    knife_no = 0
+    knife_people = []
 
-def count_by_field(data, field):
-    yes = []
-    no = []
+    locker_yes = 0
+    locker_no = 0
+    locker_people = []
 
-    for row in data:
-        name = row.get("прізвище", "").title()
-        value = row.get(field, "")
+    for row in rows:
+        name = (row.get("Прізвище") or "").strip()
+        number = (row.get("№") or "").strip()
 
-        if is_yes(value):
-            yes.append(name)
-        else:
-            no.append(name)
+        knife = normalize(row.get("Ніж"))
+        locker = normalize(row.get("Шафка"))
 
-    return yes, no
+        if knife is None and locker is None:
+            continue
 
-# ==============================
-# COMMANDS
-# ==============================
+        total += 1
+        person = f"{number} {name}".strip()
+
+        if knife is True:
+            knife_yes += 1
+            if person:
+                knife_people.append(person)
+        elif knife is False:
+            knife_no += 1
+
+        if locker is True:
+            locker_yes += 1
+            if person:
+                locker_people.append(person)
+        elif locker is False:
+            locker_no += 1
+
+    return {
+        "total": total,
+        "knife_yes": knife_yes,
+        "knife_no": knife_no,
+        "knife_people": knife_people,
+        "locker_yes": locker_yes,
+        "locker_no": locker_no,
+        "locker_people": locker_people,
+    }
+
+# ==================================================
+# 🤖 COMMANDS
+# ==================================================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "/find\n"
-        "/knife\n"
-        "/no_knife\n"
-        "/with_locker\n"
-        "/no_locker"
+        "Привіт! 👋\n"
+        "Доступні команди:\n"
+        "/stats — загальна статистика\n"
+        "/knife — хто з ножем\n"
+        "/locker — хто з шафкою"
     )
 
-async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_csv()
-    await update.message.reply_text(f"📋 Всього записів: {len(data)}")
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    data = analyze_data(rows)
+
+    text = (
+        f"📊 Статистика:\n"
+        f"Всього записів: {data['total']}\n\n"
+        f"🔪 З ножем: {data['knife_yes']}\n"
+        f"🔪 Без ножа: {data['knife_no']}\n\n"
+        f"🗄 З шафкою: {data['locker_yes']}\n"
+        f"🗄 Без шафки: {data['locker_no']}"
+    )
+
+    await update.message.reply_text(text)
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_csv()
-    yes, _ = count_by_field(data, "ніж")
+    rows = load_csv()
+    data = analyze_data(rows)
 
-    text = "🔪 НІЖ\n"
-    text += f"Так: {len(yes)}"
-    if yes:
-        text += "\n" + ", ".join(yes)
+    if not data["knife_people"]:
+        await update.message.reply_text("Немає людей з ножем.")
+        return
 
+    text = "🔪 З ножем:\n" + "\n".join(data["knife_people"])
     await update.message.reply_text(text)
 
-async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_csv()
-    _, no = count_by_field(data, "ніж")
-    await update.message.reply_text(f"🚫 Без ножа: {len(no)}")
+async def locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    data = analyze_data(rows)
 
-async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_csv()
-    yes, _ = count_by_field(data, "шафка")
+    if not data["locker_people"]:
+        await update.message.reply_text("Немає людей з шафкою.")
+        return
 
-    text = "🗄 ШАФКА\n"
-    text += f"Так: {len(yes)}"
-    if yes:
-        text += "\n" + ", ".join(yes)
-
+    text = "🗄 З шафкою:\n" + "\n".join(data["locker_people"])
     await update.message.reply_text(text)
 
-async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_csv()
-    _, no = count_by_field(data, "шафка")
-    await update.message.reply_text(f"🚫 Без шафки: {len(no)}")
+# ==================================================
+# 🚀 MAIN
+# ==================================================
 
-# ==============================
-# MAIN
-# ==============================
 def main():
-    app = (
-        ApplicationBuilder()
-        .token(BOT_TOKEN)
-        .build()
-    )
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("find", find))
+    app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("knife", knife))
-    app.add_handler(CommandHandler("no_knife", no_knife))
-    app.add_handler(CommandHandler("with_locker", with_locker))
-    app.add_handler(CommandHandler("no_locker", no_locker))
+    app.add_handler(CommandHandler("locker", locker))
 
-    app.run_polling(
-        drop_pending_updates=True,
-        allowed_updates=Update.ALL_TYPES,
-    )
+    app.run_polling()
 
 if __name__ == "__main__":
     main()

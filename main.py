@@ -1,69 +1,44 @@
 import os
+import sys
 import csv
-import requests
-from io import StringIO
+import asyncio
 from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-
-# =========================
-# НАЛАШТУВАННЯ
-# =========================
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgK/export?format=csv"
 
-# Колонки в таблиці:
-# 0 - Date
-# 1 - Address
-# 2 - Surname
-# 3 - Knife
-# 4 - Locker
 
-# =========================
-# ДОПОМІЖНІ ФУНКЦІЇ
-# =========================
-
-def load_rows():
-    response = requests.get(CSV_URL, timeout=20)
+def load_data():
+    import requests
+    response = requests.get(CSV_URL, timeout=30)
     response.raise_for_status()
-    csv_data = response.text
-    reader = csv.reader(StringIO(csv_data))
-    rows = list(reader)
-    return rows[1:]  # без заголовка
+    rows = []
+    reader = csv.reader(response.text.splitlines())
+    for row in reader:
+        rows.append(row)
+    return rows
 
 
-def format_rows(rows):
-    if not rows:
-        return "❌ Нічого не знайдено"
-
-    text = ""
-    for r in rows:
-        date = r[0]
-        address = r[1]
-        surname = r[2]
-        knife = r[3]
-        locker = r[4]
-
-        text += (
-            f"📅 {date}\n"
-            f"📍 {address}\n"
-            f"👤 {surname}\n"
-            f"🔪 Ніж: {knife}\n"
-            f"🗄 Шафка: {locker}\n"
-            f"------------------\n"
-        )
-    return text
+DATA = load_data()
 
 
-# =========================
-# КОМАНДИ
-# =========================
+def filter_data(col_index: int, value: str):
+    result = []
+    for row in DATA[1:]:
+        if len(row) > col_index and row[col_index].strip().lower() == value:
+            result.append(" | ".join(row))
+    return result
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Hello!\n\n"
-        "Available commands:\n"
+        "👋 Hello!\n\nAvailable commands:\n"
         "/find\n"
         "/knife\n"
         "/no_knife\n"
@@ -77,55 +52,57 @@ async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"🆔 Your ID: {update.effective_user.id}")
 
 
-async def find_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    await update.message.reply_text(format_rows(rows))
+async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    res = filter_data(0, "yes")
+    await reply_result(update, res)
 
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    filtered = [r for r in rows if r[3].strip() not in ("", "0", "-")]
-    await update.message.reply_text(format_rows(filtered))
+    res = filter_data(1, "yes")
+    await reply_result(update, res)
 
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    filtered = [r for r in rows if r[3].strip() in ("", "0", "-")]
-    await update.message.reply_text(format_rows(filtered))
+    res = filter_data(1, "no")
+    await reply_result(update, res)
 
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    filtered = [r for r in rows if r[4].strip() not in ("", "-", "0")]
-    await update.message.reply_text(format_rows(filtered))
+    res = filter_data(2, "yes")
+    await reply_result(update, res)
 
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    filtered = [r for r in rows if r[4].strip() in ("", "-", "0")]
-    await update.message.reply_text(format_rows(filtered))
+    res = filter_data(2, "no")
+    await reply_result(update, res)
 
 
-# =========================
-# ЗАПУСК
-# =========================
+async def reply_result(update: Update, result):
+    if not result:
+        await update.message.reply_text("❌ Нічого не знайдено")
+        return
+    text = "\n\n".join(result[:20])
+    await update.message.reply_text(text)
 
-def main():
-    if not BOT_TOKEN:
-        raise RuntimeError("BOT_TOKEN is not set")
 
-    app = Application.builder().token(BOT_TOKEN).build()
+async def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("find", find_all))
+    app.add_handler(CommandHandler("find", find))
     app.add_handler(CommandHandler("knife", knife))
     app.add_handler(CommandHandler("no_knife", no_knife))
     app.add_handler(CommandHandler("with_locker", with_locker))
     app.add_handler(CommandHandler("no_locker", no_locker))
     app.add_handler(CommandHandler("myid", myid))
 
-    app.run_polling()
+    await app.run_polling(close_loop=False)
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except RuntimeError:
+        # Render already has a running loop
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())

@@ -1,7 +1,9 @@
 import os
 import csv
+import threading
 import requests
 from io import StringIO
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
@@ -14,6 +16,21 @@ BOT_TOKEN = os.environ["BOT_TOKEN"]
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
 YES_VALUES = {"yes", "y", "1", "+", "так", "є", "true"}
+
+# ==================================================
+# RENDER HEALTH SERVER (REQUIRED)
+# ==================================================
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def start_http_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
 
 # ==================================================
 # CSV
@@ -38,7 +55,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/find\n"
         "/knife\n"
         "/no_knife\n"
-        "/locker\n"
+        "/with_locker\n"
         "/no_locker"
     )
 
@@ -65,22 +82,18 @@ async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    count = 0
-
-    for r in data:
-        if not is_yes(r.get("knife")):
-            count += 1
-
+    count = sum(1 for r in data if not is_yes(r.get("knife")))
     await update.message.reply_text(f"🚫 Без ножа: {count}")
 
 # ---------------- LOCKER ----------------
+# ❗ ВАЖЛИВО: колонка НАЗИВАЄТЬСЯ "with_locker"
 
-async def locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
     result = []
 
     for r in data:
-        if is_yes(r.get("locker")):
+        if is_yes(r.get("with_locker")):
             num = r.get("number", "").strip()
             name = r.get("surname", "").strip()
             if num:
@@ -92,12 +105,7 @@ async def locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    count = 0
-
-    for r in data:
-        if not is_yes(r.get("locker")):
-            count += 1
-
+    count = sum(1 for r in data if not is_yes(r.get("with_locker")))
     await update.message.reply_text(f"🚫 Без шафки: {count}")
 
 # ==================================================
@@ -105,13 +113,16 @@ async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================================================
 
 def main():
+    # 🔥 ОБОВʼЯЗКОВО для Render
+    threading.Thread(target=start_http_server, daemon=True).start()
+
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("find", find))
     app.add_handler(CommandHandler("knife", knife))
     app.add_handler(CommandHandler("no_knife", no_knife))
-    app.add_handler(CommandHandler("locker", locker))
+    app.add_handler(CommandHandler("with_locker", with_locker))
     app.add_handler(CommandHandler("no_locker", no_locker))
 
     print("BOT STARTED")

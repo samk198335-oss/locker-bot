@@ -17,7 +17,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 # 🔗 GOOGLE SHEET (CSV)
 SHEET_URL = "PASTE_YOUR_GOOGLE_SHEET_CSV_LINK_HERE"
 
-# ---------- FAKE HTTP SERVER (для Render Free) ----------
+# ---------- FAKE HTTP SERVER (Render Free) ----------
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -30,26 +30,46 @@ def run_http_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
+# ---------- HELPERS ----------
+def normalize(value: str) -> str:
+    return value.strip().lower()
+
+def is_yes(value: str) -> bool:
+    return normalize(value) in ["yes", "true", "1", "так", "+"]
+
+def is_no(value: str) -> bool:
+    return normalize(value) in ["no", "false", "0", "ні", "-"]
+
 # ---------- DATA ----------
 def load_data():
     try:
-        response = requests.get(SHEET_URL, timeout=10)
-        response.raise_for_status()
-        csv_file = io.StringIO(response.text)
+        r = requests.get(SHEET_URL, timeout=10)
+        r.raise_for_status()
+        csv_file = io.StringIO(r.text)
         reader = csv.DictReader(csv_file)
         return list(reader)
     except Exception as e:
-        print("Error loading data:", e)
+        print("❌ Error loading sheet:", e)
         return []
 
 def filter_data(data, knife=None, locker=None):
     results = []
+
     for row in data:
-        if knife is not None and row.get("knife", "").lower() != knife:
-            continue
-        if locker is not None and row.get("locker", "").lower() != locker:
-            continue
+        if knife is not None:
+            if knife == "yes" and not is_yes(row.get("knife", "")):
+                continue
+            if knife == "no" and not is_no(row.get("knife", "")):
+                continue
+
+        if locker is not None:
+            if locker == "yes" and not is_yes(row.get("locker", "")):
+                continue
+            if locker == "no" and not is_no(row.get("locker", "")):
+                continue
+
         results.append(row)
+
     return results
 
 def format_results(rows):
@@ -58,11 +78,10 @@ def format_results(rows):
 
     messages = []
     for r in rows:
-        msg = (
+        messages.append(
             f"📍 {r.get('name','')}\n"
             f"ℹ️ {r.get('info','')}"
         )
-        messages.append(msg)
 
     return "\n\n".join(messages)
 
@@ -87,23 +106,19 @@ async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_data()
-    result = filter_data(data, knife="yes")
-    await update.message.reply_text(format_results(result))
+    await update.message.reply_text(format_results(filter_data(data, knife="yes")))
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_data()
-    result = filter_data(data, knife="no")
-    await update.message.reply_text(format_results(result))
+    await update.message.reply_text(format_results(filter_data(data, knife="no")))
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_data()
-    result = filter_data(data, locker="yes")
-    await update.message.reply_text(format_results(result))
+    await update.message.reply_text(format_results(filter_data(data, locker="yes")))
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_data()
-    result = filter_data(data, locker="no")
-    await update.message.reply_text(format_results(result))
+    await update.message.reply_text(format_results(filter_data(data, locker="no")))
 
 # ---------- MAIN ----------
 def main():

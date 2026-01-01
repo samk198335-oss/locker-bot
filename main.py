@@ -13,10 +13,13 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 # ==================================================
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
+
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
+YES_VALUES = {"yes", "y", "1", "+", "так", "є", "true"}
+
 # ==================================================
-# RENDER HEALTH SERVER
+# RENDER HEALTH SERVER (FREE PLAN FIX)
 # ==================================================
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -27,10 +30,11 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 def start_http_server():
     port = int(os.environ.get("PORT", 10000))
-    HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
 
 # ==================================================
-# CSV
+# CSV HELPERS
 # ==================================================
 
 def load_csv():
@@ -38,8 +42,10 @@ def load_csv():
     r.raise_for_status()
     return list(csv.DictReader(StringIO(r.text)))
 
-def has_value(v):
-    return v is not None and str(v).strip() != ""
+def is_yes(value: str) -> bool:
+    if not value:
+        return False
+    return value.strip().lower() in YES_VALUES
 
 # ==================================================
 # COMMANDS
@@ -65,19 +71,19 @@ async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = []
 
     for r in data:
-        if has_value(r.get("knife")):
-            num = r.get("number", "").strip()
-            name = r.get("surname", "").strip()
+        if is_yes(r.get("knife")):
+            num = (r.get("number") or "").strip()
+            name = (r.get("surname") or "").strip()
             if num:
                 result.append(f"{num} — {name}")
 
     await update.message.reply_text(
-        f"🔪 НІЖ\nТак: {len(result)}\n\n" + "\n".join(result)
+        f"🔪 НІЖ\nТак: {len(result)}\n\n" + ("\n".join(result) if result else "—")
     )
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    count = sum(1 for r in data if not has_value(r.get("knife")))
+    count = sum(1 for r in data if not is_yes(r.get("knife")))
     await update.message.reply_text(f"🚫 Без ножа: {count}")
 
 # ---------------- LOCKER ----------------
@@ -87,19 +93,19 @@ async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = []
 
     for r in data:
-        if has_value(r.get("with_locker")):
-            num = r.get("number", "").strip()
-            name = r.get("surname", "").strip()
+        if is_yes(r.get("with_locker")):
+            num = (r.get("number") or "").strip()
+            name = (r.get("surname") or "").strip()
             if num:
                 result.append(f"{num} — {name}")
 
     await update.message.reply_text(
-        f"🗄 ШАФКА\nТак: {len(result)}\n\n" + "\n".join(result)
+        f"🗄 ШАФКА\nТак: {len(result)}\n\n" + ("\n".join(result) if result else "—")
     )
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    count = sum(1 for r in data if not has_value(r.get("with_locker")))
+    count = sum(1 for r in data if not is_yes(r.get("with_locker")))
     await update.message.reply_text(f"🚫 Без шафки: {count}")
 
 # ==================================================
@@ -107,6 +113,7 @@ async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================================================
 
 def main():
+    # 🔥 Render Free health server
     threading.Thread(target=start_http_server, daemon=True).start()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()

@@ -2,125 +2,145 @@ import os
 import csv
 import io
 import requests
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
 
-# ================= CONFIG =================
+# ================== CONFIG ==================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
-PORT = int(os.environ.get("PORT", 10000))
+# ================== FAKE HTTP SERVER (Render Free) ==================
 
-# =========================================
-
-# ---------- FAKE HTTP SERVER (Render Free) ----------
 class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is alive")
+        self.wfile.write(b"OK")
 
 def run_http_server():
-    server = HTTPServer(("0.0.0.0", PORT), SimpleHandler)
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
     server.serve_forever()
 
-# ---------- CSV HELPERS ----------
+# ================== HELPERS ==================
+
+def normalize(value: str) -> str:
+    return value.strip().lower()
+
+def is_yes(value: str) -> bool:
+    return normalize(value) in ["yes", "true", "1", "так", "+"]
+
+def is_no(value: str) -> bool:
+    return normalize(value) in ["no", "false", "0", "ні", "-"]
+
+# ================== DATA ==================
+
 def load_data():
     try:
         r = requests.get(SHEET_URL, timeout=15)
         r.raise_for_status()
-        f = io.StringIO(r.text)
-        return list(csv.DictReader(f))
+        csv_file = io.StringIO(r.text)
+        reader = csv.DictReader(csv_file)
+        return list(reader)
     except Exception as e:
-        print("CSV LOAD ERROR:", e)
+        print("❌ Error loading sheet:", e)
         return []
 
-def has_knife(value: str) -> bool:
-    if not value:
-        return False
-    return value.strip() != "0"
+def filter_data(data, knife=None, locker=None):
+    results = []
 
-def has_locker(value: str) -> bool:
-    if not value:
-        return False
-    v = value.strip().lower()
-    return v not in ["0", "-", "ні", "нет"]
+    for row in data:
+        if knife is not None:
+            if knife == "yes" and not is_yes(row.get("knife", "")):
+                continue
+            if knife == "no" and not is_no(row.get("knife", "")):
+                continue
 
-# ---------- COMMANDS ----------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Привіт 👋\n\n"
-        "Доступні команди:\n"
-        "/знайти Прізвище\n"
-        "/ніж\n"
-        "/безножа\n"
-        "/зшафкою\n"
-        "/безшафки"
-    )
+        if locker is not None:
+            if locker == "yes" and not is_yes(row.get("locker", "")):
+                continue
+            if locker == "no" and not is_no(row.get("locker", "")):
+                continue
 
-async def find_person(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("Вкажи прізвище після команди.")
-        return
+        results.append(row)
 
-    query = " ".join(context.args).lower()
-    rows = load_data()
+    return results
 
-    results = [r for r in rows if query in r.get("surname", "").lower()]
+def format_results(rows):
+    if not rows:
+        return "❌ Нічого не знайдено"
 
-    if not results:
-        await update.message.reply_text("Нічого не знайдено.")
-        return
-
-    msg = ""
-    for r in results:
-        msg += (
-            f"📍 {r.get('Adress','')}\n"
-            f"👤 {r.get('surname','')}\n"
-            f"🔪 Ніж: {'є' if has_knife(r.get('knife','')) else 'немає'}\n"
-            f"🧥 Шафка: {'є' if has_locker(r.get('locker','')) else 'немає'}\n\n"
+    messages = []
+    for r in rows:
+        messages.append(
+            f"📍 {r.get('name','')}\n"
+            f"ℹ️ {r.get('info','')}"
         )
 
-    await update.message.reply_text(msg)
+    return "\n\n".join(messages)
+
+# ================== COMMANDS ==================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Вітаю!\n\n"
+        "Доступні команди:\n"
+        "/find — пошук\n"
+        "/knife — з ножем\n"
+        "/no_knife — без ножа\n"
+        "/with_locker — з шафкою\n"
+        "/no_locker — без шафки"
+    )
+
+async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    await update.message.reply_text(format_results(data))
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_data()
-    count = len([r for r in rows if has_knife(r.get("knife",""))])
-    await update.message.reply_text(f"🔪 З ножем: {count}")
+    data = load_data()
+    result = filter_data(data, knife="yes")
+    await update.message.reply_text(format_results(result))
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_data()
-    count = len([r for r in rows if not has_knife(r.get("knife",""))])
-    await update.message.reply_text(f"🚫 Без ножа: {count}")
+    data = load_data()
+    result = filter_data(data, knife="no")
+    await update.message.reply_text(format_results(result))
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_data()
-    count = len([r for r in rows if has_locker(r.get("locker",""))])
-    await update.message.reply_text(f"🧥 З шафкою: {count}")
+    data = load_data()
+    result = filter_data(data, locker="yes")
+    await update.message.reply_text(format_results(result))
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_data()
-    count = len([r for r in rows if not has_locker(r.get("locker",""))])
-    await update.message.reply_text(f"🚫 Без шафки: {count}")
+    data = load_data()
+    result = filter_data(data, locker="no")
+    await update.message.reply_text(format_results(result))
 
-# ---------- MAIN ----------
+# ================== MAIN ==================
+
 def main():
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    threading.Thread(target=run_http_server, daemon=True).start()
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("знайти", find_person))
-    application.add_handler(CommandHandler("ніж", knife))
-    application.add_handler(CommandHandler("безножа", no_knife))
-    application.add_handler(CommandHandler("зшафкою", with_locker))
-    application.add_handler(CommandHandler("безшафки", no_locker))
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    application.run_polling()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("find", find))
+    app.add_handler(CommandHandler("knife", knife))
+    app.add_handler(CommandHandler("no_knife", no_knife))
+    app.add_handler(CommandHandler("with_locker", with_locker))
+    app.add_handler(CommandHandler("no_locker", no_locker))
+
+    print("✅ Bot started")
+    app.run_polling()
 
 if __name__ == "__main__":
-    threading.Thread(target=run_http_server, daemon=True).start()
     main()

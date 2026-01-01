@@ -28,13 +28,10 @@ app = Flask(__name__)
 def home():
     return "Bot is alive 🚀"
 
-def run_flask():
-    app.run(host="0.0.0.0", port=PORT)
-
 # ---------- CSV LOAD ----------
 
 def load_csv():
-    response = requests.get(CSV_URL, timeout=20)
+    response = requests.get(CSV_URL, timeout=15)
     response.raise_for_status()
     f = StringIO(response.text)
     return list(csv.DictReader(f))
@@ -43,9 +40,7 @@ def has_locker(value: str) -> bool:
     if not value:
         return False
     value = value.strip().lower()
-    if value in ["-", "0", "ні", "нет"]:
-        return False
-    return True
+    return value not in ["-", "0", "ні", "нет"]
 
 # ---------- COMMANDS ----------
 
@@ -101,9 +96,9 @@ async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
     await update.message.reply_text(f"🚫 Без шафки: {len([r for r in rows if not has_locker(r['locker'])])}")
 
-# ---------- MAIN ----------
+# ---------- TELEGRAM THREAD ----------
 
-def main():
+def run_bot():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
@@ -115,6 +110,8 @@ def main():
 
     application.run_polling()
 
+# ---------- MAIN ----------
+
 if __name__ == "__main__":
-    threading.Thread(target=run_flask).start()
-    main()
+    threading.Thread(target=run_bot, daemon=True).start()
+    app.run(host="0.0.0.0", port=PORT)

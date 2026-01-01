@@ -35,7 +35,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
 # ==================================================
-# 📄 SAFE CSV LOADER
+# 📄 CSV LOADER
 # ==================================================
 
 def load_csv():
@@ -44,11 +44,23 @@ def load_csv():
         response.raise_for_status()
         content = response.content.decode("utf-8")
         reader = csv.DictReader(StringIO(content))
-        data = list(reader)
-        return data
+        return list(reader)
     except Exception as e:
         print("CSV LOAD ERROR:", e)
-        return None
+        return []
+
+# ==================================================
+# 🧠 HELPERS
+# ==================================================
+
+YES_VALUES = {"yes", "y", "1", "+", "так", "є"}
+NO_VALUES  = {"no", "n", "0", "-", "ні", "нема"}
+
+def is_yes(value: str) -> bool:
+    return value.strip().lower() in YES_VALUES
+
+def is_no(value: str) -> bool:
+    return value.strip().lower() in NO_VALUES
 
 # ==================================================
 # 🤖 COMMANDS
@@ -67,46 +79,26 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    if not data:
-        await update.message.reply_text("❌ Помилка завантаження таблиці")
-        return
-
     await update.message.reply_text(f"📋 Всього записів: {len(data)}")
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    if not data:
-        await update.message.reply_text("❌ Помилка завантаження таблиці")
-        return
-
-    count = sum(1 for r in data if r.get("knife", "").strip().lower() == "yes")
+    count = sum(1 for r in data if is_yes(r.get("knife", "")))
     await update.message.reply_text(f"🔪 З ножем: {count}")
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    if not data:
-        await update.message.reply_text("❌ Помилка завантаження таблиці")
-        return
-
-    count = sum(1 for r in data if r.get("knife", "").strip().lower() == "no")
+    count = sum(1 for r in data if is_no(r.get("knife", "")))
     await update.message.reply_text(f"🚫 Без ножа: {count}")
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    if not data:
-        await update.message.reply_text("❌ Помилка завантаження таблиці")
-        return
-
-    count = sum(1 for r in data if r.get("locker", "").strip().lower() == "yes")
+    count = sum(1 for r in data if is_yes(r.get("locker", "")))
     await update.message.reply_text(f"🔐 З шафкою: {count}")
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    if not data:
-        await update.message.reply_text("❌ Помилка завантаження таблиці")
-        return
-
-    count = sum(1 for r in data if r.get("locker", "").strip().lower() == "no")
+    count = sum(1 for r in data if is_no(r.get("locker", "")))
     await update.message.reply_text(f"🚫 Без шафки: {count}")
 
 # ==================================================

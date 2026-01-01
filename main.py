@@ -1,56 +1,66 @@
 import os
 import csv
-import threading
 import requests
 from io import StringIO
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from collections import defaultdict
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
 
-# ==================================================
+# ==============================
 # CONFIG
-# ==================================================
-
-BOT_TOKEN = os.environ["BOT_TOKEN"]
+# ==============================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
-YES_VALUES = {"yes", "y", "1", "+", "так", "є", "true"}
+# можливі "ТАК"
+YES_VALUES = {"так", "yes", "+", "1", "true", "y"}
 
-# ==================================================
-# RENDER HEALTH SERVER (FREE PLAN FIX)
-# ==================================================
-
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-def start_http_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthHandler)
-    server.serve_forever()
-
-# ==================================================
-# CSV HELPERS
-# ==================================================
-
+# ==============================
+# CSV LOAD
+# ==============================
 def load_csv():
-    r = requests.get(CSV_URL, timeout=10)
-    r.raise_for_status()
-    return list(csv.DictReader(StringIO(r.text)))
+    resp = requests.get(CSV_URL, timeout=15)
+    resp.raise_for_status()
 
+    data = []
+    reader = csv.DictReader(StringIO(resp.text))
+
+    for row in reader:
+        clean = {k.strip().lower(): (v or "").strip().lower() for k, v in row.items()}
+        data.append(clean)
+
+    return data
+
+# ==============================
+# HELPERS
+# ==============================
 def is_yes(value: str) -> bool:
-    if not value:
-        return False
-    return value.strip().lower() in YES_VALUES
+    return value in YES_VALUES
 
-# ==================================================
+def count_by_field(data, field):
+    yes = []
+    no = []
+
+    for row in data:
+        name = row.get("прізвище", "").title()
+        value = row.get(field, "")
+
+        if is_yes(value):
+            yes.append(name)
+        else:
+            no.append(name)
+
+    return yes, no
+
+# ==============================
 # COMMANDS
-# ==================================================
-
+# ==============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "/find\n"
@@ -64,59 +74,47 @@ async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
     await update.message.reply_text(f"📋 Всього записів: {len(data)}")
 
-# ---------------- KNIFE ----------------
-
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    result = []
+    yes, _ = count_by_field(data, "ніж")
 
-    for r in data:
-        if is_yes(r.get("knife")):
-            num = (r.get("number") or "").strip()
-            name = (r.get("surname") or "").strip()
-            if num:
-                result.append(f"{num} — {name}")
+    text = "🔪 НІЖ\n"
+    text += f"Так: {len(yes)}"
+    if yes:
+        text += "\n" + ", ".join(yes)
 
-    await update.message.reply_text(
-        f"🔪 НІЖ\nТак: {len(result)}\n\n" + ("\n".join(result) if result else "—")
-    )
+    await update.message.reply_text(text)
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    count = sum(1 for r in data if not is_yes(r.get("knife")))
-    await update.message.reply_text(f"🚫 Без ножа: {count}")
-
-# ---------------- LOCKER ----------------
+    _, no = count_by_field(data, "ніж")
+    await update.message.reply_text(f"🚫 Без ножа: {len(no)}")
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    result = []
+    yes, _ = count_by_field(data, "шафка")
 
-    for r in data:
-        if is_yes(r.get("with_locker")):
-            num = (r.get("number") or "").strip()
-            name = (r.get("surname") or "").strip()
-            if num:
-                result.append(f"{num} — {name}")
+    text = "🗄 ШАФКА\n"
+    text += f"Так: {len(yes)}"
+    if yes:
+        text += "\n" + ", ".join(yes)
 
-    await update.message.reply_text(
-        f"🗄 ШАФКА\nТак: {len(result)}\n\n" + ("\n".join(result) if result else "—")
-    )
+    await update.message.reply_text(text)
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    count = sum(1 for r in data if not is_yes(r.get("with_locker")))
-    await update.message.reply_text(f"🚫 Без шафки: {count}")
+    _, no = count_by_field(data, "шафка")
+    await update.message.reply_text(f"🚫 Без шафки: {len(no)}")
 
-# ==================================================
+# ==============================
 # MAIN
-# ==================================================
-
+# ==============================
 def main():
-    # 🔥 Render Free health server
-    threading.Thread(target=start_http_server, daemon=True).start()
-
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = (
+        ApplicationBuilder()
+        .token(BOT_TOKEN)
+        .build()
+    )
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("find", find))
@@ -125,8 +123,10 @@ def main():
     app.add_handler(CommandHandler("with_locker", with_locker))
     app.add_handler(CommandHandler("no_locker", no_locker))
 
-    print("BOT STARTED")
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(
+        drop_pending_updates=True,
+        allowed_updates=Update.ALL_TYPES,
+    )
 
 if __name__ == "__main__":
     main()

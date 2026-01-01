@@ -1,6 +1,7 @@
 import os
-import sys
+import requests
 import csv
+import io
 import asyncio
 from telegram import Update
 from telegram.ext import (
@@ -9,31 +10,17 @@ from telegram.ext import (
     ContextTypes,
 )
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN")
 
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgK/export?format=csv"
 
 
 def load_data():
-    import requests
-    response = requests.get(CSV_URL, timeout=30)
+    response = requests.get(CSV_URL, timeout=15)
     response.raise_for_status()
-    rows = []
-    reader = csv.reader(response.text.splitlines())
-    for row in reader:
-        rows.append(row)
-    return rows
 
-
-DATA = load_data()
-
-
-def filter_data(col_index: int, value: str):
-    result = []
-    for row in DATA[1:]:
-        if len(row) > col_index and row[col_index].strip().lower() == value:
-            result.append(" | ".join(row))
-    return result
+    reader = csv.DictReader(io.StringIO(response.text))
+    return list(reader)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -53,40 +40,58 @@ async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    res = filter_data(0, "yes")
-    await reply_result(update, res)
+    data = load_data()
+    await update.message.reply_text(
+        f"📊 Rows in table: {len(data)}"
+    )
 
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    res = filter_data(1, "yes")
-    await reply_result(update, res)
+    data = load_data()
+    result = [r for r in data if r.get("knife") in ("1", "2")]
 
-
-async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    res = filter_data(1, "no")
-    await reply_result(update, res)
-
-
-async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    res = filter_data(2, "yes")
-    await reply_result(update, res)
-
-
-async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    res = filter_data(2, "no")
-    await reply_result(update, res)
-
-
-async def reply_result(update: Update, result):
     if not result:
         await update.message.reply_text("❌ Нічого не знайдено")
         return
-    text = "\n\n".join(result[:20])
-    await update.message.reply_text(text)
+
+    await update.message.reply_text(f"🔪 З ножем: {len(result)}")
+
+
+async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    result = [r for r in data if r.get("knife") == "0"]
+
+    if not result:
+        await update.message.reply_text("❌ Нічого не знайдено")
+        return
+
+    await update.message.reply_text(f"🚫🔪 Без ножа: {len(result)}")
+
+
+async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    result = [r for r in data if r.get("locker") not in ("", "-", "0")]
+
+    if not result:
+        await update.message.reply_text("❌ Нічого не знайдено")
+        return
+
+    await update.message.reply_text(f"🔐 З шафкою: {len(result)}")
+
+
+async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    result = [r for r in data if r.get("locker") in ("", "-", "0")]
+
+    if not result:
+        await update.message.reply_text("❌ Нічого не знайдено")
+        return
+
+    await update.message.reply_text(f"🚫🔐 Без шафки: {len(result)}")
 
 
 async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("find", find))
@@ -96,13 +101,13 @@ async def main():
     app.add_handler(CommandHandler("no_locker", no_locker))
     app.add_handler(CommandHandler("myid", myid))
 
-    await app.run_polling(close_loop=False)
+    # 🔥 КЛЮЧОВИЙ ФІКС ДЛЯ RENDER
+    await app.initialize()
+    await app.bot.delete_webhook(drop_pending_updates=True)
+    await app.start()
+    await app.updater.start_polling()
+    await asyncio.Event().wait()
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except RuntimeError:
-        # Render already has a running loop
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(main())
+    asyncio.run(main())

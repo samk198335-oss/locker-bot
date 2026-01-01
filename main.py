@@ -9,7 +9,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # ==================================================
-# 🔧 RENDER FREE STABILIZATION (HTTP PORT)
+# 🔧 RENDER FREE STABILIZATION
 # ==================================================
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -31,22 +31,19 @@ threading.Thread(target=run_http_server, daemon=True).start()
 # ==================================================
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
 # ==================================================
-# 📄 CSV LOADER
+# 📄 CSV
 # ==================================================
 
 def load_csv():
     try:
-        response = requests.get(CSV_URL, timeout=10)
-        response.raise_for_status()
-        content = response.content.decode("utf-8")
-        reader = csv.DictReader(StringIO(content))
-        return list(reader)
+        r = requests.get(CSV_URL, timeout=10)
+        r.raise_for_status()
+        return list(csv.DictReader(StringIO(r.content.decode("utf-8"))))
     except Exception as e:
-        print("CSV LOAD ERROR:", e)
+        print("CSV ERROR:", e)
         return []
 
 # ==================================================
@@ -54,13 +51,12 @@ def load_csv():
 # ==================================================
 
 YES_VALUES = {"yes", "y", "1", "+", "так", "є"}
-NO_VALUES  = {"no", "n", "0", "-", "ні", "нема"}
 
 def is_yes(value: str) -> bool:
     return value.strip().lower() in YES_VALUES
 
-def is_no(value: str) -> bool:
-    return value.strip().lower() in NO_VALUES
+def is_no_or_empty(value: str) -> bool:
+    return not value.strip() or not is_yes(value)
 
 # ==================================================
 # 🤖 COMMANDS
@@ -68,38 +64,63 @@ def is_no(value: str) -> bool:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Привіт 👋\n"
-        "Доступні команди:\n"
+        "Команди:\n"
         "/find\n"
         "/knife\n"
-        "/no_knife\n"
-        "/with_locker\n"
-        "/no_locker"
+        "/locker"
     )
 
 async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
     await update.message.reply_text(f"📋 Всього записів: {len(data)}")
 
+# ---------------- KNIFE ----------------
+
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    count = sum(1 for r in data if is_yes(r.get("knife", "")))
-    await update.message.reply_text(f"🔪 З ножем: {count}")
 
-async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_csv()
-    count = sum(1 for r in data if is_no(r.get("knife", "")))
-    await update.message.reply_text(f"🚫 Без ножа: {count}")
+    yes = []
+    no = []
 
-async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_csv()
-    count = sum(1 for r in data if is_yes(r.get("locker", "")))
-    await update.message.reply_text(f"🔐 З шафкою: {count}")
+    for r in data:
+        name = f"{r.get('number','—')} — {r.get('surname','')}"
+        if is_yes(r.get("knife", "")):
+            yes.append(name)
+        else:
+            no.append(name)
 
-async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = (
+        f"🔪 НІЖ\n"
+        f"Так: {len(yes)}\n"
+        + "\n".join(yes) +
+        f"\n\n🚫 Без ножа: {len(no)}"
+    )
+
+    await update.message.reply_text(text)
+
+# ---------------- LOCKER ----------------
+
+async def locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    count = sum(1 for r in data if is_no(r.get("locker", "")))
-    await update.message.reply_text(f"🚫 Без шафки: {count}")
+
+    yes = []
+    no = []
+
+    for r in data:
+        name = f"{r.get('number','—')} — {r.get('surname','')}"
+        if is_yes(r.get("locker", "")):
+            yes.append(name)
+        else:
+            no.append(name)
+
+    text = (
+        f"🗄 ШАФКА\n"
+        f"Так: {len(yes)}\n"
+        + "\n".join(yes) +
+        f"\n\n🚫 Без шафки: {len(no)}"
+    )
+
+    await update.message.reply_text(text)
 
 # ==================================================
 # 🚀 MAIN
@@ -111,9 +132,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("find", find))
     app.add_handler(CommandHandler("knife", knife))
-    app.add_handler(CommandHandler("no_knife", no_knife))
-    app.add_handler(CommandHandler("with_locker", with_locker))
-    app.add_handler(CommandHandler("no_locker", no_locker))
+    app.add_handler(CommandHandler("locker", locker))
 
     print("BOT STARTED")
     app.run_polling()

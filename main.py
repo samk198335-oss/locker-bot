@@ -1,10 +1,10 @@
 import os
 import csv
-import io
-import requests
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import requests
+from io import StringIO
 
+from flask import Flask
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -12,47 +12,44 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# ================== CONFIG ==================
+# ================= CONFIG =================
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+PORT = int(os.environ.get("PORT", 10000))
+# ==========================================
 
-# ================== FAKE HTTP SERVER (Render Free) ==================
+# ---------- FLASK (Render Free needs open port) ----------
+app = Flask(__name__)
 
-class SimpleHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
+@app.route("/")
+def home():
+    return "Bot is alive 🚀"
 
-def run_http_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), SimpleHandler)
-    server.serve_forever()
+def run_flask():
+    app.run(host="0.0.0.0", port=PORT)
 
-# ================== HELPERS ==================
+# ---------- HELPERS ----------
+def normalize(v: str) -> str:
+    return v.strip().lower()
 
-def normalize(value: str) -> str:
-    return value.strip().lower()
+def is_yes(v: str) -> bool:
+    return normalize(v) in ["yes", "true", "1", "так", "+"]
 
-def is_yes(value: str) -> bool:
-    return normalize(value) in ["yes", "true", "1", "так", "+"]
+def is_no(v: str) -> bool:
+    return normalize(v) in ["no", "false", "0", "ні", "-"]
 
-def is_no(value: str) -> bool:
-    return normalize(value) in ["no", "false", "0", "ні", "-"]
-
-# ================== DATA ==================
-
+# ---------- DATA ----------
 def load_data():
     try:
-        r = requests.get(SHEET_URL, timeout=15)
+        r = requests.get(CSV_URL, timeout=10)
         r.raise_for_status()
-        csv_file = io.StringIO(r.text)
+        csv_file = StringIO(r.text)
         reader = csv.DictReader(csv_file)
         return list(reader)
     except Exception as e:
-        print("❌ Error loading sheet:", e)
+        print("❌ CSV load error:", e)
         return []
 
 def filter_data(data, knife=None, locker=None):
@@ -86,15 +83,14 @@ def format_results(rows):
             f"ℹ️ {r.get('info','')}"
         )
 
-    return "\n\n".join(messages)
+    return "\n\n".join(messages[:20])  # Telegram limit safe
 
-# ================== COMMANDS ==================
-
+# ---------- COMMANDS ----------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Вітаю!\n\n"
         "Доступні команди:\n"
-        "/find — пошук\n"
+        "/find <текст> — пошук\n"
         "/knife — з ножем\n"
         "/no_knife — без ножа\n"
         "/with_locker — з шафкою\n"
@@ -102,45 +98,59 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("❗ Вкажи текст для пошуку")
+        return
+
+    query = normalize(" ".join(context.args))
     data = load_data()
-    await update.message.reply_text(format_results(data))
+
+    results = [
+        r for r in data
+        if query in normalize(r.get("name", "")) or
+           query in normalize(r.get("info", ""))
+    ]
+
+    await update.message.reply_text(format_results(results))
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_data()
-    result = filter_data(data, knife="yes")
-    await update.message.reply_text(format_results(result))
+    await update.message.reply_text(
+        format_results(filter_data(data, knife="yes"))
+    )
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_data()
-    result = filter_data(data, knife="no")
-    await update.message.reply_text(format_results(result))
+    await update.message.reply_text(
+        format_results(filter_data(data, knife="no"))
+    )
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_data()
-    result = filter_data(data, locker="yes")
-    await update.message.reply_text(format_results(result))
+    await update.message.reply_text(
+        format_results(filter_data(data, locker="yes"))
+    )
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_data()
-    result = filter_data(data, locker="no")
-    await update.message.reply_text(format_results(result))
+    await update.message.reply_text(
+        format_results(filter_data(data, locker="no"))
+    )
 
-# ================== MAIN ==================
-
+# ---------- MAIN ----------
 def main():
-    threading.Thread(target=run_http_server, daemon=True).start()
+    threading.Thread(target=run_flask).start()
 
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app_tg = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("find", find))
-    app.add_handler(CommandHandler("knife", knife))
-    app.add_handler(CommandHandler("no_knife", no_knife))
-    app.add_handler(CommandHandler("with_locker", with_locker))
-    app.add_handler(CommandHandler("no_locker", no_locker))
+    app_tg.add_handler(CommandHandler("start", start))
+    app_tg.add_handler(CommandHandler("find", find))
+    app_tg.add_handler(CommandHandler("knife", knife))
+    app_tg.add_handler(CommandHandler("no_knife", no_knife))
+    app_tg.add_handler(CommandHandler("with_locker", with_locker))
+    app_tg.add_handler(CommandHandler("no_locker", no_locker))
 
-    print("✅ Bot started")
-    app.run_polling()
+    app_tg.run_polling()
 
 if __name__ == "__main__":
     main()

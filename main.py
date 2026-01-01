@@ -6,15 +6,11 @@ from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# ===============================
-# 🔧 RENDER STABILIZATION (PORT)
-# ===============================
+# ==================================================
+# 🔧 RENDER FREE STABILIZATION (HTTP PORT)
+# ==================================================
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -30,31 +26,33 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# ===============================
+# ==================================================
 # 🔑 CONFIG
-# ===============================
+# ==================================================
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
-CSV_URL = "PASTE_YOUR_GOOGLE_SHEETS_CSV_LINK_HERE"
+CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
-# Очікувані колонки в таблиці:
-# name | knife | locker | location (або будь-які, які в тебе є)
-
-# ===============================
-# 📄 CSV LOADER
-# ===============================
+# ==================================================
+# 📄 SAFE CSV LOADER
+# ==================================================
 
 def load_csv():
-    response = requests.get(CSV_URL, timeout=20)
-    response.raise_for_status()
-    content = response.content.decode("utf-8")
-    reader = csv.DictReader(StringIO(content))
-    return list(reader)
+    try:
+        response = requests.get(CSV_URL, timeout=10)
+        response.raise_for_status()
+        content = response.content.decode("utf-8")
+        reader = csv.DictReader(StringIO(content))
+        data = list(reader)
+        return data
+    except Exception as e:
+        print("CSV LOAD ERROR:", e)
+        return None
 
-# ===============================
+# ==================================================
 # 🤖 COMMANDS
-# ===============================
+# ==================================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -70,59 +68,50 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
     if not data:
-        await update.message.reply_text("❌ Дані відсутні")
+        await update.message.reply_text("❌ Помилка завантаження таблиці")
         return
 
-    text = "\n".join([row.get("name", "—") for row in data])
-    await update.message.reply_text(text)
+    await update.message.reply_text(f"📋 Всього записів: {len(data)}")
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    result = [r for r in data if r.get("knife", "").lower() == "yes"]
-
-    if not result:
-        await update.message.reply_text("❌ Нічого не знайдено")
+    if not data:
+        await update.message.reply_text("❌ Помилка завантаження таблиці")
         return
 
-    text = "\n".join([r.get("name", "—") for r in result])
-    await update.message.reply_text(text)
+    count = sum(1 for r in data if r.get("knife", "").strip().lower() == "yes")
+    await update.message.reply_text(f"🔪 З ножем: {count}")
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    result = [r for r in data if r.get("knife", "").lower() == "no"]
-
-    if not result:
-        await update.message.reply_text("❌ Нічого не знайдено")
+    if not data:
+        await update.message.reply_text("❌ Помилка завантаження таблиці")
         return
 
-    text = "\n".join([r.get("name", "—") for r in result])
-    await update.message.reply_text(text)
+    count = sum(1 for r in data if r.get("knife", "").strip().lower() == "no")
+    await update.message.reply_text(f"🚫 Без ножа: {count}")
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    result = [r for r in data if r.get("locker", "").lower() == "yes"]
-
-    if not result:
-        await update.message.reply_text("❌ Нічого не знайдено")
+    if not data:
+        await update.message.reply_text("❌ Помилка завантаження таблиці")
         return
 
-    text = "\n".join([r.get("name", "—") for r in result])
-    await update.message.reply_text(text)
+    count = sum(1 for r in data if r.get("locker", "").strip().lower() == "yes")
+    await update.message.reply_text(f"🔐 З шафкою: {count}")
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
-    result = [r for r in data if r.get("locker", "").lower() == "no"]
-
-    if not result:
-        await update.message.reply_text("❌ Нічого не знайдено")
+    if not data:
+        await update.message.reply_text("❌ Помилка завантаження таблиці")
         return
 
-    text = "\n".join([r.get("name", "—") for r in result])
-    await update.message.reply_text(text)
+    count = sum(1 for r in data if r.get("locker", "").strip().lower() == "no")
+    await update.message.reply_text(f"🚫 Без шафки: {count}")
 
-# ===============================
+# ==================================================
 # 🚀 MAIN
-# ===============================
+# ==================================================
 
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -134,6 +123,7 @@ def main():
     app.add_handler(CommandHandler("with_locker", with_locker))
     app.add_handler(CommandHandler("no_locker", no_locker))
 
+    print("BOT STARTED")
     app.run_polling()
 
 if __name__ == "__main__":

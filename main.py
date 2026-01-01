@@ -1,62 +1,49 @@
 import os
 import csv
-import threading
 import requests
 from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
 
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # ==================================================
-# 🔧 RENDER FREE STABILIZATION
+# 🌐 KEEP ALIVE (Render Free)
 # ==================================================
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"OK")
 
-def run_http_server():
+def keep_alive():
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthHandler)
-    server.serve_forever()
+    HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
-threading.Thread(target=run_http_server, daemon=True).start()
+threading.Thread(target=keep_alive, daemon=True).start()
 
 # ==================================================
 # 🔑 CONFIG
 # ==================================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.environ["BOT_TOKEN"]
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+
+YES_VALUES = {"yes", "y", "1", "+", "так", "є"}
 
 # ==================================================
 # 📄 CSV
 # ==================================================
 
 def load_csv():
-    try:
-        r = requests.get(CSV_URL, timeout=10)
-        r.raise_for_status()
-        return list(csv.DictReader(StringIO(r.content.decode("utf-8"))))
-    except Exception as e:
-        print("CSV ERROR:", e)
-        return []
+    r = requests.get(CSV_URL, timeout=10)
+    r.raise_for_status()
+    return list(csv.DictReader(StringIO(r.content.decode("utf-8"))))
 
-# ==================================================
-# 🧠 HELPERS
-# ==================================================
-
-YES_VALUES = {"yes", "y", "1", "+", "так", "є"}
-
-def is_yes(value: str) -> bool:
-    return value.strip().lower() in YES_VALUES
-
-def is_no_or_empty(value: str) -> bool:
-    return not value.strip() or not is_yes(value)
+def is_yes(v: str) -> bool:
+    return v.strip().lower() in YES_VALUES if v else False
 
 # ==================================================
 # 🤖 COMMANDS
@@ -64,10 +51,9 @@ def is_no_or_empty(value: str) -> bool:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Команди:\n"
-        "/find\n"
-        "/knife\n"
-        "/locker"
+        "/find – всього записів\n"
+        "/knife – ніж\n"
+        "/locker – шафка"
     )
 
 async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -80,20 +66,21 @@ async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
 
     yes = []
-    no = []
 
     for r in data:
-        name = f"{r.get('number','—')} — {r.get('surname','')}"
+        number = r.get("number", "").strip()
+        surname = r.get("surname", "").strip()
+
+        if not number:
+            continue  # немає номера — не показуємо
+
         if is_yes(r.get("knife", "")):
-            yes.append(name)
-        else:
-            no.append(name)
+            yes.append(f"{number} — {surname}")
 
     text = (
         f"🔪 НІЖ\n"
-        f"Так: {len(yes)}\n"
-        + "\n".join(yes) +
-        f"\n\n🚫 Без ножа: {len(no)}"
+        f"Так: {len(yes)}\n\n"
+        + "\n".join(yes)
     )
 
     await update.message.reply_text(text)
@@ -104,20 +91,21 @@ async def locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = load_csv()
 
     yes = []
-    no = []
 
     for r in data:
-        name = f"{r.get('number','—')} — {r.get('surname','')}"
+        number = r.get("number", "").strip()
+        surname = r.get("surname", "").strip()
+
+        if not number:
+            continue
+
         if is_yes(r.get("locker", "")):
-            yes.append(name)
-        else:
-            no.append(name)
+            yes.append(f"{number} — {surname}")
 
     text = (
         f"🗄 ШАФКА\n"
-        f"Так: {len(yes)}\n"
-        + "\n".join(yes) +
-        f"\n\n🚫 Без шафки: {len(no)}"
+        f"Так: {len(yes)}\n\n"
+        + "\n".join(yes)
     )
 
     await update.message.reply_text(text)
@@ -135,7 +123,7 @@ def main():
     app.add_handler(CommandHandler("locker", locker))
 
     print("BOT STARTED")
-    app.run_polling()
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()

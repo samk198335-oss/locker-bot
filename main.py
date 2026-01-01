@@ -1,8 +1,10 @@
 import os
+import threading
 import requests
 import csv
-import io
-import asyncio
+from io import StringIO
+
+from flask import Flask
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -10,104 +12,109 @@ from telegram.ext import (
     ContextTypes,
 )
 
-TOKEN = os.getenv("BOT_TOKEN")
+# ================== CONFIG ==================
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgK/export?format=csv"
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
 
+CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
-def load_data():
-    response = requests.get(CSV_URL, timeout=15)
+PORT = int(os.environ.get("PORT", 10000))
+
+# ============================================
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Bot is alive 🚀"
+
+def run_flask():
+    app.run(host="0.0.0.0", port=PORT)
+
+# ---------- CSV LOAD ----------
+
+def load_csv():
+    response = requests.get(CSV_URL, timeout=20)
     response.raise_for_status()
+    f = StringIO(response.text)
+    return list(csv.DictReader(f))
 
-    reader = csv.DictReader(io.StringIO(response.text))
-    return list(reader)
+def has_locker(value: str) -> bool:
+    if not value:
+        return False
+    value = value.strip().lower()
+    if value in ["-", "0", "ні", "нет"]:
+        return False
+    return True
 
+# ---------- COMMANDS ----------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Hello!\n\nAvailable commands:\n"
-        "/find\n"
-        "/knife\n"
-        "/no_knife\n"
-        "/with_locker\n"
-        "/no_locker\n"
-        "/myid"
+        "Привіт 👋\n\n"
+        "Команди:\n"
+        "/знайти Прізвище\n"
+        "/ніж\n"
+        "/безножа\n"
+        "/зшафкою\n"
+        "/безшафки"
     )
 
+async def find_person(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Вкажи прізвище після команди.")
+        return
 
-async def myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🆔 Your ID: {update.effective_user.id}")
+    query = " ".join(context.args).lower()
+    rows = load_csv()
 
+    results = [r for r in rows if query in r["surname"].lower()]
 
-async def find(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    await update.message.reply_text(
-        f"📊 Rows in table: {len(data)}"
-    )
+    if not results:
+        await update.message.reply_text("Нічого не знайдено.")
+        return
 
+    text = ""
+    for r in results:
+        text += (
+            f"📍 {r['Adress']}\n"
+            f"👤 {r['surname']}\n"
+            f"🔪 Ніж: {'є' if r['knife'] != '0' else 'немає'}\n"
+            f"🧥 Шафка: {'є' if has_locker(r['locker']) else 'немає'}\n\n"
+        )
+
+    await update.message.reply_text(text)
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    result = [r for r in data if r.get("knife") in ("1", "2")]
-
-    if not result:
-        await update.message.reply_text("❌ Нічого не знайдено")
-        return
-
-    await update.message.reply_text(f"🔪 З ножем: {len(result)}")
-
+    rows = load_csv()
+    await update.message.reply_text(f"🔪 З ножем: {len([r for r in rows if r['knife'] != '0'])}")
 
 async def no_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    result = [r for r in data if r.get("knife") == "0"]
-
-    if not result:
-        await update.message.reply_text("❌ Нічого не знайдено")
-        return
-
-    await update.message.reply_text(f"🚫🔪 Без ножа: {len(result)}")
-
+    rows = load_csv()
+    await update.message.reply_text(f"🚫 Без ножа: {len([r for r in rows if r['knife'] == '0'])}")
 
 async def with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    result = [r for r in data if r.get("locker") not in ("", "-", "0")]
-
-    if not result:
-        await update.message.reply_text("❌ Нічого не знайдено")
-        return
-
-    await update.message.reply_text(f"🔐 З шафкою: {len(result)}")
-
+    rows = load_csv()
+    await update.message.reply_text(f"🧥 З шафкою: {len([r for r in rows if has_locker(r['locker'])])}")
 
 async def no_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    result = [r for r in data if r.get("locker") in ("", "-", "0")]
+    rows = load_csv()
+    await update.message.reply_text(f"🚫 Без шафки: {len([r for r in rows if not has_locker(r['locker'])])}")
 
-    if not result:
-        await update.message.reply_text("❌ Нічого не знайдено")
-        return
+# ---------- MAIN ----------
 
-    await update.message.reply_text(f"🚫🔐 Без шафки: {len(result)}")
+def main():
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("знайти", find_person))
+    application.add_handler(CommandHandler("ніж", knife))
+    application.add_handler(CommandHandler("безножа", no_knife))
+    application.add_handler(CommandHandler("зшафкою", with_locker))
+    application.add_handler(CommandHandler("безшафки", no_locker))
 
-async def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("find", find))
-    app.add_handler(CommandHandler("knife", knife))
-    app.add_handler(CommandHandler("no_knife", no_knife))
-    app.add_handler(CommandHandler("with_locker", with_locker))
-    app.add_handler(CommandHandler("no_locker", no_locker))
-    app.add_handler(CommandHandler("myid", myid))
-
-    # 🔥 КЛЮЧОВИЙ ФІКС ДЛЯ RENDER
-    await app.initialize()
-    await app.bot.delete_webhook(drop_pending_updates=True)
-    await app.start()
-    await app.updater.start_polling()
-    await asyncio.Event().wait()
-
+    application.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    threading.Thread(target=run_flask).start()
+    main()

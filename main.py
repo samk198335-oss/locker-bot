@@ -32,7 +32,7 @@ def run_health_server():
 threading.Thread(target=run_health_server, daemon=True).start()
 
 # =========================
-# CSV LOADER (with cache)
+# CSV LOADER (CACHE)
 # =========================
 
 _cached_rows = None
@@ -45,15 +45,19 @@ def load_csv():
     response = requests.get(CSV_URL, timeout=10)
     response.raise_for_status()
 
-    csv_data = StringIO(response.text)
-    reader = csv.DictReader(csv_data)
+    reader = csv.DictReader(StringIO(response.text))
+    _cached_rows = list(reader)
+    return _cached_rows
 
-    rows = []
-    for row in reader:
-        rows.append(row)
+# =========================
+# HELPERS
+# =========================
 
-    _cached_rows = rows
-    return rows
+def safe_int(value):
+    try:
+        return int(str(value).strip())
+    except:
+        return 0
 
 # =========================
 # COMMANDS
@@ -66,43 +70,35 @@ async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     without_knife = 0
 
     for row in rows:
-        value = str(row.get("knife", "")).strip()
-        if value.isdigit() and int(value) > 0:
-            with_knife += int(value)
+        count = safe_int(row.get("knife"))
+        if count > 0:
+            with_knife += count
         else:
             without_knife += 1
 
-    text = (
+    await update.message.reply_text(
         "🔪 Ніж:\n"
         f"З ножем: {with_knife}\n"
         f"Без ножа: {without_knife}"
     )
 
-    await update.message.reply_text(text)
-
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
-
-    knife_by_surname = {}
+    result = []
 
     for row in rows:
         surname = str(row.get("surname", "")).strip()
-        knife_value = str(row.get("knife", "")).strip()
+        count = safe_int(row.get("knife"))
 
-        if not surname:
-            continue
+        if surname and count > 0:
+            result.append((surname, count))
 
-        if knife_value.isdigit():
-            count = int(knife_value)
-            if count > 0:
-                knife_by_surname[surname] = knife_by_surname.get(surname, 0) + count
-
-    if not knife_by_surname:
+    if not result:
         await update.message.reply_text("🔪 Немає даних по ножах.")
         return
 
     lines = ["🔪 Прізвища з ножами:"]
-    for i, (surname, count) in enumerate(sorted(knife_by_surname.items()), start=1):
+    for i, (surname, count) in enumerate(result, start=1):
         lines.append(f"{i}. {surname} — {count}")
 
     await update.message.reply_text("\n".join(lines))

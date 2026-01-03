@@ -1,5 +1,6 @@
 import os
 import csv
+import time
 import threading
 import requests
 from io import StringIO
@@ -19,6 +20,17 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgq
 YES_VALUES = {"yes", "+", "так", "y", "true", "1"}
 NO_VALUES = {"no", "-", "ні", "n", "false", "0"}
 
+CACHE_REFRESH_SECONDS = 180  # 3 хвилини
+
+# ==================================================
+# 🧠 CACHE STORAGE
+# ==================================================
+
+cache_lock = threading.Lock()
+cached_rows = []
+cached_headers = []
+last_update = None
+
 # ==================================================
 # 🩺 RENDER HEALTH CHECK
 # ==================================================
@@ -36,18 +48,8 @@ def run_health_server():
     server.serve_forever()
 
 # ==================================================
-# 📥 CSV LOADER
+# 📥 CSV LOADER (WITH CACHE)
 # ==================================================
-
-def load_csv():
-    response = requests.get(CSV_URL, timeout=15)
-    response.raise_for_status()
-
-    content = response.content.decode("utf-8-sig")
-    reader = csv.DictReader(StringIO(content))
-
-    rows = list(reader)
-    return rows, reader.fieldnames
 
 def normalize(value: str):
     if value is None:
@@ -59,16 +61,44 @@ def normalize(value: str):
         return "no"
     return None
 
+def refresh_cache():
+    global cached_rows, cached_headers, last_update
+
+    while True:
+        try:
+            response = requests.get(CSV_URL, timeout=20)
+            response.raise_for_status()
+
+            content = response.content.decode("utf-8-sig")
+            reader = csv.DictReader(StringIO(content))
+            rows = list(reader)
+
+            with cache_lock:
+                cached_rows = rows
+                cached_headers = reader.fieldnames
+                last_update = time.strftime("%Y-%m-%d %H:%M:%S")
+
+            print(f"[CACHE] Updated: {len(rows)} rows")
+
+        except Exception as e:
+            print(f"[CACHE ERROR] {e}")
+
+        time.sleep(CACHE_REFRESH_SECONDS)
+
+def get_cached_rows():
+    with cache_lock:
+        return list(cached_rows)
+
 # ==================================================
 # 📊 COMMANDS
 # ==================================================
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows, _ = load_csv()
+    rows = get_cached_rows()
     await update.message.reply_text(f"📊 Всього записів: {len(rows)}")
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows, _ = load_csv()
+    rows = get_cached_rows()
 
     yes = 0
     no = 0
@@ -87,7 +117,7 @@ async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows, _ = load_csv()
+    rows = get_cached_rows()
 
     yes = 0
     no = 0
@@ -105,24 +135,13 @@ async def locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Без шафки: {no}"
     )
 
-# ==================================================
-# 🐞 DEBUG COMMAND
-# ==================================================
-
 async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows, headers = load_csv()
-
-    msg = []
-    msg.append(f"DEBUG INFO")
-    msg.append(f"Rows count: {len(rows)}")
-    msg.append(f"Headers: {headers}")
-
-    if rows:
-        sample = rows[0]
-        msg.append("First row:")
-        for k, v in sample.items():
-            msg.append(f"{k} = '{v}'")
-
+    rows = get_cached_rows()
+    msg = [
+        "DEBUG CACHE",
+        f"Rows: {len(rows)}",
+        f"Last update: {last_update}"
+    ]
     await update.message.reply_text("\n".join(msg))
 
 # ==================================================
@@ -131,6 +150,7 @@ async def debug(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     threading.Thread(target=run_health_server, daemon=True).start()
+    threading.Thread(target=refresh_cache, daemon=True).start()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 

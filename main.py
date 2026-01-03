@@ -8,76 +8,65 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# ==================================================
-# 🔧 RENDER FREE STABILIZATION (healthcheck)
-# ==================================================
+# ===============================
+# CONFIG
+# ===============================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+
+# ===============================
+# RENDER HEALTHCHECK
+# ===============================
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"OK")
 
-def run_health_server():
+def run_healthcheck():
     port = int(os.environ.get("PORT", 10000))
     server = HTTPServer(("0.0.0.0", port), HealthHandler)
     server.serve_forever()
 
-threading.Thread(target=run_health_server, daemon=True).start()
+threading.Thread(target=run_healthcheck, daemon=True).start()
 
-# ==================================================
-# 🔧 CONFIG
-# ==================================================
-
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
-
-YES_VALUES = {"1", "yes", "y", "так", "true", "+"}
-NO_VALUES = {"0", "no", "n", "ні", "false", "-"}
-
-_cached_rows = None
-
-# ==================================================
-# 🔧 CSV LOADER (with cache)
-# ==================================================
+# ===============================
+# CSV CACHE
+# ===============================
+CACHE = {
+    "data": [],
+}
 
 def load_csv():
-    global _cached_rows
-    if _cached_rows is not None:
-        return _cached_rows
+    try:
+        r = requests.get(CSV_URL, timeout=15)
+        r.raise_for_status()
+        content = r.content.decode("utf-8")
+        reader = csv.DictReader(StringIO(content))
+        CACHE["data"] = list(reader)
+    except Exception as e:
+        print("CSV LOAD ERROR:", e)
 
-    response = requests.get(CSV_URL, timeout=20)
-    response.raise_for_status()
+# ===============================
+# HELPERS
+# ===============================
+def knife_count(value):
+    try:
+        v = int(str(value).strip())
+        return v if v > 0 else 0
+    except:
+        return 0
 
-    content = response.content.decode("utf-8")
-    reader = csv.reader(StringIO(content))
+def has_locker(value):
+    v = str(value).strip().lower()
+    if v in ["", "-", "0", "ні", "нет"]:
+        return False
+    return True
 
-    rows = []
-    for row in reader:
-        if any(cell.strip() for cell in row):
-            rows.append([cell.strip() for cell in row])
-
-    _cached_rows = rows
-    return rows
-
-# ==================================================
-# 🔧 HELPERS
-# ==================================================
-
-def normalize(value: str) -> str:
-    return value.strip().lower()
-
-def get_name(row):
-    for cell in row:
-        if cell and not cell.isdigit():
-            return cell
-    return "—"
-
-# ==================================================
-# 🤖 COMMANDS
-# ==================================================
-
+# ===============================
+# COMMANDS
+# ===============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привіт! 👋\n\n"
@@ -89,93 +78,82 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
+    load_csv()
+    rows = CACHE["data"]
 
     total = len(rows)
-    knife_yes = knife_no = 0
-    locker_yes = locker_no = 0
+    with_knife = 0
+    without_knife = 0
+    with_locker = 0
+    without_locker = 0
 
-    for row in rows:
-        knife = normalize(row[2]) if len(row) > 2 else ""
-        locker = normalize(row[3]) if len(row) > 3 else ""
-
-        if knife in YES_VALUES:
-            knife_yes += 1
-        elif knife in NO_VALUES:
-            knife_no += 1
-
-        if locker:
-            locker_yes += 1
+    for r in rows:
+        if knife_count(r.get("knife")) > 0:
+            with_knife += 1
         else:
-            locker_no += 1
+            without_knife += 1
+
+        if has_locker(r.get("locker")):
+            with_locker += 1
+        else:
+            without_locker += 1
 
     await update.message.reply_text(
         "📊 Статистика:\n"
         f"Всього записів: {total}\n\n"
-        f"🔪 З ножем: {knife_yes}\n"
-        f"🔪 Без ножа: {knife_no}\n\n"
-        f"🗄 З шафкою: {locker_yes}\n"
-        f"🗄 Без шафки: {locker_no}"
+        f"🔪 З ножем: {with_knife}\n"
+        f"🔪 Без ножа: {without_knife}\n\n"
+        f"🗄 З шафкою: {with_locker}\n"
+        f"🗄 Без шафки: {without_locker}"
     )
 
 async def knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    yes = no = 0
+    load_csv()
+    rows = CACHE["data"]
 
-    for row in rows:
-        knife_val = normalize(row[2]) if len(row) > 2 else ""
-        if knife_val in YES_VALUES:
-            yes += 1
-        elif knife_val in NO_VALUES:
-            no += 1
+    with_knife = sum(1 for r in rows if knife_count(r.get("knife")) > 0)
+    without_knife = len(rows) - with_knife
 
     await update.message.reply_text(
         "🔪 Ніж:\n"
-        f"З ножем: {yes}\n"
-        f"Без ножа: {no}"
+        f"З ножем: {with_knife}\n"
+        f"Без ножа: {without_knife}"
     )
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    names = []
+    load_csv()
+    rows = CACHE["data"]
 
-    for row in rows:
-        knife_val = normalize(row[2]) if len(row) > 2 else ""
-        if knife_val in YES_VALUES:
-            name = get_name(row)
-            names.append(name)
+    result = []
+    for r in rows:
+        k = knife_count(r.get("knife"))
+        if k > 0:
+            surname = r.get("surname", "").strip()
+            result.append(f"{surname} — {k}")
 
-    if not names:
+    if not result:
         await update.message.reply_text("🔪 З ножем нікого не знайдено")
         return
 
-    text = "🔪 З ножем:\n"
-    for i, name in enumerate(names, 1):
-        text += f"{i}. {name}\n"
-
+    text = "🔪 Прізвища з ножами:\n" + "\n".join(result)
     await update.message.reply_text(text)
 
 async def locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    yes = no = 0
+    load_csv()
+    rows = CACHE["data"]
 
-    for row in rows:
-        locker_val = row[3].strip() if len(row) > 3 else ""
-        if locker_val:
-            yes += 1
-        else:
-            no += 1
+    with_locker = sum(1 for r in rows if has_locker(r.get("locker")))
+    without_locker = len(rows) - with_locker
 
     await update.message.reply_text(
         "🗄 Шафка:\n"
-        f"З шафкою: {yes}\n"
-        f"Без шафки: {no}"
+        f"З шафкою: {with_locker}\n"
+        f"Без шафки: {without_locker}"
     )
 
-# ==================================================
-# 🚀 MAIN
-# ==================================================
-
+# ===============================
+# MAIN
+# ===============================
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 

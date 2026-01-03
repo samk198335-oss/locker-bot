@@ -6,24 +6,20 @@ from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # ===============================
 # CONFIG
 # ===============================
-
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
-# ===============================
-# RENDER KEEP-ALIVE
-# ===============================
+YES = {"yes", "y", "1", "+", "true", "так", "т", "є"}
+NO  = {"no", "n", "0", "-", "false", "ні", "н"}
 
+# ===============================
+# RENDER HEALTHCHECK
+# ===============================
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -35,35 +31,29 @@ def run_health_server():
     server = HTTPServer(("0.0.0.0", port), HealthHandler)
     server.serve_forever()
 
-# ===============================
-# CSV LOADER
-# ===============================
+threading.Thread(target=run_health_server, daemon=True).start()
 
-def load_csv():
-    response = requests.get(CSV_URL, timeout=15)
-    response.raise_for_status()
-    response.encoding = "utf-8"
-
-    reader = csv.DictReader(StringIO(response.text))
+# ===============================
+# DATA
+# ===============================
+def load_data():
+    r = requests.get(CSV_URL, timeout=10)
+    r.raise_for_status()
+    reader = csv.DictReader(StringIO(r.text))
     return list(reader)
 
-def normalize(value: str) -> str:
-    if value is None:
-        return ""
-    return value.strip().lower()
+def norm(val: str) -> str:
+    return val.strip().lower()
 
-def is_yes(value: str) -> bool:
-    v = normalize(value)
-    return v in {"1", "yes", "y", "так", "+", "є", "есть"}
+def is_yes(val: str) -> bool:
+    return norm(val) in YES
 
-def is_no(value: str) -> bool:
-    v = normalize(value)
-    return v in {"0", "no", "n", "ні", "-", "нема", "нет"}
+def is_no(val: str) -> bool:
+    return norm(val) in NO
 
 # ===============================
 # COMMANDS
 # ===============================
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🤖 Alexpuls_bot працює\n\n"
@@ -74,100 +64,75 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/no_locker_list — прізвища без шафки"
     )
 
-# -------- STATS --------
-
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
+    data = load_data()
 
     knife_yes = knife_no = 0
     locker_yes = locker_no = 0
 
-    for r in rows:
-        if is_yes(r.get("knife")):
+    for r in data:
+        if is_yes(r.get("Ніж", "")):
             knife_yes += 1
-        elif is_no(r.get("knife")):
+        elif is_no(r.get("Ніж", "")):
             knife_no += 1
 
-        if is_yes(r.get("locker")) or r.get("locker", "").isdigit():
+        if is_yes(r.get("Шафка", "")):
             locker_yes += 1
-        elif is_no(r.get("locker")):
+        elif is_no(r.get("Шафка", "")):
             locker_no += 1
 
     await update.message.reply_text(
-        f"📊 Статистика:\n\n"
+        "📊 Статистика:\n\n"
         f"🔪 З ножем: {knife_yes}\n"
         f"🚫 Без ножа: {knife_no}\n\n"
         f"🔐 З шафкою: {locker_yes}\n"
         f"🚫 Без шафки: {locker_no}"
     )
 
-# -------- LIST HELPERS --------
-
-def build_list(rows, condition_fn, title):
-    result = []
-    for r in rows:
-        surname = r.get("surname", "").strip()
-        if not surname:
-            continue
-        if condition_fn(r):
-            value = r.get("knife") or r.get("locker") or ""
-            result.append(f"{surname} — {value}")
-
-    if not result:
+def build_list(title, rows):
+    if not rows:
         return f"{title}\nНемає даних."
-
-    text = title + "\n\n"
-    for i, item in enumerate(result, 1):
-        text += f"{i}. {item}\n"
+    text = f"{title}\n"
+    for i, (name, cnt) in enumerate(rows, 1):
+        text += f"{i}. {name} — {cnt}\n"
     return text
 
-# -------- KNIFE LIST --------
+def collect(data, field, want_yes=True):
+    res = {}
+    for r in data:
+        name = r.get("Прізвище та імʼя", "").strip()
+        if not name:
+            continue
+        val = r.get(field, "")
+        ok = is_yes(val) if want_yes else is_no(val)
+        if ok:
+            res[name] = res.get(name, 0) + 1
+    return sorted(res.items())
 
-async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    text = build_list(
-        rows,
-        lambda r: is_yes(r.get("knife")),
-        "🔪 Прізвища з ножами:"
-    )
-    await update.message.reply_text(text)
+async def knife_list(update, context):
+    data = load_data()
+    rows = collect(data, "Ніж", True)
+    await update.message.reply_text(build_list("🔪 Прізвища з ножами:", rows))
 
-async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    text = build_list(
-        rows,
-        lambda r: is_no(r.get("knife")),
-        "🚫 Прізвища без ножа:"
-    )
-    await update.message.reply_text(text)
+async def no_knife_list(update, context):
+    data = load_data()
+    rows = collect(data, "Ніж", False)
+    await update.message.reply_text(build_list("🚫 Прізвища без ножа:", rows))
 
-# -------- LOCKER LIST --------
+async def locker_list(update, context):
+    data = load_data()
+    rows = collect(data, "Шафка", True)
+    await update.message.reply_text(build_list("🔐 Прізвища з шафками:", rows))
 
-async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    text = build_list(
-        rows,
-        lambda r: is_yes(r.get("locker")) or r.get("locker", "").isdigit(),
-        "🔐 Прізвища з шафками:"
-    )
-    await update.message.reply_text(text)
-
-async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    text = build_list(
-        rows,
-        lambda r: is_no(r.get("locker")),
-        "🚫 Прізвища без шафки:"
-    )
-    await update.message.reply_text(text)
+async def no_locker_list(update, context):
+    data = load_data()
+    rows = collect(data, "Шафка", False)
+    await update.message.reply_text(build_list("🚫 Прізвища без шафки:", rows))
 
 # ===============================
 # MAIN
 # ===============================
-
 def main():
-    threading.Thread(target=run_health_server, daemon=True).start()
-
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))

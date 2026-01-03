@@ -1,86 +1,93 @@
 import os
 import csv
-import requests
 import threading
+import requests
 from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes
+)
 
-# =========================
+# ==============================
 # CONFIG
-# =========================
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-
+# ==============================
+TOKEN = os.environ.get("BOT_TOKEN")
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
-NAME_FIELD = "Прізвище та імʼя"
-KNIFE_FIELD = "Ніж"
-LOCKER_FIELD = "Шафка"
+# ==============================
+# RENDER KEEP-ALIVE
+# ==============================
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
 
-YES_VALUES = {"yes", "y", "+", "1", "так", "true"}
-NO_VALUES = {"no", "n", "-", "0", "ні", "false"}
+def run_health_server():
+    server = HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), HealthHandler)
+    server.serve_forever()
 
-# =========================
-# HELPERS
-# =========================
+threading.Thread(target=run_health_server, daemon=True).start()
 
-def normalize(value: str) -> str:
-    return value.strip().lower()
+# ==============================
+# CSV PARSER
+# ==============================
+def load_data():
+    response = requests.get(CSV_URL, timeout=15)
+    response.encoding = "utf-8"
 
-def is_yes(value: str) -> bool:
-    return normalize(value) in YES_VALUES
+    reader = csv.DictReader(StringIO(response.text))
+    data = []
 
-def is_no(value: str) -> bool:
-    return normalize(value) in NO_VALUES
-
-def load_rows():
-    response = requests.get(CSV_URL, timeout=20)
-    response.raise_for_status()
-
-    csv_data = StringIO(response.text)
-    reader = csv.DictReader(csv_data)
-
-    rows = []
     for row in reader:
-        name = row.get(NAME_FIELD, "").strip()
-        knife = row.get(KNIFE_FIELD, "").strip()
-        locker = row.get(LOCKER_FIELD, "").strip()
+        surname = (row.get("surname") or "").strip()
+        knife_raw = (row.get("knife") or "").strip()
+        locker_raw = (row.get("locker") or "").strip()
 
-        if name:
-            rows.append({
-                "name": name,
-                "knife": knife,
-                "locker": locker
-            })
+        if not surname:
+            continue
 
-    return rows
+        # ----- KNIFE -----
+        knife = None
+        if knife_raw.isdigit():
+            knife = int(knife_raw)
 
-# =========================
+        # ----- LOCKER -----
+        locker = None
+        locker_low = locker_raw.lower()
+
+        if locker_raw.isdigit():
+            locker = int(locker_raw)
+        elif locker_low in ["tak", "yes", "є", "есть", "ключ є", "ключ"]:
+            locker = 1
+        elif locker_low in ["0", "-", "ні", "no"]:
+            locker = 0
+
+        data.append({
+            "surname": surname,
+            "knife": knife,
+            "locker": locker
+        })
+
+    return data
+
+# ==============================
 # COMMANDS
-# =========================
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "/stats — загальна статистика\n"
-        "/knife_list — прізвища з ножами\n"
-        "/no_knife_list — прізвища без ножа\n"
-        "/locker_list — прізвища з шафками\n"
-        "/no_locker_list — прізвища без шафки"
-    )
-
+# ==============================
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
+    data = load_data()
 
-    knife_yes = sum(1 for r in rows if is_yes(r["knife"]))
-    knife_no = sum(1 for r in rows if is_no(r["knife"]))
+    knife_yes = sum(1 for x in data if x["knife"] is not None and x["knife"] > 0)
+    knife_no  = sum(1 for x in data if x["knife"] == 0)
 
-    locker_yes = sum(1 for r in rows if is_yes(r["locker"]))
-    locker_no = sum(1 for r in rows if is_no(r["locker"]))
+    locker_yes = sum(1 for x in data if x["locker"] is not None and x["locker"] > 0)
+    locker_no  = sum(1 for x in data if x["locker"] == 0)
 
-    await update.message.reply_text(
+    text = (
         "📊 Статистика:\n\n"
         f"🔪 З ножем: {knife_yes}\n"
         f"🚫 Без ножа: {knife_no}\n\n"
@@ -88,86 +95,50 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🚫 Без шафки: {locker_no}"
     )
 
-async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    result = [r["name"] for r in rows if is_yes(r["knife"])]
-
-    if not result:
-        await update.message.reply_text("🔪 Прізвища з ножами:\nНемає даних.")
-        return
-
-    text = "🔪 Прізвища з ножами:\n"
-    for i, name in enumerate(result, 1):
-        text += f"{i}. {name}\n"
-
     await update.message.reply_text(text)
+
+async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    data = load_data()
+    names = [x["surname"] for x in data if x["knife"] is not None and x["knife"] > 0]
+
+    await update.message.reply_text(
+        "🔪 Прізвища з ножами:\n" + "\n".join(names)
+        if names else "🔪 Прізвища з ножами:\nНемає даних."
+    )
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    result = [r["name"] for r in rows if is_no(r["knife"])]
+    data = load_data()
+    names = [x["surname"] for x in data if x["knife"] == 0]
 
-    if not result:
-        await update.message.reply_text("🚫 Прізвища без ножа:\nНемає даних.")
-        return
-
-    text = "🚫 Прізвища без ножа:\n"
-    for i, name in enumerate(result, 1):
-        text += f"{i}. {name}\n"
-
-    await update.message.reply_text(text)
+    await update.message.reply_text(
+        "🚫 Прізвища без ножа:\n" + "\n".join(names)
+        if names else "🚫 Прізвища без ножа:\nНемає даних."
+    )
 
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    result = [r["name"] for r in rows if is_yes(r["locker"])]
+    data = load_data()
+    names = [x["surname"] for x in data if x["locker"] is not None and x["locker"] > 0]
 
-    if not result:
-        await update.message.reply_text("🔐 Прізвища з шафками:\nНемає даних.")
-        return
-
-    text = "🔐 Прізвища з шафками:\n"
-    for i, name in enumerate(result, 1):
-        text += f"{i}. {name}\n"
-
-    await update.message.reply_text(text)
+    await update.message.reply_text(
+        "🔐 Прізвища з шафками:\n" + "\n".join(names)
+        if names else "🔐 Прізвища з шафками:\nНемає даних."
+    )
 
 async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    result = [r["name"] for r in rows if is_no(r["locker"])]
+    data = load_data()
+    names = [x["surname"] for x in data if x["locker"] == 0]
 
-    if not result:
-        await update.message.reply_text("🚫 Прізвища без шафки:\nНемає даних.")
-        return
+    await update.message.reply_text(
+        "🚫 Прізвища без шафки:\n" + "\n".join(names)
+        if names else "🚫 Прізвища без шафки:\nНемає даних."
+    )
 
-    text = "🚫 Прізвища без шафки:\n"
-    for i, name in enumerate(result, 1):
-        text += f"{i}. {name}\n"
-
-    await update.message.reply_text(text)
-
-# =========================
-# RENDER KEEP-ALIVE
-# =========================
-
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-def run_http():
-    server = HTTPServer(("0.0.0.0", 10000), HealthHandler)
-    server.serve_forever()
-
-# =========================
-# MAIN
-# =========================
-
+# ==============================
+# START BOT
+# ==============================
 def main():
-    threading.Thread(target=run_http, daemon=True).start()
+    app = ApplicationBuilder().token(TOKEN).build()
 
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("knife_list", knife_list))
     app.add_handler(CommandHandler("no_knife_list", no_knife_list))

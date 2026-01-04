@@ -11,125 +11,94 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# ==================================================
-# RENDER KEEP-ALIVE
-# ==================================================
+# ===============================
+# KEEP ALIVE
+# ===============================
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"OK")
 
-def run_health_server():
-    server = HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), HealthHandler)
-    server.serve_forever()
+def run_health():
+    HTTPServer(("0.0.0.0", int(os.environ.get("PORT", 10000))), HealthHandler).serve_forever()
 
-# ==================================================
+# ===============================
 # CSV
-# ==================================================
+# ===============================
 def load_data():
-    response = requests.get(CSV_URL, timeout=15)
-    response.encoding = "utf-8"
-    csv_file = StringIO(response.text)
-    reader = csv.DictReader(csv_file)
+    r = requests.get(CSV_URL)
+    r.encoding = "utf-8-sig"   # 🔴 ВАЖЛИВО
+    reader = csv.DictReader(StringIO(r.text))
     return list(reader)
 
-def norm(val: str) -> str:
-    return (val or "").strip().lower()
+def n(v):
+    return (v or "").strip().lower()
 
-# ==================================================
+# ===============================
 # LOGIC
-# ==================================================
-def has_knife(row):
-    return norm(row.get("knife")) in {"1", "2", "yes", "так", "є", "true"}
+# ===============================
+def has_knife(r):
+    return n(r.get("knife")) in {"1", "2"}
 
-def no_knife(row):
-    return norm(row.get("knife")) in {"0", "", "no", "ні", "false"}
+def no_knife(r):
+    return n(r.get("knife")) == "0"
 
-def has_locker(row):
-    val = norm(row.get("locker"))
-    return val not in {"", "-", "ні", "no", "false"}
+def has_locker(r):
+    v = n(r.get("locker"))
+    return v not in {"", "-", "ні", "no"}
 
-def no_locker(row):
-    val = norm(row.get("locker"))
-    return val in {"", "-", "ні", "no", "false"}
+def no_locker(r):
+    v = n(r.get("locker"))
+    return v in {"", "-", "ні", "no"}
 
-# ==================================================
+# ===============================
 # COMMANDS
-# ==================================================
+# ===============================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Привіт!\n\n"
-        "Команди:\n"
         "/stats\n"
-        "/knife_list – прізвище + ніж\n"
-        "/no_knife_list – прізвище без ножа\n"
-        "/locker_list – прізвище + шафка\n"
-        "/no_locker_list – без шафки"
+        "/knife_list\n"
+        "/no_knife_list\n"
+        "/locker_list\n"
+        "/no_locker_list"
     )
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-
-    total = len(data)
-    knife_yes = sum(1 for r in data if has_knife(r))
-    knife_no = sum(1 for r in data if no_knife(r))
-    locker_yes = sum(1 for r in data if has_locker(r))
-    locker_no = sum(1 for r in data if no_locker(r))
-
+    d = load_data()
     await update.message.reply_text(
-        "📊 Статистика:\n\n"
-        f"Всього: {total}\n\n"
-        f"🔪 З ножем: {knife_yes}\n"
-        f"❌ Без ножа: {knife_no}\n\n"
-        f"🗄 З шафкою: {locker_yes}\n"
-        f"❌ Без шафки: {locker_no}"
+        f"Всього: {len(d)}\n"
+        f"З ножем: {sum(has_knife(x) for x in d)}\n"
+        f"Без ножа: {sum(no_knife(x) for x in d)}\n"
+        f"З шафкою: {sum(has_locker(x) for x in d)}\n"
+        f"Без шафки: {sum(no_locker(x) for x in d)}"
     )
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    rows = [f"• {r['surname']}" for r in data if has_knife(r)]
-
-    await update.message.reply_text(
-        "🔪 Прізвища з ножами:\n" + "\n".join(rows)
-        if rows else "🔪 Прізвища з ножами:\nНемає даних"
-    )
+    d = load_data()
+    rows = [f"• {x['Address']}" for x in d if has_knife(x)]
+    await update.message.reply_text("\n".join(rows) or "Немає даних")
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    rows = [f"• {r['surname']}" for r in data if no_knife(r)]
-
-    await update.message.reply_text(
-        "❌ Без ножів:\n" + "\n".join(rows)
-        if rows else "❌ Без ножів:\nНемає даних"
-    )
+    d = load_data()
+    rows = [f"• {x['Address']}" for x in d if no_knife(x)]
+    await update.message.reply_text("\n".join(rows) or "Немає даних")
 
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    rows = [
-        f"• {r['surname']} — {r['locker']}"
-        for r in data if has_locker(r)
-    ]
-
-    await update.message.reply_text(
-        "🗄 Прізвище + шафка:\n" + "\n".join(rows)
-        if rows else "🗄 Прізвище + шафка:\nНемає даних"
-    )
+    d = load_data()
+    rows = [f"• {x['Address']} — {x['locker']}" for x in d if has_locker(x)]
+    await update.message.reply_text("\n".join(rows) or "Немає даних")
 
 async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    rows = [f"• {r['surname']}" for r in data if no_locker(r)]
+    d = load_data()
+    rows = [f"• {x['Address']}" for x in d if no_locker(x)]
+    await update.message.reply_text("\n".join(rows) or "Немає даних")
 
-    await update.message.reply_text(
-        "❌ Без шафки:\n" + "\n".join(rows)
-        if rows else "❌ Без шафки:\nНемає даних"
-    )
-
-# ==================================================
+# ===============================
 # MAIN
-# ==================================================
+# ===============================
 def main():
-    threading.Thread(target=run_health_server, daemon=True).start()
+    threading.Thread(target=run_health, daemon=True).start()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 

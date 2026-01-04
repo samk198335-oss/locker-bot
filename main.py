@@ -6,11 +6,7 @@ from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # ===============================
 # CONFIG
@@ -36,17 +32,13 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 def run_health_server():
     port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(("0.0.0.0", port), HealthHandler)
-    server.serve_forever()
+    HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 # ===============================
-# CSV LOADING (UTF-8 SAFE)
+# CSV + UTF-8 SAFE
 # ===============================
 
-def safe_text(value: str) -> str:
-    """
-    Захист від битого кодування (Ð¡Ñ‚ÐµÑ„Ð°Ð½Ð° → Стефана)
-    """
+def safe_text(value):
     if not isinstance(value, str):
         return ""
     try:
@@ -55,21 +47,20 @@ def safe_text(value: str) -> str:
         return value
 
 def load_csv():
-    response = requests.get(CSV_URL, timeout=15)
-    response.raise_for_status()
+    r = requests.get(CSV_URL, timeout=15)
+    r.raise_for_status()
 
-    text = response.content.decode("utf-8")
+    text = r.content.decode("utf-8")
     reader = csv.DictReader(StringIO(text))
 
     rows = []
     for row in reader:
-        clean_row = {
+        rows.append({
             "Address": safe_text(row.get("Address", "")).strip(),
             "surname": safe_text(row.get("surname", "")).strip(),
             "knife": safe_text(row.get("knife", "")).strip(),
             "locker": safe_text(row.get("locker", "")).strip(),
-        }
-        rows.append(clean_row)
+        })
 
     return rows
 
@@ -77,19 +68,23 @@ def load_csv():
 # NORMALIZATION
 # ===============================
 
-def has_knife(value: str) -> bool:
-    return value in {"1", "2"}
+def normalize_knife(value):
+    if value is None:
+        return None
+    v = str(value).strip()
+    if v in {"1", "2"}:
+        return 1
+    if v == "0":
+        return 0
+    return None
 
-def no_knife(value: str) -> bool:
-    return value == "0"
-
-def has_locker(value: str) -> bool:
+def normalize_locker(value):
     if not value:
-        return False
-    v = value.lower()
+        return None
+    v = str(value).strip()
     if v in {"-", "0"}:
-        return False
-    return True
+        return None
+    return v
 
 # ===============================
 # COMMANDS
@@ -97,23 +92,25 @@ def has_locker(value: str) -> bool:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Привіт!\n"
+        "👋 Привіт!\n\n"
         "Команди:\n"
-        "/stats – статистика\n"
-        "/knife_list – прізвища з ножами\n"
-        "/no_knife_list – прізвища без ножів"
+        "/stats\n"
+        "/knife_list – прізвище + ніж\n"
+        "/no_knife_list – прізвище без ножа\n"
+        "/locker_list – прізвище + № шафки\n"
+        "/no_locker_list – без шафки"
     )
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
 
     total = len(rows)
-    knife_yes = sum(1 for r in rows if has_knife(r["knife"]))
-    knife_no = sum(1 for r in rows if no_knife(r["knife"]))
-    locker_yes = sum(1 for r in rows if has_locker(r["locker"]))
+    knife_yes = sum(1 for r in rows if normalize_knife(r["knife"]) == 1)
+    knife_no = sum(1 for r in rows if normalize_knife(r["knife"]) == 0)
+    locker_yes = sum(1 for r in rows if normalize_locker(r["locker"]))
     locker_no = total - locker_yes
 
-    text = (
+    await update.message.reply_text(
         "📊 Статистика:\n\n"
         f"Всього: {total}\n\n"
         f"🔪 З ножем: {knife_yes}\n"
@@ -122,40 +119,56 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"❌ Без шафки: {locker_no}"
     )
 
-    await update.message.reply_text(text)
-
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
-
-    names = [
-        r["surname"]
+    data = [
+        f"{r['surname']} — є ніж"
         for r in rows
-        if has_knife(r["knife"]) and r["surname"]
+        if normalize_knife(r["knife"]) == 1 and r["surname"]
     ]
 
-    if not names:
-        await update.message.reply_text("🔪 Прізвища з ножами:\nНемає даних")
-        return
-
     await update.message.reply_text(
-        "🔪 Прізвища з ножами:\n" + "\n".join(names)
+        "🔪 Прізвища з ножами:\n" + "\n".join(data)
+        if data else "🔪 Прізвища з ножами:\nНемає даних"
     )
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
-
-    names = [
+    data = [
         r["surname"]
         for r in rows
-        if no_knife(r["knife"]) and r["surname"]
+        if normalize_knife(r["knife"]) == 0 and r["surname"]
     ]
 
-    if not names:
-        await update.message.reply_text("❌ Без ножів:\nНемає даних")
-        return
+    await update.message.reply_text(
+        "❌ Без ножів:\n" + "\n".join(data)
+        if data else "❌ Без ножів:\nНемає даних"
+    )
+
+async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    data = [
+        f"{r['surname']} — шафка {normalize_locker(r['locker'])}"
+        for r in rows
+        if normalize_locker(r["locker"]) and r["surname"]
+    ]
 
     await update.message.reply_text(
-        "❌ Без ножів:\n" + "\n".join(names)
+        "🗄 Прізвище + шафка:\n" + "\n".join(data)
+        if data else "🗄 Прізвище + шафка:\nНемає даних"
+    )
+
+async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    data = [
+        r["surname"]
+        for r in rows
+        if not normalize_locker(r["locker"]) and r["surname"]
+    ]
+
+    await update.message.reply_text(
+        "❌ Без шафки:\n" + "\n".join(data)
+        if data else "❌ Без шафки:\nНемає даних"
     )
 
 # ===============================
@@ -171,6 +184,8 @@ def main():
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("knife_list", knife_list))
     app.add_handler(CommandHandler("no_knife_list", no_knife_list))
+    app.add_handler(CommandHandler("locker_list", locker_list))
+    app.add_handler(CommandHandler("no_locker_list", no_locker_list))
 
     app.run_polling()
 

@@ -14,7 +14,7 @@ PORT = int(os.environ.get("PORT", 10000))
 
 
 # ===============================
-# KEEP ALIVE (RENDER)
+# KEEP ALIVE
 # ===============================
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -41,23 +41,36 @@ def has_value(v: str) -> bool:
     return bool(v and v.strip())
 
 
+def find_column(row, keyword):
+    for key in row.keys():
+        if keyword in key.lower():
+            return key
+    return None
+
+
 # ===============================
 # STATS
 # ===============================
 def get_stats():
     rows = load_csv()
-
     total = len(rows)
+
     knife_yes = knife_no = 0
     locker_yes = locker_no = 0
 
+    if not rows:
+        return 0, 0, 0, 0, 0
+
+    knife_col = find_column(rows[0], "ніж")
+    locker_col = find_column(rows[0], "шаф")
+
     for r in rows:
-        if has_value(r.get("Ніж", "")):
+        if knife_col and has_value(r.get(knife_col, "")):
             knife_yes += 1
         else:
             knife_no += 1
 
-        if has_value(r.get("Шафка", "")):
+        if locker_col and has_value(r.get(locker_col, "")):
             locker_yes += 1
         else:
             locker_no += 1
@@ -66,15 +79,20 @@ def get_stats():
 
 
 # ===============================
-# LISTS (ОДНАКОВА ЛОГІКА)
+# LISTS
 # ===============================
-def list_with_value(column):
+def list_with_value(keyword):
     rows = load_csv()
     result = []
 
+    if not rows:
+        return result
+
+    col = find_column(rows[0], keyword)
+
     for r in rows:
         name = r.get("Прізвище", "").strip()
-        value = r.get(column, "").strip()
+        value = r.get(col, "").strip() if col else ""
 
         if name and value:
             result.append(f"{name} — {value}")
@@ -82,13 +100,18 @@ def list_with_value(column):
     return result
 
 
-def list_without_value(column):
+def list_without_value(keyword):
     rows = load_csv()
     result = []
 
+    if not rows:
+        return result
+
+    col = find_column(rows[0], keyword)
+
     for r in rows:
         name = r.get("Прізвище", "").strip()
-        value = r.get(column, "").strip()
+        value = r.get(col, "").strip() if col else ""
 
         if name and not value:
             result.append(name)
@@ -123,28 +146,28 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = list_with_value("Ніж")
+    data = list_with_value("ніж")
     await update.message.reply_text(
         "🔪 Прізвища з ножами:\n" + ("\n".join(data) if data else "Немає даних")
     )
 
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = list_without_value("Ніж")
+    data = list_without_value("ніж")
     await update.message.reply_text(
         "❌ Без ножів:\n" + ("\n".join(data) if data else "Немає даних")
     )
 
 
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = list_with_value("Шафка")
+    data = list_with_value("шаф")
     await update.message.reply_text(
         "🗄 Прізвища з шафками:\n" + ("\n".join(data) if data else "Немає даних")
     )
 
 
 async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = list_without_value("Шафка")
+    data = list_without_value("шаф")
     await update.message.reply_text(
         "❌ Без шафок:\n" + ("\n".join(data) if data else "Немає даних")
     )

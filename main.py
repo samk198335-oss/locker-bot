@@ -6,166 +6,171 @@ from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
 
-TOKEN = os.getenv("BOT_TOKEN")
-CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+# ===============================
+# CONFIG
+# ===============================
 
-# =========================
-# Render keep-alive
-# =========================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI"
+    "/export?format=csv"
+)
+
+# ===============================
+# RENDER HEALTHCHECK
+# ===============================
+
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"OK")
 
-def run_healthcheck():
-    server = HTTPServer(("0.0.0.0", 10000), HealthHandler)
+def run_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
     server.serve_forever()
 
-threading.Thread(target=run_healthcheck, daemon=True).start()
+# ===============================
+# CSV LOADING (UTF-8 SAFE)
+# ===============================
 
-# =========================
-# CSV loader
-# =========================
-def load_rows():
-    r = requests.get(CSV_URL, timeout=15)
-    r.raise_for_status()
-    data = StringIO(r.text)
-    reader = csv.reader(data)
-    rows = list(reader)
-    return rows[1:]  # skip header
+def safe_text(value: str) -> str:
+    """
+    Захист від битого кодування (Ð¡Ñ‚ÐµÑ„Ð°Ð½Ð° → Стефана)
+    """
+    if not isinstance(value, str):
+        return ""
+    try:
+        return value.encode("latin1").decode("utf-8")
+    except Exception:
+        return value
 
-# =========================
-# Helpers
-# =========================
-def is_locker_present(value: str) -> bool:
+def load_csv():
+    response = requests.get(CSV_URL, timeout=15)
+    response.raise_for_status()
+
+    text = response.content.decode("utf-8")
+    reader = csv.DictReader(StringIO(text))
+
+    rows = []
+    for row in reader:
+        clean_row = {
+            "Address": safe_text(row.get("Address", "")).strip(),
+            "surname": safe_text(row.get("surname", "")).strip(),
+            "knife": safe_text(row.get("knife", "")).strip(),
+            "locker": safe_text(row.get("locker", "")).strip(),
+        }
+        rows.append(clean_row)
+
+    return rows
+
+# ===============================
+# NORMALIZATION
+# ===============================
+
+def has_knife(value: str) -> bool:
+    return value in {"1", "2"}
+
+def no_knife(value: str) -> bool:
+    return value == "0"
+
+def has_locker(value: str) -> bool:
     if not value:
         return False
-    value = value.strip()
-    return value != "-" and value != ""
+    v = value.lower()
+    if v in {"-", "0"}:
+        return False
+    return True
 
-# =========================
-# Commands
-# =========================
+# ===============================
+# COMMANDS
+# ===============================
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🤖 Alexpuls_bot працює\n\n"
-        "/stats — загальна статистика\n"
-        "/knife_list — прізвища з ножами\n"
-        "/no_knife_list — без ножів\n"
-        "/locker_list — прізвища з шафками\n"
-        "/no_locker_list — без шафок"
+        "👋 Привіт!\n"
+        "Команди:\n"
+        "/stats – статистика\n"
+        "/knife_list – прізвища з ножами\n"
+        "/no_knife_list – прізвища без ножів"
     )
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
+    rows = load_csv()
 
     total = len(rows)
-    knife_yes = 0
-    knife_no = 0
-    locker_yes = 0
-    locker_no = 0
+    knife_yes = sum(1 for r in rows if has_knife(r["knife"]))
+    knife_no = sum(1 for r in rows if no_knife(r["knife"]))
+    locker_yes = sum(1 for r in rows if has_locker(r["locker"]))
+    locker_no = total - locker_yes
 
-    for r in rows:
-        surname = r[1].strip()
-        knife_raw = r[2].strip()
-        locker_raw = r[3].strip()
-
-        knife_count = int(knife_raw) if knife_raw.isdigit() else 0
-
-        if knife_count > 0:
-            knife_yes += 1
-        else:
-            knife_no += 1
-
-        if is_locker_present(locker_raw):
-            locker_yes += 1
-        else:
-            locker_no += 1
-
-    await update.message.reply_text(
+    text = (
         "📊 Статистика:\n\n"
         f"Всього: {total}\n\n"
         f"🔪 З ножем: {knife_yes}\n"
         f"❌ Без ножа: {knife_no}\n\n"
-        f"🗄️ З шафкою: {locker_yes}\n"
+        f"🗄 З шафкою: {locker_yes}\n"
         f"❌ Без шафки: {locker_no}"
     )
 
+    await update.message.reply_text(text)
+
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    result = []
+    rows = load_csv()
 
-    for r in rows:
-        surname = r[1].strip()
-        knife_raw = r[2].strip()
-        count = int(knife_raw) if knife_raw.isdigit() else 0
-        if count > 0:
-            result.append(f"{surname} — {count}")
+    names = [
+        r["surname"]
+        for r in rows
+        if has_knife(r["knife"]) and r["surname"]
+    ]
 
-    if not result:
+    if not names:
         await update.message.reply_text("🔪 Прізвища з ножами:\nНемає даних")
         return
 
-    await update.message.reply_text("🔪 Прізвища з ножами:\n" + "\n".join(result))
+    await update.message.reply_text(
+        "🔪 Прізвища з ножами:\n" + "\n".join(names)
+    )
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    result = []
+    rows = load_csv()
 
-    for r in rows:
-        surname = r[1].strip()
-        knife_raw = r[2].strip()
-        count = int(knife_raw) if knife_raw.isdigit() else 0
-        if count == 0:
-            result.append(surname)
+    names = [
+        r["surname"]
+        for r in rows
+        if no_knife(r["knife"]) and r["surname"]
+    ]
 
-    await update.message.reply_text(
-        "❌ Без ножів:\n" + ("\n".join(result) if result else "Немає даних")
-    )
-
-async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    result = []
-
-    for r in rows:
-        surname = r[1].strip()
-        locker_raw = r[3].strip()
-        if is_locker_present(locker_raw):
-            result.append(surname)
+    if not names:
+        await update.message.reply_text("❌ Без ножів:\nНемає даних")
+        return
 
     await update.message.reply_text(
-        "🗄️ Прізвища з шафками:\n" + ("\n".join(result) if result else "Немає даних")
+        "❌ Без ножів:\n" + "\n".join(names)
     )
 
-async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_rows()
-    result = []
+# ===============================
+# MAIN
+# ===============================
 
-    for r in rows:
-        surname = r[1].strip()
-        locker_raw = r[3].strip()
-        if not is_locker_present(locker_raw):
-            result.append(surname)
-
-    await update.message.reply_text(
-        "❌ Без шафок:\n" + ("\n".join(result) if result else "Немає даних")
-    )
-
-# =========================
-# Main
-# =========================
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+    threading.Thread(target=run_health_server, daemon=True).start()
+
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats))
     app.add_handler(CommandHandler("knife_list", knife_list))
     app.add_handler(CommandHandler("no_knife_list", no_knife_list))
-    app.add_handler(CommandHandler("locker_list", locker_list))
-    app.add_handler(CommandHandler("no_locker_list", no_locker_list))
 
     app.run_polling()
 

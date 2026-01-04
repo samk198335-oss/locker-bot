@@ -35,16 +35,8 @@ def run_health_server():
     HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 # ===============================
-# CSV + UTF-8 SAFE
+# CSV LOADING (CORRECT UTF-8)
 # ===============================
-
-def safe_text(value):
-    if not isinstance(value, str):
-        return ""
-    try:
-        return value.encode("latin1").decode("utf-8")
-    except Exception:
-        return value
 
 def load_csv():
     r = requests.get(CSV_URL, timeout=15)
@@ -53,16 +45,7 @@ def load_csv():
     text = r.content.decode("utf-8")
     reader = csv.DictReader(StringIO(text))
 
-    rows = []
-    for row in reader:
-        rows.append({
-            "Address": safe_text(row.get("Address", "")).strip(),
-            "surname": safe_text(row.get("surname", "")).strip(),
-            "knife": safe_text(row.get("knife", "")).strip(),
-            "locker": safe_text(row.get("locker", "")).strip(),
-        })
-
-    return rows
+    return list(reader)
 
 # ===============================
 # NORMALIZATION
@@ -79,10 +62,10 @@ def normalize_knife(value):
     return None
 
 def normalize_locker(value):
-    if not value:
+    if value is None:
         return None
     v = str(value).strip()
-    if v in {"-", "0"}:
+    if v in {"", "-", "0"}:
         return None
     return v
 
@@ -97,7 +80,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/stats\n"
         "/knife_list – прізвище + ніж\n"
         "/no_knife_list – прізвище без ножа\n"
-        "/locker_list – прізвище + № шафки\n"
+        "/locker_list – прізвище + шафка\n"
         "/no_locker_list – без шафки"
     )
 

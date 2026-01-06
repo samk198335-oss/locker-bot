@@ -1,6 +1,9 @@
 import os
-import sqlite3
+import csv
+import time
 import threading
+import requests
+from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update, ReplyKeyboardMarkup
@@ -9,174 +12,196 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     ContextTypes,
-    filters,
+    filters
 )
 
-TOKEN = os.getenv("BOT_TOKEN")
+# ==============================
+# 🔧 CONFIG
+# ==============================
 
-DB_PATH = "data.db"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# ======================
-# DATABASE
-# ======================
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+CACHE_TTL = 300  # 5 хв
 
-def init_db():
-    with get_db() as db:
-        db.execute("""
-        CREATE TABLE IF NOT EXISTS workers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            surname TEXT UNIQUE,
-            knife INTEGER,
-            locker TEXT
-        )
-        """)
+# ==============================
+# 🔁 CSV CACHE
+# ==============================
 
-# ======================
-# RENDER KEEP ALIVE
-# ======================
+_csv_cache = {"data": [], "time": 0}
+
+
+def load_csv():
+    now = time.time()
+
+    if _csv_cache["data"] and now - _csv_cache["time"] < CACHE_TTL:
+        return _csv_cache["data"]
+
+    r = requests.get(CSV_URL, timeout=15)
+    r.encoding = "utf-8-sig"  # 🔥 ВАЖЛИВО: прибирає BOM
+
+    reader = csv.DictReader(StringIO(r.text))
+
+    data = []
+    for row in reader:
+        clean_row = {
+            (k or "").strip().lower(): (v or "").strip()
+            for k, v in row.items()
+        }
+        data.append(clean_row)
+
+    _csv_cache["data"] = data
+    _csv_cache["time"] = now
+    return data
+
+
+# ==============================
+# 🧠 HELPERS
+# ==============================
+
+def is_yes(value: str) -> bool:
+    return value.lower() in ("1", "yes", "y", "так", "є", "true", "+")
+
+
+def has_locker(value: str) -> bool:
+    return value and value.lower() not in ("-", "ні", "no", "0")
+
+
+# ==============================
+# 📋 KEYBOARD
+# ==============================
+
+KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["🔪 З ножем", "🚫 Без ножа"],
+        ["🗄️ З шафкою", "❌ Без шафки"],
+        ["👥 Всі", "📊 Статистика"]
+    ],
+    resize_keyboard=True
+)
+
+# ==============================
+# 🤖 COMMANDS
+# ==============================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Привіт! Обери фільтр або команду 👇",
+        reply_markup=KEYBOARD
+    )
+
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+
+    total = len(rows)
+    knife_yes = knife_no = locker_yes = locker_no = 0
+
+    for r in rows:
+        if is_yes(r.get("knife", "")):
+            knife_yes += 1
+        else:
+            knife_no += 1
+
+        if has_locker(r.get("locker", "")):
+            locker_yes += 1
+        else:
+            locker_no += 1
+
+    await update.message.reply_text(
+        f"📊 Статистика:\n\n"
+        f"👥 Всього: {total}\n\n"
+        f"🔪 З ножем: {knife_yes}\n"
+        f"🚫 Без ножа: {knife_no}\n\n"
+        f"🗄️ З шафкою: {locker_yes}\n"
+        f"❌ Без шафки: {locker_no}"
+    )
+
+
+async def all_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    names = [r["surname"] for r in rows if r.get("surname")]
+    await update.message.reply_text("👥 Всі:\n\n" + "\n".join(names))
+
+
+async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    names = [r["surname"] for r in rows if is_yes(r.get("knife", ""))]
+    await update.message.reply_text("🔪 З ножем:\n\n" + "\n".join(names))
+
+
+async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    names = [r["surname"] for r in rows if not is_yes(r.get("knife", ""))]
+    await update.message.reply_text("🚫 Без ножа:\n\n" + "\n".join(names))
+
+
+async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    result = [
+        f"{r['surname']} — {r['locker']}"
+        for r in rows
+        if r.get("surname") and has_locker(r.get("locker", ""))
+    ]
+    await update.message.reply_text("🗄️ З шафкою:\n\n" + "\n".join(result))
+
+
+async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    names = [r["surname"] for r in rows if not has_locker(r.get("locker", ""))]
+    await update.message.reply_text("❌ Без шафки:\n\n" + "\n".join(names))
+
+
+# ==============================
+# 🎛️ FILTER HANDLER
+# ==============================
+
+async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    t = update.message.text
+    if t == "🔪 З ножем":
+        await knife_list(update, context)
+    elif t == "🚫 Без ножа":
+        await no_knife_list(update, context)
+    elif t == "🗄️ З шафкою":
+        await locker_list(update, context)
+    elif t == "❌ Без шафки":
+        await no_locker_list(update, context)
+    elif t == "👥 Всі":
+        await all_list(update, context)
+    elif t == "📊 Статистика":
+        await stats(update, context)
+
+
+# ==============================
+# 🌐 RENDER KEEP ALIVE
+# ==============================
+
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"OK")
 
-def run_healthcheck():
+
+def run_health_server():
     HTTPServer(("0.0.0.0", 10000), HealthHandler).serve_forever()
 
-# ======================
-# HELPERS
-# ======================
-def keyboard():
-    return ReplyKeyboardMarkup(
-        [
-            ["🗡 З ножем", "🚫 Без ножа"],
-            ["🗄 З шафкою", "❌ Без шафки"],
-            ["👥 Всі", "📊 Статистика"],
-        ],
-        resize_keyboard=True,
-    )
 
-def format_workers(rows, show_locker=False):
-    if not rows:
-        return "❌ Немає даних"
-    text = ""
-    for r in rows:
-        if show_locker:
-            text += f"• {r['surname']} — {r['locker']}\n"
-        else:
-            text += f"• {r['surname']}\n"
-    return text
+# ==============================
+# 🚀 MAIN
+# ==============================
 
-# ======================
-# COMMANDS
-# ======================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 Привіт! Обери фільтр або команду 👇",
-        reply_markup=keyboard(),
-    )
+def main():
+    threading.Thread(target=run_health_server, daemon=True).start()
 
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with get_db() as db:
-        total = db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
-        knife = db.execute("SELECT COUNT(*) FROM workers WHERE knife=1").fetchone()[0]
-        no_knife = db.execute("SELECT COUNT(*) FROM workers WHERE knife=0").fetchone()[0]
-        locker = db.execute("SELECT COUNT(*) FROM workers WHERE locker!='-'").fetchone()[0]
-        no_locker = db.execute("SELECT COUNT(*) FROM workers WHERE locker='-'").fetchone()[0]
-
-    await update.message.reply_text(
-        f"📊 Статистика:\n\n"
-        f"👥 Всього: {total}\n"
-        f"🗡 З ножем: {knife}\n"
-        f"🚫 Без ножа: {no_knife}\n"
-        f"🗄 З шафкою: {locker}\n"
-        f"❌ Без шафки: {no_locker}"
-    )
-
-async def add_worker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        surname, knife, locker = context.args
-        knife = int(knife)
-        with get_db() as db:
-            db.execute(
-                "INSERT INTO workers (surname, knife, locker) VALUES (?, ?, ?)",
-                (surname, knife, locker),
-            )
-        await update.message.reply_text("✅ Працівника додано")
-    except Exception as e:
-        await update.message.reply_text("❌ Помилка додавання")
-
-async def rename_worker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        old, new = context.args
-        with get_db() as db:
-            db.execute(
-                "UPDATE workers SET surname=? WHERE surname=?",
-                (new, old),
-            )
-        await update.message.reply_text("✅ Прізвище змінено")
-    except:
-        await update.message.reply_text("❌ Помилка")
-
-async def delete_worker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        surname = context.args[0]
-        with get_db() as db:
-            db.execute("DELETE FROM workers WHERE surname=?", (surname,))
-        await update.message.reply_text("🗑 Видалено")
-    except:
-        await update.message.reply_text("❌ Помилка")
-
-async def list_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    with get_db() as db:
-        rows = db.execute("SELECT * FROM workers").fetchall()
-    await update.message.reply_text(format_workers(rows))
-
-# ======================
-# BUTTON HANDLER
-# ======================
-async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    with get_db() as db:
-        if "З ножем" in text:
-            rows = db.execute("SELECT * FROM workers WHERE knife=1").fetchall()
-            await update.message.reply_text(format_workers(rows))
-        elif "Без ножа" in text:
-            rows = db.execute("SELECT * FROM workers WHERE knife=0").fetchall()
-            await update.message.reply_text(format_workers(rows))
-        elif "З шафкою" in text:
-            rows = db.execute("SELECT * FROM workers WHERE locker!='-'").fetchall()
-            await update.message.reply_text(format_workers(rows, True))
-        elif "Без шафки" in text:
-            rows = db.execute("SELECT * FROM workers WHERE locker='-'").fetchall()
-            await update.message.reply_text(format_workers(rows))
-        elif "Всі" in text:
-            rows = db.execute("SELECT * FROM workers").fetchall()
-            await update.message.reply_text(format_workers(rows))
-        elif "Статистика" in text:
-            await stats(update, context)
-
-# ======================
-# MAIN
-# ======================
-if __name__ == "__main__":
-    init_db()
-
-    threading.Thread(target=run_healthcheck, daemon=True).start()
-
-    app = ApplicationBuilder().token(TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("add", add_worker))
-    app.add_handler(CommandHandler("rename", rename_worker))
-    app.add_handler(CommandHandler("delete", delete_worker))
-    app.add_handler(CommandHandler("list", list_all))
-
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, buttons))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_filters))
 
     app.run_polling()
+
+
+if __name__ == "__main__":
+    main()

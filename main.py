@@ -9,272 +9,174 @@ from telegram.ext import (
     CommandHandler,
     MessageHandler,
     ContextTypes,
-    ConversationHandler,
-    filters
+    filters,
 )
 
-# ==============================
-# 🔧 CONFIG
-# ==============================
+TOKEN = os.getenv("BOT_TOKEN")
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
 DB_PATH = "data.db"
 
-# ==============================
-# 🗄️ DATABASE
-# ==============================
-
+# ======================
+# DATABASE
+# ======================
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
-
 def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS employees (
+    with get_db() as db:
+        db.execute("""
+        CREATE TABLE IF NOT EXISTS workers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            surname TEXT NOT NULL,
-            knife INTEGER NOT NULL,
+            surname TEXT UNIQUE,
+            knife INTEGER,
             locker TEXT
         )
-    """)
-    conn.commit()
-    conn.close()
+        """)
 
-# ==============================
-# 🧠 HELPERS
-# ==============================
-
-def is_yes(value: str) -> bool:
-    return value.strip().lower() in ("1", "yes", "y", "так", "є", "true", "+")
-
-def has_locker(value: str) -> bool:
-    return bool(value and value.strip() not in ("-", "0", "ні", "no"))
-
-# ==============================
-# 📋 KEYBOARD
-# ==============================
-
-KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["🔪 З ножем", "🚫 Без ножа"],
-        ["🗄️ З шафкою", "❌ Без шафки"],
-        ["👥 Всі", "📊 Статистика"]
-    ],
-    resize_keyboard=True
-)
-
-# ==============================
-# 🤖 BASIC COMMANDS
-# ==============================
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "👋 Привіт! Обери фільтр або команду 👇",
-        reply_markup=KEYBOARD
-    )
-
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = get_db()
-    rows = conn.execute("SELECT * FROM employees").fetchall()
-    conn.close()
-
-    total = len(rows)
-    knife_yes = sum(1 for r in rows if r["knife"] == 1)
-    knife_no = total - knife_yes
-    locker_yes = sum(1 for r in rows if has_locker(r["locker"]))
-    locker_no = total - locker_yes
-
-    await update.message.reply_text(
-        f"📊 Статистика:\n\n"
-        f"👥 Всього: {total}\n\n"
-        f"🔪 З ножем: {knife_yes}\n"
-        f"🚫 Без ножа: {knife_no}\n\n"
-        f"🗄️ З шафкою: {locker_yes}\n"
-        f"❌ Без шафки: {locker_no}"
-    )
-
-async def all_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = get_db()
-    rows = conn.execute("SELECT surname FROM employees").fetchall()
-    conn.close()
-
-    if not rows:
-        await update.message.reply_text("❌ Немає даних")
-        return
-
-    await update.message.reply_text(
-        "👥 Всі:\n\n" + "\n".join(r["surname"] for r in rows)
-    )
-
-async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = get_db()
-    rows = conn.execute("SELECT surname FROM employees WHERE knife = 1").fetchall()
-    conn.close()
-
-    if not rows:
-        await update.message.reply_text("❌ Немає даних")
-        return
-
-    await update.message.reply_text(
-        "🔪 З ножем:\n\n" + "\n".join(r["surname"] for r in rows)
-    )
-
-async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = get_db()
-    rows = conn.execute("SELECT surname FROM employees WHERE knife = 0").fetchall()
-    conn.close()
-
-    if not rows:
-        await update.message.reply_text("❌ Немає даних")
-        return
-
-    await update.message.reply_text(
-        "🚫 Без ножа:\n\n" + "\n".join(r["surname"] for r in rows)
-    )
-
-async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = get_db()
-    rows = conn.execute("SELECT surname, locker FROM employees WHERE locker IS NOT NULL AND locker != '-'").fetchall()
-    conn.close()
-
-    if not rows:
-        await update.message.reply_text("❌ Немає даних")
-        return
-
-    await update.message.reply_text(
-        "🗄️ З шафкою:\n\n" +
-        "\n".join(f"{r['surname']} — {r['locker']}" for r in rows)
-    )
-
-async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = get_db()
-    rows = conn.execute("SELECT surname FROM employees WHERE locker IS NULL OR locker = '-'").fetchall()
-    conn.close()
-
-    if not rows:
-        await update.message.reply_text("❌ Немає даних")
-        return
-
-    await update.message.reply_text(
-        "❌ Без шафки:\n\n" + "\n".join(r["surname"] for r in rows)
-    )
-
-# ==============================
-# ➕ ADD EMPLOYEE
-# ==============================
-
-ADD_SURNAME, ADD_KNIFE, ADD_LOCKER = range(3)
-
-async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Введи прізвище:")
-    return ADD_SURNAME
-
-async def add_surname(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["surname"] = update.message.text.strip()
-    await update.message.reply_text("Ніж? (так / ні)")
-    return ADD_KNIFE
-
-async def add_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["knife"] = 1 if is_yes(update.message.text) else 0
-    await update.message.reply_text("Шафка? (номер або -)")
-    return ADD_LOCKER
-
-async def add_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    locker = update.message.text.strip()
-    conn = get_db()
-    conn.execute(
-        "INSERT INTO employees (surname, knife, locker) VALUES (?, ?, ?)",
-        (context.user_data["surname"], context.user_data["knife"], locker)
-    )
-    conn.commit()
-    conn.close()
-
-    await update.message.reply_text("✅ Працівника додано")
-    return ConversationHandler.END
-
-# ==============================
-# ✏️ RENAME
-# ==============================
-
-RENAME_OLD, RENAME_NEW = range(2)
-
-async def rename_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Старе прізвище:")
-    return RENAME_OLD
-
-async def rename_old(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["old"] = update.message.text.strip()
-    await update.message.reply_text("Нове прізвище:")
-    return RENAME_NEW
-
-async def rename_new(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    conn = get_db()
-    conn.execute(
-        "UPDATE employees SET surname = ? WHERE surname = ?",
-        (update.message.text.strip(), context.user_data["old"])
-    )
-    conn.commit()
-    conn.close()
-
-    await update.message.reply_text("✅ Прізвище оновлено")
-    return ConversationHandler.END
-
-# ==============================
-# 🌐 KEEP ALIVE
-# ==============================
-
+# ======================
+# RENDER KEEP ALIVE
+# ======================
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"OK")
 
-def run_health_server():
+def run_healthcheck():
     HTTPServer(("0.0.0.0", 10000), HealthHandler).serve_forever()
 
-# ==============================
-# 🚀 MAIN
-# ==============================
+# ======================
+# HELPERS
+# ======================
+def keyboard():
+    return ReplyKeyboardMarkup(
+        [
+            ["🗡 З ножем", "🚫 Без ножа"],
+            ["🗄 З шафкою", "❌ Без шафки"],
+            ["👥 Всі", "📊 Статистика"],
+        ],
+        resize_keyboard=True,
+    )
 
-def main():
+def format_workers(rows, show_locker=False):
+    if not rows:
+        return "❌ Немає даних"
+    text = ""
+    for r in rows:
+        if show_locker:
+            text += f"• {r['surname']} — {r['locker']}\n"
+        else:
+            text += f"• {r['surname']}\n"
+    return text
+
+# ======================
+# COMMANDS
+# ======================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Привіт! Обери фільтр або команду 👇",
+        reply_markup=keyboard(),
+    )
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    with get_db() as db:
+        total = db.execute("SELECT COUNT(*) FROM workers").fetchone()[0]
+        knife = db.execute("SELECT COUNT(*) FROM workers WHERE knife=1").fetchone()[0]
+        no_knife = db.execute("SELECT COUNT(*) FROM workers WHERE knife=0").fetchone()[0]
+        locker = db.execute("SELECT COUNT(*) FROM workers WHERE locker!='-'").fetchone()[0]
+        no_locker = db.execute("SELECT COUNT(*) FROM workers WHERE locker='-'").fetchone()[0]
+
+    await update.message.reply_text(
+        f"📊 Статистика:\n\n"
+        f"👥 Всього: {total}\n"
+        f"🗡 З ножем: {knife}\n"
+        f"🚫 Без ножа: {no_knife}\n"
+        f"🗄 З шафкою: {locker}\n"
+        f"❌ Без шафки: {no_locker}"
+    )
+
+async def add_worker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        surname, knife, locker = context.args
+        knife = int(knife)
+        with get_db() as db:
+            db.execute(
+                "INSERT INTO workers (surname, knife, locker) VALUES (?, ?, ?)",
+                (surname, knife, locker),
+            )
+        await update.message.reply_text("✅ Працівника додано")
+    except Exception as e:
+        await update.message.reply_text("❌ Помилка додавання")
+
+async def rename_worker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        old, new = context.args
+        with get_db() as db:
+            db.execute(
+                "UPDATE workers SET surname=? WHERE surname=?",
+                (new, old),
+            )
+        await update.message.reply_text("✅ Прізвище змінено")
+    except:
+        await update.message.reply_text("❌ Помилка")
+
+async def delete_worker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        surname = context.args[0]
+        with get_db() as db:
+            db.execute("DELETE FROM workers WHERE surname=?", (surname,))
+        await update.message.reply_text("🗑 Видалено")
+    except:
+        await update.message.reply_text("❌ Помилка")
+
+async def list_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    with get_db() as db:
+        rows = db.execute("SELECT * FROM workers").fetchall()
+    await update.message.reply_text(format_workers(rows))
+
+# ======================
+# BUTTON HANDLER
+# ======================
+async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    with get_db() as db:
+        if "З ножем" in text:
+            rows = db.execute("SELECT * FROM workers WHERE knife=1").fetchall()
+            await update.message.reply_text(format_workers(rows))
+        elif "Без ножа" in text:
+            rows = db.execute("SELECT * FROM workers WHERE knife=0").fetchall()
+            await update.message.reply_text(format_workers(rows))
+        elif "З шафкою" in text:
+            rows = db.execute("SELECT * FROM workers WHERE locker!='-'").fetchall()
+            await update.message.reply_text(format_workers(rows, True))
+        elif "Без шафки" in text:
+            rows = db.execute("SELECT * FROM workers WHERE locker='-'").fetchall()
+            await update.message.reply_text(format_workers(rows))
+        elif "Всі" in text:
+            rows = db.execute("SELECT * FROM workers").fetchall()
+            await update.message.reply_text(format_workers(rows))
+        elif "Статистика" in text:
+            await stats(update, context)
+
+# ======================
+# MAIN
+# ======================
+if __name__ == "__main__":
     init_db()
-    threading.Thread(target=run_health_server, daemon=True).start()
 
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    threading.Thread(target=run_healthcheck, daemon=True).start()
+
+    app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CommandHandler("add", add_worker))
+    app.add_handler(CommandHandler("rename", rename_worker))
+    app.add_handler(CommandHandler("delete", delete_worker))
+    app.add_handler(CommandHandler("list", list_all))
 
-    app.add_handler(MessageHandler(filters.Regex("^🔪"), knife_list))
-    app.add_handler(MessageHandler(filters.Regex("^🚫"), no_knife_list))
-    app.add_handler(MessageHandler(filters.Regex("^🗄️"), locker_list))
-    app.add_handler(MessageHandler(filters.Regex("^❌"), no_locker_list))
-    app.add_handler(MessageHandler(filters.Regex("^👥"), all_list))
-    app.add_handler(MessageHandler(filters.Regex("^📊"), stats))
-
-    app.add_handler(ConversationHandler(
-        entry_points=[CommandHandler("add", add_start)],
-        states={
-            ADD_SURNAME: [MessageHandler(filters.TEXT, add_surname)],
-            ADD_KNIFE: [MessageHandler(filters.TEXT, add_knife)],
-            ADD_LOCKER: [MessageHandler(filters.TEXT, add_locker)],
-        },
-        fallbacks=[]
-    ))
-
-    app.add_handler(ConversationHandler(
-        entry_points=[CommandHandler("rename", rename_start)],
-        states={
-            RENAME_OLD: [MessageHandler(filters.TEXT, rename_old)],
-            RENAME_NEW: [MessageHandler(filters.TEXT, rename_new)],
-        },
-        fallbacks=[]
-    ))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, buttons))
 
     app.run_polling()
-
-if __name__ == "__main__":
-    main()

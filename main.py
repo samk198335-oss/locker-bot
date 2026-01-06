@@ -1,19 +1,14 @@
 import os
 import csv
 import time
+import sqlite3
 import threading
 import requests
 from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters
-)
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # ==============================
 # 🔧 CONFIG
@@ -22,68 +17,100 @@ from telegram.ext import (
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
-CACHE_TTL = 300  # 5 хвилин
+
+DB_PATH = "data.db"
+
+ADMINS = {"admin_username_1", "admin_username_2"}
 
 # ==============================
-# 🔁 CSV CACHE
+# 🗄️ DATABASE
 # ==============================
 
-_csv_cache = {"data": [], "time": 0}
+def get_db():
+    return sqlite3.connect(DB_PATH)
 
 
-def load_csv():
-    now = time.time()
+def init_db():
+    db = get_db()
+    cur = db.cursor()
 
-    if _csv_cache["data"] and now - _csv_cache["time"] < CACHE_TTL:
-        return _csv_cache["data"]
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS workers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            address TEXT,
+            surname TEXT UNIQUE,
+            knife TEXT,
+            locker TEXT
+        )
+    """)
+
+    db.commit()
+    db.close()
+
+
+def db_is_empty():
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("SELECT COUNT(*) FROM workers")
+    count = cur.fetchone()[0]
+    db.close()
+    return count == 0
+
+
+# ==============================
+# 🔁 CSV → SQLITE (ONE TIME)
+# ==============================
+
+def import_csv_once():
+    if not db_is_empty():
+        return
 
     response = requests.get(CSV_URL, timeout=10)
     response.encoding = "utf-8"
 
     reader = csv.DictReader(StringIO(response.text))
-    data = list(reader)
+    rows = list(reader)
 
-    _csv_cache["data"] = data
-    _csv_cache["time"] = now
-    return data
+    db = get_db()
+    cur = db.cursor()
+
+    for r in rows:
+        cur.execute("""
+            INSERT OR IGNORE INTO workers (address, surname, knife, locker)
+            VALUES (?, ?, ?, ?)
+        """, (
+            r.get("Address", "").strip(),
+            r.get("surname", "").strip(),
+            r.get("knife", "").strip(),
+            r.get("locker", "").strip()
+        ))
+
+    db.commit()
+    db.close()
 
 
 # ==============================
-# 🧠 SAFE COLUMN ACCESS
+# 🧠 HELPERS
 # ==============================
-
-def get_value(row: dict, field_name: str) -> str:
-    field_name = field_name.strip().lower()
-    for key, value in row.items():
-        if key and key.strip().lower() == field_name:
-            return (value or "").strip()
-    return ""
-
 
 def is_yes(value: str) -> bool:
-    if not value:
-        return False
     return value.strip().lower() in ("1", "yes", "y", "так", "є", "true", "+")
 
 
 def has_locker(value: str) -> bool:
-    if not value:
-        return False
-    return value.strip().lower() not in ("-", "ні", "no", "0")
+    return value.strip().lower() not in ("", "-", "ні", "no", "0")
 
 
-# ==============================
-# 📋 KEYBOARD
-# ==============================
+def is_admin(update: Update) -> bool:
+    return update.effective_user.username in ADMINS
 
-KEYBOARD = ReplyKeyboardMarkup(
-    [
-        ["🔪 З ножем", "🚫 Без ножа"],
-        ["🗄️ З шафкою", "❌ Без шафки"],
-        ["👥 Всі", "📊 Статистика"]
-    ],
-    resize_keyboard=True
-)
+
+def fetch_all():
+    db = get_db()
+    db.row_factory = sqlite3.Row
+    rows = db.execute("SELECT * FROM workers").fetchall()
+    db.close()
+    return rows
 
 
 # ==============================
@@ -92,24 +119,29 @@ KEYBOARD = ReplyKeyboardMarkup(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Привіт! Обери фільтр або команду 👇",
-        reply_markup=KEYBOARD
+        "👋 Привіт!\n\n"
+        "Доступні команди:\n"
+        "/stats\n"
+        "/locker_list\n"
+        "/no_locker_list\n"
+        "/knife_list\n"
+        "/no_knife_list"
     )
 
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
+    rows = fetch_all()
 
     total = len(rows)
     knife_yes = knife_no = locker_yes = locker_no = 0
 
     for r in rows:
-        if is_yes(get_value(r, "knife")):
+        if is_yes(r["knife"]):
             knife_yes += 1
         else:
             knife_no += 1
 
-        if has_locker(get_value(r, "locker")):
+        if has_locker(r["locker"]):
             locker_yes += 1
         else:
             locker_no += 1
@@ -124,70 +156,105 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def all_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    result = [get_value(r, "surname") for r in rows if get_value(r, "surname")]
-
-    await update.message.reply_text("👥 Всі:\n\n" + "\n".join(result))
-
-
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    result = []
+    rows = fetch_all()
+    result = [
+        f"{r['surname']} — {r['locker']}"
+        for r in rows
+        if r["surname"] and has_locker(r["locker"])
+    ]
 
-    for r in rows:
-        surname = get_value(r, "surname")
-        locker = get_value(r, "locker")
-        if surname and has_locker(locker):
-            result.append(f"{surname} — {locker}")
-
-    await update.message.reply_text("🗄️ З шафкою:\n\n" + "\n".join(result))
+    await update.message.reply_text(
+        "🗄️ З шафкою:\n\n" + "\n".join(result) if result else "❌ Немає даних"
+    )
 
 
 async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    result = [get_value(r, "surname") for r in rows if not has_locker(get_value(r, "locker"))]
+    rows = fetch_all()
+    result = [
+        r["surname"]
+        for r in rows
+        if r["surname"] and not has_locker(r["locker"])
+    ]
 
-    await update.message.reply_text("❌ Без шафки:\n\n" + "\n".join(result))
+    await update.message.reply_text(
+        "❌ Без шафки:\n\n" + "\n".join(result) if result else "❌ Немає даних"
+    )
 
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    result = [get_value(r, "surname") for r in rows if is_yes(get_value(r, "knife"))]
+    rows = fetch_all()
+    result = [r["surname"] for r in rows if is_yes(r["knife"])]
 
-    await update.message.reply_text("🔪 З ножем:\n\n" + "\n".join(result))
+    await update.message.reply_text(
+        "🔪 З ножем:\n\n" + "\n".join(result) if result else "❌ Немає даних"
+    )
 
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    result = [get_value(r, "surname") for r in rows if not is_yes(get_value(r, "knife"))]
+    rows = fetch_all()
+    result = [r["surname"] for r in rows if not is_yes(r["knife"])]
 
-    await update.message.reply_text("🚫 Без ножа:\n\n" + "\n".join(result))
-
-
-# ==============================
-# 🎛️ FILTER HANDLER (КЛЮЧОВЕ!)
-# ==============================
-
-async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-
-    if text == "🔪 З ножем":
-        await knife_list(update, context)
-    elif text == "🚫 Без ножа":
-        await no_knife_list(update, context)
-    elif text == "🗄️ З шафкою":
-        await locker_list(update, context)
-    elif text == "❌ Без шафки":
-        await no_locker_list(update, context)
-    elif text == "👥 Всі":
-        await all_list(update, context)
-    elif text == "📊 Статистика":
-        await stats(update, context)
+    await update.message.reply_text(
+        "🚫 Без ножа:\n\n" + "\n".join(result) if result else "❌ Немає даних"
+    )
 
 
 # ==============================
-# 🌐 RENDER KEEP ALIVE
+# 🔐 ADMIN COMMANDS
+# ==============================
+
+async def replace(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return await update.message.reply_text("⛔ Немає доступу")
+
+    if len(context.args) != 2:
+        return await update.message.reply_text("Формат:\n/replace СтареПрізвище НовеПрізвище")
+
+    old, new = context.args
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("UPDATE workers SET surname=? WHERE surname=?", (new, old))
+    db.commit()
+    db.close()
+
+    await update.message.reply_text("✅ Прізвище оновлено")
+
+
+async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update):
+        return await update.message.reply_text("⛔ Немає доступу")
+
+    if not context.args:
+        return await update.message.reply_text(
+            "Формат:\n/add Прізвище knife=1 locker=25"
+        )
+
+    surname = context.args[0]
+    knife = ""
+    locker = ""
+
+    for arg in context.args[1:]:
+        if arg.startswith("knife="):
+            knife = arg.split("=")[1]
+        if arg.startswith("locker="):
+            locker = arg.split("=")[1]
+
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("""
+        INSERT INTO workers (surname, knife, locker)
+        VALUES (?, ?, ?)
+    """, (surname, knife, locker))
+    db.commit()
+    db.close()
+
+    await update.message.reply_text("✅ Працівника додано")
+
+
+# ==============================
+# 🌐 KEEP ALIVE
 # ==============================
 
 class HealthHandler(BaseHTTPRequestHandler):
@@ -206,6 +273,9 @@ def run_health_server():
 # ==============================
 
 def main():
+    init_db()
+    import_csv_once()
+
     threading.Thread(target=run_health_server, daemon=True).start()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
@@ -217,7 +287,8 @@ def main():
     app.add_handler(CommandHandler("knife_list", knife_list))
     app.add_handler(CommandHandler("no_knife_list", no_knife_list))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_filters))
+    app.add_handler(CommandHandler("replace", replace))
+    app.add_handler(CommandHandler("add", add))
 
     app.run_polling()
 

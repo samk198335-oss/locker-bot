@@ -48,21 +48,33 @@ def load_csv():
 
 
 # ==============================
-# 🧠 HELPERS
+# 🧠 SAFE COLUMN ACCESS
 # ==============================
+
+def get_value(row: dict, field_name: str) -> str:
+    """
+    Безпечне отримання значення з CSV:
+    ігнорує регістр, пробіли, BOM-символи
+    """
+    field_name = field_name.strip().lower()
+
+    for key, value in row.items():
+        if key and key.strip().lower() == field_name:
+            return (value or "").strip()
+
+    return ""
+
 
 def is_yes(value: str) -> bool:
     if not value:
         return False
-    v = value.strip().lower()
-    return v in ("1", "yes", "y", "так", "є", "true", "+")
+    return value.strip().lower() in ("1", "yes", "y", "так", "є", "true", "+")
 
 
 def has_locker(value: str) -> bool:
     if not value:
         return False
-    v = value.strip().lower()
-    return v not in ("-", "ні", "no", "0")
+    return value.strip().lower() not in ("-", "ні", "no", "0")
 
 
 # ==============================
@@ -91,17 +103,17 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     locker_no = 0
 
     for r in rows:
-        if is_yes(r.get("knife", "")):
+        if is_yes(get_value(r, "knife")):
             knife_yes += 1
         else:
             knife_no += 1
 
-        if has_locker(r.get("locker", "")):
+        if has_locker(get_value(r, "locker")):
             locker_yes += 1
         else:
             locker_no += 1
 
-    text = (
+    await update.message.reply_text(
         f"📊 Статистика:\n\n"
         f"👥 Всього: {total}\n\n"
         f"🔪 З ножем: {knife_yes}\n"
@@ -110,11 +122,9 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"❌ Без шафки: {locker_no}"
     )
 
-    await update.message.reply_text(text)
-
 
 # ==============================
-# 🗄️ LOCKERS
+# 🗄️ LOCKERS — FIXED
 # ==============================
 
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -122,13 +132,10 @@ async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = []
 
     for r in rows:
-        surname = r.get("surname", "").strip()
-        locker = r.get("locker", "").strip()
+        surname = get_value(r, "surname")
+        locker = get_value(r, "locker")
 
-        if not surname:
-            continue
-
-        if locker and locker.lower() not in ("-", "ні", "no", "0"):
+        if surname and has_locker(locker):
             result.append(f"{surname} — {locker}")
 
     if not result:
@@ -145,14 +152,11 @@ async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = []
 
     for r in rows:
-        surname = r.get("surname", "").strip()
-        locker = r.get("locker", "").strip()
+        surname = get_value(r, "surname")
+        locker = get_value(r, "locker")
 
-        if not surname:
-            continue
-
-        if not locker or locker.lower() in ("-", "ні", "no", "0"):
-            result.append(f"{surname}")
+        if surname and not has_locker(locker):
+            result.append(surname)
 
     if not result:
         await update.message.reply_text("❌ Немає даних")
@@ -164,7 +168,7 @@ async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==============================
-# 🔪 KNIFE (ПОКИ БЕЗ ПРАВОК)
+# 🔪 KNIFE (ще без правок)
 # ==============================
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -172,8 +176,8 @@ async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = []
 
     for r in rows:
-        if is_yes(r.get("knife", "")):
-            result.append(r.get("surname", "").strip())
+        if is_yes(get_value(r, "knife")):
+            result.append(get_value(r, "surname"))
 
     if not result:
         await update.message.reply_text("❌ Немає даних")
@@ -187,8 +191,8 @@ async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     result = []
 
     for r in rows:
-        if not is_yes(r.get("knife", "")):
-            result.append(r.get("surname", "").strip())
+        if not is_yes(get_value(r, "knife")):
+            result.append(get_value(r, "surname"))
 
     if not result:
         await update.message.reply_text("❌ Немає даних")
@@ -210,8 +214,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 
 def run_health_server():
-    server = HTTPServer(("0.0.0.0", 10000), HealthHandler)
-    server.serve_forever()
+    HTTPServer(("0.0.0.0", 10000), HealthHandler).serve_forever()
 
 
 # ==============================

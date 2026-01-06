@@ -1,23 +1,194 @@
 import os
 import csv
+import time
 import threading
 import requests
 from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters
+)
 
-# =========================
-# CONFIG
-# =========================
+# ==============================
+# 🔧 CONFIG
+# ==============================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+CACHE_TTL = 300  # 5 хвилин
 
-# =========================
-# RENDER KEEP-ALIVE
-# =========================
+# ==============================
+# 🔁 CSV CACHE
+# ==============================
+
+_csv_cache = {"data": [], "time": 0}
+
+
+def load_csv():
+    now = time.time()
+
+    if _csv_cache["data"] and now - _csv_cache["time"] < CACHE_TTL:
+        return _csv_cache["data"]
+
+    response = requests.get(CSV_URL, timeout=10)
+    response.encoding = "utf-8"
+
+    reader = csv.DictReader(StringIO(response.text))
+    data = list(reader)
+
+    _csv_cache["data"] = data
+    _csv_cache["time"] = now
+    return data
+
+
+# ==============================
+# 🧠 SAFE COLUMN ACCESS
+# ==============================
+
+def get_value(row: dict, field_name: str) -> str:
+    field_name = field_name.strip().lower()
+    for key, value in row.items():
+        if key and key.strip().lower() == field_name:
+            return (value or "").strip()
+    return ""
+
+
+def is_yes(value: str) -> bool:
+    if not value:
+        return False
+    return value.strip().lower() in ("1", "yes", "y", "так", "є", "true", "+")
+
+
+def has_locker(value: str) -> bool:
+    if not value:
+        return False
+    return value.strip().lower() not in ("-", "ні", "no", "0")
+
+
+# ==============================
+# 📋 KEYBOARD
+# ==============================
+
+KEYBOARD = ReplyKeyboardMarkup(
+    [
+        ["🔪 З ножем", "🚫 Без ножа"],
+        ["🗄️ З шафкою", "❌ Без шафки"],
+        ["👥 Всі", "📊 Статистика"]
+    ],
+    resize_keyboard=True
+)
+
+
+# ==============================
+# 🤖 COMMANDS
+# ==============================
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Привіт! Обери фільтр або команду 👇",
+        reply_markup=KEYBOARD
+    )
+
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+
+    total = len(rows)
+    knife_yes = knife_no = locker_yes = locker_no = 0
+
+    for r in rows:
+        if is_yes(get_value(r, "knife")):
+            knife_yes += 1
+        else:
+            knife_no += 1
+
+        if has_locker(get_value(r, "locker")):
+            locker_yes += 1
+        else:
+            locker_no += 1
+
+    await update.message.reply_text(
+        f"📊 Статистика:\n\n"
+        f"👥 Всього: {total}\n\n"
+        f"🔪 З ножем: {knife_yes}\n"
+        f"🚫 Без ножа: {knife_no}\n\n"
+        f"🗄️ З шафкою: {locker_yes}\n"
+        f"❌ Без шафки: {locker_no}"
+    )
+
+
+async def all_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    result = [get_value(r, "surname") for r in rows if get_value(r, "surname")]
+
+    await update.message.reply_text("👥 Всі:\n\n" + "\n".join(result))
+
+
+async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    result = []
+
+    for r in rows:
+        surname = get_value(r, "surname")
+        locker = get_value(r, "locker")
+        if surname and has_locker(locker):
+            result.append(f"{surname} — {locker}")
+
+    await update.message.reply_text("🗄️ З шафкою:\n\n" + "\n".join(result))
+
+
+async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    result = [get_value(r, "surname") for r in rows if not has_locker(get_value(r, "locker"))]
+
+    await update.message.reply_text("❌ Без шафки:\n\n" + "\n".join(result))
+
+
+async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    result = [get_value(r, "surname") for r in rows if is_yes(get_value(r, "knife"))]
+
+    await update.message.reply_text("🔪 З ножем:\n\n" + "\n".join(result))
+
+
+async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    result = [get_value(r, "surname") for r in rows if not is_yes(get_value(r, "knife"))]
+
+    await update.message.reply_text("🚫 Без ножа:\n\n" + "\n".join(result))
+
+
+# ==============================
+# 🎛️ FILTER HANDLER (КЛЮЧОВЕ!)
+# ==============================
+
+async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+
+    if text == "🔪 З ножем":
+        await knife_list(update, context)
+    elif text == "🚫 Без ножа":
+        await no_knife_list(update, context)
+    elif text == "🗄️ З шафкою":
+        await locker_list(update, context)
+    elif text == "❌ Без шафки":
+        await no_locker_list(update, context)
+    elif text == "👥 Всі":
+        await all_list(update, context)
+    elif text == "📊 Статистика":
+        await stats(update, context)
+
+
+# ==============================
+# 🌐 RENDER KEEP ALIVE
+# ==============================
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -25,221 +196,31 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"OK")
 
+
 def run_health_server():
-    server = HTTPServer(("0.0.0.0", 10000), HealthHandler)
-    server.serve_forever()
+    HTTPServer(("0.0.0.0", 10000), HealthHandler).serve_forever()
 
-threading.Thread(target=run_health_server, daemon=True).start()
 
-# =========================
-# DATA LOADING
-# =========================
-
-def load_data():
-    resp = requests.get(CSV_URL, timeout=10)
-    resp.raise_for_status()
-    csv_file = StringIO(resp.text)
-    reader = csv.DictReader(csv_file)
-    return list(reader)
-
-# =========================
-# NORMALIZERS
-# =========================
-
-def has_knife(value: str) -> bool:
-    if not value:
-        return False
-    return value.strip() in ["1", "yes", "так", "+"]
-
-def has_locker(value: str) -> bool:
-    if not value:
-        return False
-    v = value.strip().lower()
-    return v not in ["-", "ні", "нема", "no", "нет", ""]
-
-# =========================
-# COMMANDS
-# =========================
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (
-        "👋 Привіт!\n\n"
-        "/stats\n"
-        "/locker_list\n"
-        "/no_locker_list\n"
-        "/knife_list\n"
-        "/no_knife_list\n"
-        "/find <прізвище>\n"
-        "/filter"
-    )
-    await update.message.reply_text(text)
-
-# -------------------------
-
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-
-    total = len(data)
-    knife_yes = sum(1 for r in data if has_knife(r.get("knife", "")))
-    knife_no = total - knife_yes
-
-    locker_yes = sum(1 for r in data if has_locker(r.get("locker", "")))
-    locker_no = total - locker_yes
-
-    text = (
-        f"📊 Статистика:\n\n"
-        f"Всього: {total}\n"
-        f"🔪 З ножем: {knife_yes}\n"
-        f"🚫 Без ножа: {knife_no}\n"
-        f"🗄 З шафкою: {locker_yes}\n"
-        f"❌ Без шафки: {locker_no}"
-    )
-
-    await update.message.reply_text(text)
-
-# -------------------------
-
-async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    rows = [r["surname"] for r in data if has_knife(r.get("knife", ""))]
-
-    await update.message.reply_text(
-        "\n".join(rows) if rows else "Немає даних"
-    )
-
-# -------------------------
-
-async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-    rows = [r["surname"] for r in data if not has_knife(r.get("knife", ""))]
-
-    await update.message.reply_text(
-        "\n".join(rows) if rows else "Немає даних"
-    )
-
-# -------------------------
-
-async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-
-    rows = [
-        f'{r["surname"]} — шафка {r["locker"]}'
-        for r in data
-        if has_locker(r.get("locker", ""))
-    ]
-
-    await update.message.reply_text(
-        "\n".join(rows) if rows else "Немає даних"
-    )
-
-# -------------------------
-
-async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    data = load_data()
-
-    rows = [
-        r["surname"]
-        for r in data
-        if not has_locker(r.get("locker", ""))
-    ]
-
-    await update.message.reply_text(
-        "\n".join(rows) if rows else "Немає даних"
-    )
-
-# -------------------------
-
-async def find_person(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("❗ Використання:\n/find <прізвище>")
-        return
-
-    query = " ".join(context.args).lower()
-    data = load_data()
-
-    results = []
-    for r in data:
-        if query in r["surname"].lower():
-            knife = "🔪" if has_knife(r.get("knife", "")) else "—"
-            locker = r["locker"] if has_locker(r.get("locker", "")) else "—"
-            results.append(
-                f'{r["surname"]} | ніж: {knife} | шафка: {locker}'
-            )
-
-    await update.message.reply_text(
-        "\n".join(results) if results else "Не знайдено"
-    )
-
-# =========================
-# FILTER MENU
-# =========================
-
-async def filter_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        ["🔪 З ножем", "🚫 Без ножа"],
-        ["🗄 З шафкою", "❌ Без шафки"],
-        ["👥 Всі"]
-    ]
-    await update.message.reply_text(
-        "🔍 Обери фільтр:",
-        reply_markup=ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    )
-
-# -------------------------
-
-async def filter_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    data = load_data()
-
-    if text == "🔪 З ножем":
-        rows = [r["surname"] for r in data if has_knife(r.get("knife", ""))]
-
-    elif text == "🚫 Без ножа":
-        rows = [r["surname"] for r in data if not has_knife(r.get("knife", ""))]
-
-    elif text == "🗄 З шафкою":
-        rows = [
-            f'{r["surname"]} — шафка {r["locker"]}'
-            for r in data
-            if has_locker(r.get("locker", ""))
-        ]
-
-    elif text == "❌ Без шафки":
-        rows = [
-            r["surname"]
-            for r in data
-            if not has_locker(r.get("locker", ""))
-        ]
-
-    elif text == "👥 Всі":
-        rows = [r["surname"] for r in data]
-
-    else:
-        return
-
-    await update.message.reply_text(
-        "\n".join(rows) if rows else "Немає даних"
-    )
-
-# =========================
-# MAIN
-# =========================
+# ==============================
+# 🚀 MAIN
+# ==============================
 
 def main():
+    threading.Thread(target=run_health_server, daemon=True).start()
+
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("stats", stats))
-    app.add_handler(CommandHandler("knife_list", knife_list))
-    app.add_handler(CommandHandler("no_knife_list", no_knife_list))
     app.add_handler(CommandHandler("locker_list", locker_list))
     app.add_handler(CommandHandler("no_locker_list", no_locker_list))
-    app.add_handler(CommandHandler("find", find_person))
-    app.add_handler(CommandHandler("filter", filter_menu))
+    app.add_handler(CommandHandler("knife_list", knife_list))
+    app.add_handler(CommandHandler("no_knife_list", no_knife_list))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, filter_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_filters))
 
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()

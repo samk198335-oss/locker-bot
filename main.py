@@ -3,12 +3,13 @@ import csv
 import re
 import shutil
 import threading
-from io import BytesIO
+from io import BytesIO, StringIO
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from telegram import Update
-from telegram import ReplyKeyboardMarkup
+import requests
+
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -41,10 +42,14 @@ threading.Thread(target=run_http_server, daemon=True).start()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Free: локальні файли (після redeploy стираються — тому робимо backup у Telegram)
+# Render Free: локальні файли тимчасові (після redeploy зникають),
+# тому робимо backup/restore через Telegram.
 DB_PATH = "base_data.csv"
 BACKUP_DIR = "backups"
 BACKUP_KEEP_LAST = int(os.getenv("BACKUP_KEEP_LAST", "200"))
+
+# Донор для аварійного /seed (тільки коли база порожня!)
+CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
 # Адміни (username без @). Якщо пусто — адмін-перевірка вимкнена (НЕ РЕКОМЕНДУЮ).
 ADMIN_USERNAMES = set(filter(None, [
@@ -121,8 +126,9 @@ def require_admin(func):
 
 def register_admin_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    На Free це не персиститься між деплоями — адмінам треба хоч раз написати /start після деплою,
-    щоб бот знав, куди слати autobackup.
+    На Free bot_data не персиститься між деплоями.
+    Тому адмінам треба хоч раз написати /start після деплою,
+    щоб бот знав, куди слати авто-backup.
     """
     if not is_admin(update):
         return
@@ -188,7 +194,7 @@ def knife_label(v: str) -> str:
     return "❓"
 
 # ==============================
-# ✅ CANON DISPLAY
+# ✅ CANON DISPLAY (підміна тільки для канонічних у "Всі")
 # ==============================
 
 def build_canonical_map(all_rows: list[dict]) -> dict:
@@ -298,7 +304,7 @@ def dedupe_keep_last(rows: list[dict]) -> list[dict]:
         k = canon_key(s)
         if k not in best:
             order.append(k)
-        best[k] = r
+        best[k] = r  # останній виграє
     return [best[k] for k in order]
 
 def active_rows_unique() -> list[dict]:
@@ -396,6 +402,54 @@ async def notify_admins_backup(context: ContextTypes.DEFAULT_TYPE, reason: str):
         pass
 
 # ==============================
+# 🔄 SEED FROM GOOGLE (тільки якщо база порожня)
+# ==============================
+
+def fetch_google_rows() -> list[dict]:
+    r = requests.get(CSV_URL, timeout=20)
+    r.raise_for_status()
+    r.encoding = "utf-8"
+    f = StringIO(r.text)
+
+    reader = csv.DictReader(f)
+    rows = []
+    for row in reader:
+        surname = _safe_strip(row.get("surname", ""))
+        if not surname:
+            continue
+        rows.append({
+            "Address": row.get("Address", ""),
+            "surname": surname,
+            "knife": row.get("knife", ""),
+            "locker": row.get("locker", ""),
+            "deleted": "0",
+        })
+    return rows
+
+@require_admin
+async def seed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_admin_chat(update, context)
+
+    # захист: seed тільки коли база порожня
+    if len(active_rows_unique()) > 0:
+        await update.message.reply_text("❌ Seed заборонений. База вже не порожня.", reply_markup=MAIN_KB)
+        return
+
+    try:
+        src = fetch_google_rows()
+        if not src:
+            raise RuntimeError("Google CSV порожній або не має колонок surname/Address/knife/locker")
+
+        src = dedupe_keep_last(src)
+        write_db_rows_atomic(src)
+
+        await update.message.reply_text(f"✅ Базу відновлено з Google.\nЗаписів: {len(src)}", reply_markup=MAIN_KB)
+        await notify_admins_backup(context, "seed")
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Помилка seed: {e}", reply_markup=MAIN_KB)
+
+# ==============================
 # 📨 LISTS / STATS
 # ==============================
 
@@ -441,7 +495,7 @@ async def list_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = active_rows_unique()
     canon_map = build_canonical_map(rows)
 
-    names = [display_name(r.get("surname",""), canon_map) for r in rows]
+    names = [display_name(r.get("surname", ""), canon_map) for r in rows]
     names = [n for n in names if n]
     names.sort()
 
@@ -453,10 +507,10 @@ async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     items = []
     for r in rows:
-        locker = normalize_locker(r.get("locker",""))
+        locker = normalize_locker(r.get("locker", ""))
         if locker is None:
             continue
-        name = display_name(r.get("surname",""), canon_map)
+        name = display_name(r.get("surname", ""), canon_map)
         items.append(f"{name} — {locker}")
 
     items.sort()
@@ -468,9 +522,9 @@ async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     items = []
     for r in rows:
-        if normalize_locker(r.get("locker","")) is not None:
+        if normalize_locker(r.get("locker", "")) is not None:
             continue
-        items.append(display_name(r.get("surname",""), canon_map))
+        items.append(display_name(r.get("surname", ""), canon_map))
 
     items = [x for x in items if x]
     items.sort()
@@ -482,9 +536,9 @@ async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     items = []
     for r in rows:
-        if parse_knife(r.get("knife","")) != 1:
+        if parse_knife(r.get("knife", "")) != 1:
             continue
-        items.append(display_name(r.get("surname",""), canon_map))
+        items.append(display_name(r.get("surname", ""), canon_map))
 
     items = [x for x in items if x]
     items.sort()
@@ -496,9 +550,9 @@ async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     items = []
     for r in rows:
-        if parse_knife(r.get("knife","")) != 0:
+        if parse_knife(r.get("knife", "")) != 0:
             continue
-        items.append(display_name(r.get("surname",""), canon_map))
+        items.append(display_name(r.get("surname", ""), canon_map))
 
     items = [x for x in items if x]
     items.sort()
@@ -536,17 +590,16 @@ async def search_results(update: Update, context: ContextTypes.DEFAULT_TYPE, que
         await update.message.reply_text("Нічого не знайдено 🤷", reply_markup=MAIN_KB)
         return
 
-    # щоб не вбити телеграм довжелезним текстом
     found = found[:30]
     await update.message.reply_text("🔎 Результати:\n\n" + "\n".join(found), reply_markup=MAIN_KB)
 
 @require_admin
 async def search_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_admin_chat(update, context)
     context.user_data["mode"] = "search_query"
     await update.message.reply_text("🔎 Введи частину ПІБ для пошуку (мін. 2 символи):", reply_markup=CANCEL_KB)
 
 async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # /find текст
     q = " ".join(context.args) if context.args else ""
     await search_results(update, context, q)
 
@@ -604,8 +657,7 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f.write(data)
         os.replace(tmp, DB_PATH)
 
-        # валідація: прочитати
-        _ = read_db_rows()
+        _ = read_db_rows()  # валідація читання
         backup_db("after_restore")
 
         context.user_data["mode"] = None
@@ -737,7 +789,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ Не знайдено в базі. Введи ПІБ точно як у списку або скасуй.", reply_markup=CANCEL_KB)
             return
         context.user_data["tmp_edit"] = {
-            "old_key": canon_key(emp.get("surname","")),
+            "old_key": canon_key(emp.get("surname", "")),
             "current": emp,
         }
         context.user_data["mode"] = MODE_EDIT_NEW_NAME
@@ -751,7 +803,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tmp = context.user_data.get("tmp_edit") or {}
         current = tmp.get("current") or {}
         if text == "-":
-            new_name = _safe_strip(current.get("surname",""))
+            new_name = _safe_strip(current.get("surname", ""))
         else:
             if not looks_like_canonical_upper_latin(text):
                 await update.message.reply_text(
@@ -774,7 +826,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tmp = context.user_data.get("tmp_edit") or {}
         current = tmp.get("current") or {}
         if text == "-":
-            new_locker = _safe_strip(current.get("locker",""))
+            new_locker = _safe_strip(current.get("locker", ""))
         else:
             new_locker = normalize_locker(text) or ""
         tmp["new_locker"] = new_locker
@@ -788,7 +840,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         current = tmp.get("current") or {}
 
         if text == KNIFE_KEEP:
-            knife_val = _safe_strip(current.get("knife",""))
+            knife_val = _safe_strip(current.get("knife", ""))
         elif text == KNIFE_YES:
             knife_val = "1"
         elif text == KNIFE_NO:
@@ -799,15 +851,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Обери кнопку 👇", reply_markup=KNIFE_KB)
             return
 
-        old_key = tmp.get("old_key","")
-        new_surname = tmp.get("new_surname", _safe_strip(current.get("surname","")))
-        new_locker = tmp.get("new_locker", _safe_strip(current.get("locker","")))
-        address = _safe_strip(current.get("Address",""))
+        old_key = tmp.get("old_key", "")
+        new_surname = tmp.get("new_surname", _safe_strip(current.get("surname", "")))
+        new_locker = tmp.get("new_locker", _safe_strip(current.get("locker", "")))
+        address = _safe_strip(current.get("Address", ""))
 
         if canon_key(new_surname) == old_key:
             upsert_employee(surname=new_surname, locker=new_locker, knife=knife_val, address=address)
         else:
-            soft_delete_employee(_safe_strip(current.get("surname","")))
+            soft_delete_employee(_safe_strip(current.get("surname", "")))
             upsert_employee(surname=new_surname, locker=new_locker, knife=knife_val, address=address)
 
         await notify_admins_backup(context, "edit")
@@ -836,7 +888,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == MODE_DELETE_CONFIRM:
         tmp = context.user_data.get("tmp_delete") or {}
-        name = tmp.get("name","")
+        name = tmp.get("name", "")
         if text.upper() != "YES":
             await update.message.reply_text("Не підтверджено. Напиши YES або скасуй.", reply_markup=CANCEL_KB)
             return
@@ -906,6 +958,9 @@ def main():
     app.add_handler(CommandHandler("backup", backup_command))
     app.add_handler(CommandHandler("restore", restore_command))
     app.add_handler(CommandHandler("find", find_command))
+
+    # аварійне відновлення з Google (тільки коли база порожня)
+    app.add_handler(CommandHandler("seed", seed_command))
 
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))

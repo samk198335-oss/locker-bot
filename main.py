@@ -31,11 +31,11 @@ CACHE_TTL = 300  # 5 хв
 LOCAL_DATA_FILE = os.getenv("LOCAL_DATA_FILE", "local_data.csv")   # додані працівники
 LOCAL_OPS_FILE = os.getenv("LOCAL_OPS_FILE", "local_ops.csv")      # локальні правила (rename/set)
 
-# Render Free keep-alive (optional)
+# Render Free keep-alive (optional): https://your-service.onrender.com
 SELF_PING_URL = os.getenv("SELF_PING_URL", "").strip()
 
 # ==============================
-# ✅ CANONICAL (ETALON) NAMES (LATIN)
+# ✅ CANONICAL (ETALON) NAMES (LATIN) — 57
 # ==============================
 
 CANONICAL_NAMES = [
@@ -97,6 +97,18 @@ CANONICAL_NAMES = [
     "ZHUKOV VITALII",
     "HONCHARYK TATSIANA",
 ]
+
+# ==============================
+# ✅ MANUAL SAFE ALIASES
+# (ці працівники є в еталоні, але написані "по-іншому")
+# ==============================
+
+MANUAL_ALIASES = {
+    "Шкуринська Наталия": "SHKURYNSKA NATALIIA",
+    "Юлія Самолюк": "SAMOLIUK YULIIA",
+    "Yuliya Havrylyuk": "HAVRYLIUK YULIIA",
+    "Таня Писанець": "PYSANETS TETIANA",
+}
 
 # ==============================
 # 🔁 CACHE
@@ -283,11 +295,8 @@ def apply_ops(rows: list, ops: list) -> list:
             for r in rows:
                 if same_name(get_value(r, "surname"), target):
                     if knife != "":
-                        # "-" = очистити / невідомо
                         set_value(r, "knife", "" if knife == "-" else knife)
-
                     if locker != "":
-                        # "-" = прибрати шафку
                         set_value(r, "locker", "" if locker in ("-", "—") else locker)
             continue
 
@@ -681,16 +690,23 @@ async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE)
     not_in_list = []
     skipped = []
 
-    # Жорсткі пороги для fuzzy, щоб не було дурних підстановок
     MIN_SCORE = 0.90
     MIN_GAP = 0.06
 
     for s in surnames:
-        # already canonical
+        # ✅ 1) manual aliases first
+        if s in MANUAL_ALIASES:
+            best = MANUAL_ALIASES[s]
+            append_op(op="rename", target=s, new_surname=best)
+            applied.append((s, best, 1.0))
+            continue
+
+        # ✅ 2) already canonical
         if canon_norm_for_match(s) in _CANON_UPPER:
             skipped.append(s)
             continue
 
+        # ✅ 3) smart match (safe only)
         best, best_score, second_score, mode = best_canonical_match(s)
 
         if mode == "token_exact":
@@ -702,7 +718,6 @@ async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE)
             append_op(op="rename", target=s, new_surname=best)
             applied.append((s, best, best_score))
         else:
-            # якщо схожість дуже низька — це скоріше НЕ зі списку 57
             if (not best) or best_score < 0.75:
                 not_in_list.append(s)
             else:
@@ -749,7 +764,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = normalize_text(update.message.text)
     flow = context.user_data.get("flow")
 
-    # flows
     if flow == "add":
         await add_handle(update, context)
         return
@@ -763,7 +777,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_knife_handle(update, context)
         return
 
-    # menu
     if text == "🔪 З ножем":
         await knife_list(update, context)
     elif text == "🚫 Без ножа":
@@ -819,7 +832,7 @@ def ping_loop():
             requests.get(url, timeout=10)
         except Exception:
             pass
-        time.sleep(12 * 60)  # кожні 12 хв
+        time.sleep(12 * 60)
 
 
 # ==============================

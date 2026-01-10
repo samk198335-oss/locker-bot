@@ -29,7 +29,7 @@ CSV_URL = os.getenv("CSV_URL", DEFAULT_CSV_URL).strip()
 CACHE_TTL = 300  # 5 хв
 
 LOCAL_DATA_FILE = os.getenv("LOCAL_DATA_FILE", "local_data.csv")   # додані працівники
-LOCAL_OPS_FILE = os.getenv("LOCAL_OPS_FILE", "local_ops.csv")      # локальні правила (rename/set)
+LOCAL_OPS_FILE = os.getenv("LOCAL_OPS_FILE", "local_ops.csv")      # локальні правила (rename/set/hide)
 
 # Render Free keep-alive (optional): https://your-service.onrender.com
 SELF_PING_URL = os.getenv("SELF_PING_URL", "").strip()
@@ -100,7 +100,6 @@ CANONICAL_NAMES = [
 
 # ==============================
 # ✅ MANUAL SAFE ALIASES
-# (ці працівники є в еталоні, але написані "по-іншому")
 # ==============================
 
 MANUAL_ALIASES = {
@@ -109,6 +108,9 @@ MANUAL_ALIASES = {
     "Yuliya Havrylyuk": "HAVRYLIUK YULIIA",
     "Таня Писанець": "PYSANETS TETIANA",
 }
+
+# internal marker for hidden/deleted rows
+HIDDEN_FIELD = "__hidden"
 
 # ==============================
 # 🔁 CACHE
@@ -193,6 +195,10 @@ def same_name(a: str, b: str) -> bool:
     return norm_name(a) == norm_name(b)
 
 
+def is_hidden(row: dict) -> bool:
+    return get_value(row, HIDDEN_FIELD) in ("1", "true", "yes", "+")
+
+
 def knife_status(value: str) -> str:
     v = normalize_text(value)
     if v == "1":
@@ -273,6 +279,7 @@ def append_op(op: str, target: str, new_surname: str = "", knife: str = "", lock
 # ==============================
 
 def apply_ops(rows: list, ops: list) -> list:
+    # apply ops in order
     for op in ops:
         kind = norm_key(op.get("op", ""))
         target = normalize_text(op.get("target", ""))
@@ -298,6 +305,13 @@ def apply_ops(rows: list, ops: list) -> list:
                         set_value(r, "knife", "" if knife == "-" else knife)
                     if locker != "":
                         set_value(r, "locker", "" if locker in ("-", "—") else locker)
+            continue
+
+        if kind == "hide":
+            # local delete: hide rows from lists/stats
+            for r in rows:
+                if same_name(get_value(r, "surname"), target):
+                    set_value(r, HIDDEN_FIELD, "1")
             continue
 
     return rows
@@ -328,6 +342,10 @@ def load_csv():
     return data
 
 
+def visible_rows():
+    return [r for r in load_csv() if get_value(r, "surname") and not is_hidden(r)]
+
+
 # ==============================
 # 📋 KEYBOARDS
 # ==============================
@@ -339,7 +357,7 @@ KEYBOARD = ReplyKeyboardMarkup(
         ["👥 Всі", "📊 Статистика"],
         ["➕ Додати працівника"],
         ["✏️ Змінити прізвище", "🗄️ Редагувати шафку", "🔪 Редагувати ніж"],
-        ["🧾 Нормалізувати прізвища (Latin)"],
+        ["🧾 Нормалізувати прізвища (Latin)", "🗑️ Видалити працівника"],
     ],
     resize_keyboard=True
 )
@@ -355,6 +373,11 @@ EDIT_KNIFE_KB = ReplyKeyboardMarkup(
 )
 
 CANCEL_KB = ReplyKeyboardMarkup([["❌ Скасувати"]], resize_keyboard=True)
+
+DELETE_CONFIRM_KB = ReplyKeyboardMarkup(
+    [["✅ Так, видалити"], ["❌ Скасувати"]],
+    resize_keyboard=True
+)
 
 
 async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str = "✅ Готово. Обери дію 👇"):
@@ -372,7 +395,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [r for r in load_csv() if get_value(r, "surname")]
+    rows = visible_rows()
     total = len(rows)
 
     knife_yes = knife_no = knife_unknown = 0
@@ -405,38 +428,53 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def all_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
+    rows = visible_rows()
     result = [get_value(r, "surname") for r in rows if get_value(r, "surname")]
-    await update.message.reply_text("👥 Всі:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
+    await update.message.reply_text(
+        "👥 Всі:\n\n" + ("\n".join(result) if result else "Немає даних."),
+        reply_markup=KEYBOARD
+    )
 
 
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
+    rows = visible_rows()
     result = []
     for r in rows:
         surname = get_value(r, "surname")
         locker = get_value(r, "locker")
         if surname and has_locker(locker):
             result.append(f"{surname} — {locker}")
-    await update.message.reply_text("🗄️ З шафкою:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
+    await update.message.reply_text(
+        "🗄️ З шафкою:\n\n" + ("\n".join(result) if result else "Немає даних."),
+        reply_markup=KEYBOARD
+    )
 
 
 async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
+    rows = visible_rows()
     result = [get_value(r, "surname") for r in rows if get_value(r, "surname") and not has_locker(get_value(r, "locker"))]
-    await update.message.reply_text("❌ Без шафки:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
+    await update.message.reply_text(
+        "❌ Без шафки:\n\n" + ("\n".join(result) if result else "Немає даних."),
+        reply_markup=KEYBOARD
+    )
 
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
+    rows = visible_rows()
     result = [get_value(r, "surname") for r in rows if get_value(r, "surname") and knife_status(get_value(r, "knife")) == "yes"]
-    await update.message.reply_text("🔪 З ножем:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
+    await update.message.reply_text(
+        "🔪 З ножем:\n\n" + ("\n".join(result) if result else "Немає даних."),
+        reply_markup=KEYBOARD
+    )
 
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
+    rows = visible_rows()
     result = [get_value(r, "surname") for r in rows if get_value(r, "surname") and knife_status(get_value(r, "knife")) == "no"]
-    await update.message.reply_text("🚫 Без ножа:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
+    await update.message.reply_text(
+        "🚫 Без ножа:\n\n" + ("\n".join(result) if result else "Немає даних."),
+        reply_markup=KEYBOARD
+    )
 
 
 # ==============================
@@ -620,15 +658,54 @@ async def edit_knife_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==============================
+# 🗑️ DELETE (HIDE) EMPLOYEE
+# ==============================
+
+async def delete_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    context.user_data["flow"] = "delete"
+    context.user_data["state"] = "who"
+    context.user_data["data"] = {}
+    await update.message.reply_text("🗑️ Видалити працівника (локально)\n\nВведіть прізвище та імʼя:", reply_markup=CANCEL_KB)
+
+
+async def delete_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = normalize_text(update.message.text)
+
+    if text == "❌ Скасувати":
+        await back_to_menu(update, context, "Скасовано. Обери дію 👇")
+        return
+
+    state = context.user_data.get("state")
+    data = context.user_data.get("data", {})
+
+    if state == "who":
+        data["who"] = text
+        context.user_data["data"] = data
+        context.user_data["state"] = "confirm"
+        await update.message.reply_text(
+            f"Підтвердити видалення (приховати у боті)?\n\n👤 {text}",
+            reply_markup=DELETE_CONFIRM_KB
+        )
+        return
+
+    if state == "confirm":
+        who = data.get("who", "")
+        if text != "✅ Так, видалити":
+            await back_to_menu(update, context, "Скасовано. Обери дію 👇")
+            return
+
+        append_op(op="hide", target=who)
+        invalidate_cache()
+        await back_to_menu(update, context, f"✅ Приховано у боті: {who}\n(це не змінює Google Sheet)")
+        return
+
+
+# ==============================
 # 🧾 NORMALIZE SURNAMES (SMART)
 # ==============================
 
 def token_key(s: str) -> str:
-    """
-    Uppercase + translit + keep only letters/spaces + tokens sorted.
-    So:
-      'Olha Kuzmina' == 'KUZMINA OLHA'
-    """
     s = any_norm_for_match(s)
     s = re.sub(r"[^A-Z\s]", " ", s)
     tokens = [t for t in s.split() if t]
@@ -641,12 +718,6 @@ _CANON_UPPER = {canon_norm_for_match(x) for x in CANONICAL_NAMES}
 
 
 def best_canonical_match(current_name: str):
-    """
-    Returns: (best_name, best_score, second_score, mode)
-    mode:
-      - token_exact: 100% safe match by words
-      - fuzzy: fuzzy on token_key
-    """
     cur_tk = token_key(current_name)
     if not cur_tk:
         return None, 0.0, 0.0, "none"
@@ -672,8 +743,7 @@ def best_canonical_match(current_name: str):
 
 
 async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-
+    rows = visible_rows()  # нормалізуємо тільки видимих
     surnames = []
     seen = set()
     for r in rows:
@@ -694,19 +764,16 @@ async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE)
     MIN_GAP = 0.06
 
     for s in surnames:
-        # ✅ 1) manual aliases first
         if s in MANUAL_ALIASES:
             best = MANUAL_ALIASES[s]
             append_op(op="rename", target=s, new_surname=best)
             applied.append((s, best, 1.0))
             continue
 
-        # ✅ 2) already canonical
         if canon_norm_for_match(s) in _CANON_UPPER:
             skipped.append(s)
             continue
 
-        # ✅ 3) smart match (safe only)
         best, best_score, second_score, mode = best_canonical_match(s)
 
         if mode == "token_exact":
@@ -752,7 +819,7 @@ async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE)
             msg.append(f"• {x}")
         msg.append("")
 
-    msg.append("ℹ️ Зміни збережені як локальні правила (не ламають ножі/шафки).")
+    msg.append("ℹ️ Зміни збережені локально. Ножі/шафки не ламаються.")
     await back_to_menu(update, context, "\n".join(msg))
 
 
@@ -775,6 +842,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if flow == "edit_knife":
         await edit_knife_handle(update, context)
+        return
+    if flow == "delete":
+        await delete_handle(update, context)
         return
 
     if text == "🔪 З ножем":
@@ -799,6 +869,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_knife_start(update, context)
     elif text == "🧾 Нормалізувати прізвища (Latin)":
         await normalize_surnames(update, context)
+    elif text == "🗑️ Видалити працівника":
+        await delete_start(update, context)
 
 
 # ==============================

@@ -43,12 +43,12 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 CACHE_TTL = 300  # 5 хвилин
 
-LOCAL_DB_PATH = "local_data.csv"  # локальна база для ручних правок/додавань/видалень
+LOCAL_DB_PATH = "local_data.csv"  # локальна база
 
 # Адміни (username без @). Якщо пусто — адмін-перевірка вимкнена.
 ADMIN_USERNAMES = set(filter(None, [
-    # "your_admin_username_1",
-    # "your_admin_username_2",
+    # "admin1",
+    # "admin2",
 ]))
 
 # ==============================
@@ -97,27 +97,71 @@ _csv_cache = {"data": [], "time": 0}
 def _safe_strip(v) -> str:
     return (v or "").strip()
 
+def _norm_header(h: str) -> str:
+    # прибираємо BOM + пробіли + робимо lowercase
+    return (h or "").replace("\ufeff", "").strip().lower()
+
 def _fetch_remote_csv_rows() -> list[dict]:
-    r = requests.get(CSV_URL, timeout=15)
+    """
+    ✅ ФІКС: читаємо CSV по нормалізованих заголовках, щоб не падати при Surname/SURNAME/﻿surname.
+    Очікувані логічні поля: Address, surname, knife, locker
+    """
+    r = requests.get(CSV_URL, timeout=20)
+    r.raise_for_status()
     r.encoding = "utf-8"
+
     f = StringIO(r.text)
-    reader = csv.DictReader(f)
+    reader = csv.reader(f)
+    try:
+        headers = next(reader)
+    except StopIteration:
+        return []
+
+    # мапа нормалізований_заголовок -> індекс
+    idx = {_norm_header(h): i for i, h in enumerate(headers)}
+
+    # приймаємо варіації назв
+    def pick_index(*candidates):
+        for c in candidates:
+            if c in idx:
+                return idx[c]
+        return None
+
+    i_address = pick_index("address", "адреса")
+    i_surname = pick_index("surname", "prizvyshche", "прізвище", "прiзвище")
+    i_knife = pick_index("knife", "ніж", "нiж")
+    i_locker = pick_index("locker", "шафка", "шафка номер", "номер шафки")
+
     rows = []
     for row in reader:
-        # очікувані колонки: Address, surname, knife, locker
+        # захист від коротких рядків
+        def get(i):
+            if i is None:
+                return ""
+            return row[i] if i < len(row) else ""
+
         rows.append({
-            "Address": row.get("Address", ""),
-            "surname": row.get("surname", ""),
-            "knife": row.get("knife", ""),
-            "locker": row.get("locker", ""),
+            "Address": get(i_address),
+            "surname": get(i_surname),
+            "knife": get(i_knife),
+            "locker": get(i_locker),
         })
+
     return rows
 
 def load_remote_csv_cached() -> list[dict]:
     now = time.time()
     if _csv_cache["data"] and now - _csv_cache["time"] < CACHE_TTL:
         return _csv_cache["data"]
-    data = _fetch_remote_csv_rows()
+
+    try:
+        data = _fetch_remote_csv_rows()
+    except Exception:
+        # якщо щось тимчасово з інтернетом/Google — повернемо останній кеш, щоб не було "0"
+        if _csv_cache["data"]:
+            return _csv_cache["data"]
+        return []
+
     _csv_cache["data"] = data
     _csv_cache["time"] = now
     return data
@@ -134,12 +178,6 @@ def ensure_local_db():
         w.writeheader()
 
 def read_local_db() -> dict:
-    """
-    Повертає мапу за ключем canon_key(surname):
-    {
-      KEY: {"surname": "...", "locker": "...", "knife":"...", "deleted":"0/1"}
-    }
-    """
     ensure_local_db()
     out = {}
     with open(LOCAL_DB_PATH, "r", newline="", encoding="utf-8") as f:
@@ -194,35 +232,22 @@ def mark_deleted_local(surname: str):
 # ==============================
 
 def canon_key(name: str) -> str:
-    """Ключ порівняння: uppercase + стиск пробілів."""
     if not name:
         return ""
     name = re.sub(r"\s+", " ", name.strip())
     return name.upper()
 
 def build_canonical_map(all_rows: list[dict]) -> dict:
-    """
-    Беремо канонічні ПІБ з "Всі":
-    - LATIN
-    - UPPERCASE
-    - мінімум 2 слова
-    і робимо мапу key -> canonical_display (сам текст ПІБ).
-    """
     canon = {}
     for r in all_rows:
         s = _safe_strip(r.get("surname"))
         if not s:
             continue
-        # Канонічний формат: тільки A-Z + пробіли + ' - (опційно), і 2+ слова
         if re.fullmatch(r"[A-Z][A-Z\s'\-]+", s) and len(s.split()) >= 2:
             canon[canon_key(s)] = s
     return canon
 
 def display_name(raw_surname: str, canon_map: dict) -> str:
-    """
-    Якщо для цього запису існує канонічне ПІБ у "Всі" — показуємо канонічне.
-    Інакше залишаємо як є (не чіпаємо).
-    """
     raw = _safe_strip(raw_surname)
     if not raw:
         return ""
@@ -233,12 +258,6 @@ def display_name(raw_surname: str, canon_map: dict) -> str:
 # ==============================
 
 def parse_knife(value: str):
-    """
-    Повертає:
-    1 -> є ніж
-    0 -> нема
-    None -> невідомо/порожньо
-    """
     v = _safe_strip(value).lower()
 
     if v in ("1", "yes", "+", "true", "так", "є", "имеется", "имеется всё", "имеется все"):
@@ -249,15 +268,9 @@ def parse_knife(value: str):
         return None
     if v == "":
         return None
-
-    # якщо щось нестандартне — не ламаємось
     return None
 
 def normalize_locker(value: str):
-    """
-    None якщо шафка не вказана або явно "немає".
-    Інакше повертає текст як є (номер або "Так/Є/Ключ є/..." тощо).
-    """
     v = _safe_strip(value)
     if not v:
         return None
@@ -267,23 +280,16 @@ def normalize_locker(value: str):
     return v
 
 # ==============================
-# 🧩 DATA MERGE (remote + local overlay)
+# 🧩 DATA MERGE
 # ==============================
 
 def get_effective_rows() -> list[dict]:
-    """
-    Беремо remote Google CSV і накладаємо поверх local_data.csv:
-    - якщо в local є запис для цього ПІБ (по canon_key) — він перезаписує knife/locker/surname
-    - якщо deleted=1 — прибираємо з результату
-    - якщо в local є новий ПІБ, якого немає в remote — додаємо
-    """
     remote = load_remote_csv_cached()
     local = read_local_db()
 
     merged = []
     seen_keys = set()
 
-    # 1) remote rows (overlaid)
     for r in remote:
         raw_s = _safe_strip(r.get("surname"))
         if not raw_s:
@@ -310,7 +316,6 @@ def get_effective_rows() -> list[dict]:
                 "locker": r.get("locker", ""),
             })
 
-    # 2) local rows that are new (not in remote)
     for key, loc in local.items():
         if key in seen_keys:
             continue
@@ -326,10 +331,6 @@ def get_effective_rows() -> list[dict]:
     return merged
 
 def unique_by_key(rows: list[dict]) -> list[dict]:
-    """
-    Прибирає дублікати по canon_key(surname),
-    залишає перший знайдений (плюс local overlay вже накладений).
-    """
     out = []
     seen = set()
     for r in rows:
@@ -358,6 +359,14 @@ def is_admin(update: Update) -> bool:
 def admin_only_text() -> str:
     return "⛔ Доступ тільки для адмінів."
 
+def require_admin(func):
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_admin(update):
+            await update.message.reply_text(admin_only_text(), reply_markup=MAIN_KB)
+            return
+        return await func(update, context)
+    return wrapper
+
 # ==============================
 # 📨 HANDLERS
 # ==============================
@@ -370,7 +379,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = unique_by_key(get_effective_rows())
-    canon_map = build_canonical_map(rows)  # не обов'язково для stats, але хай буде стабільно
 
     total = len(rows)
     with_knife = 0
@@ -496,13 +504,15 @@ MODE_EDIT_NEW = "edit_new"
 MODE_DELETE_NAME = "delete_name"
 MODE_DELETE_CONFIRM = "delete_confirm"
 
-def require_admin(func):
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not is_admin(update):
-            await update.message.reply_text(admin_only_text(), reply_markup=MAIN_KB)
-            return
-        return await func(update, context)
-    return wrapper
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["mode"] = MODE_NONE
+    for k in ("tmp_add", "tmp_edit", "tmp_delete"):
+        context.user_data.pop(k, None)
+    await update.message.reply_text("Скасовано ✅", reply_markup=MAIN_KB)
+
+def looks_like_canonical_upper_latin(name: str) -> bool:
+    s = _safe_strip(name)
+    return bool(re.fullmatch(r"[A-Z][A-Z\s'\-]+", s)) and len(s.split()) >= 2
 
 @require_admin
 async def add_employee_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -518,7 +528,7 @@ async def edit_employee_start(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["mode"] = MODE_EDIT_OLD
     context.user_data.pop("tmp_edit", None)
     await update.message.reply_text(
-        "✏️ Введи ПІБ працівника, якого треба змінити (краще в форматі UPPERCASE):",
+        "✏️ Введи ПІБ працівника, якого треба змінити:",
         reply_markup=CANCEL_KB
     )
 
@@ -527,20 +537,9 @@ async def delete_employee_start(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data["mode"] = MODE_DELETE_NAME
     context.user_data.pop("tmp_delete", None)
     await update.message.reply_text(
-        "🗑 Введи ПІБ працівника, якого треба видалити (краще в UPPERCASE):",
+        "🗑 Введи ПІБ працівника, якого треба видалити:",
         reply_markup=CANCEL_KB
     )
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["mode"] = MODE_NONE
-    context.user_data.pop("tmp_add", None)
-    context.user_data.pop("tmp_edit", None)
-    context.user_data.pop("tmp_delete", None)
-    await update.message.reply_text("Скасовано ✅", reply_markup=MAIN_KB)
-
-def looks_like_canonical_upper_latin(name: str) -> bool:
-    s = _safe_strip(name)
-    return bool(re.fullmatch(r"[A-Z][A-Z\s'\-]+", s)) and len(s.split()) >= 2
 
 @require_admin
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -550,7 +549,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == BTN_CANCEL:
         return await cancel(update, context)
 
-    # ---------------- ADD FLOW ----------------
+    # ADD
     if mode == MODE_ADD_NAME:
         if not looks_like_canonical_upper_latin(text):
             await update.message.reply_text(
@@ -560,21 +559,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         context.user_data["tmp_add"] = {"surname": text}
         context.user_data["mode"] = MODE_ADD_LOCKER
-        await update.message.reply_text(
-            "Введи номер/значення шафки (або '-' якщо без шафки):",
-            reply_markup=CANCEL_KB
-        )
+        await update.message.reply_text("Введи шафку (або '-' якщо без):", reply_markup=CANCEL_KB)
         return
 
     if mode == MODE_ADD_LOCKER:
-        locker_in = text
-        locker_norm = normalize_locker(locker_in)
+        locker_norm = normalize_locker(text)
         context.user_data["tmp_add"]["locker"] = locker_norm or ""
         context.user_data["mode"] = MODE_ADD_KNIFE
-        await update.message.reply_text(
-            "Обери ніж:",
-            reply_markup=KNIFE_KB
-        )
+        await update.message.reply_text("Обери ніж:", reply_markup=KNIFE_KB)
         return
 
     if mode == MODE_ADD_KNIFE:
@@ -595,14 +587,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_add", None)
-
         await update.message.reply_text(
             f"✅ Додано/оновлено:\n{surname}\nШафка: {locker or '—'}\nНіж: {knife_val}",
             reply_markup=MAIN_KB
         )
         return
 
-    # ---------------- EDIT FLOW ----------------
+    # EDIT
     if mode == MODE_EDIT_OLD:
         if not text:
             await update.message.reply_text("Введи ПІБ текстом.", reply_markup=CANCEL_KB)
@@ -610,7 +601,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["tmp_edit"] = {"old": text}
         context.user_data["mode"] = MODE_EDIT_NEW
         await update.message.reply_text(
-            "Введи новий ПІБ у форматі: SURNAME NAME (LATIN UPPERCASE)\nНапр: TROKHYMETS DMYTRO",
+            "Введи новий ПІБ у форматі SURNAME NAME (LATIN UPPERCASE):",
             reply_markup=CANCEL_KB
         )
         return
@@ -618,7 +609,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == MODE_EDIT_NEW:
         if not looks_like_canonical_upper_latin(text):
             await update.message.reply_text(
-                "❌ Невірний формат нового ПІБ.\nВведи так: SURNAME NAME (LATIN UPPERCASE)\nНапр: VOVK ANNA",
+                "❌ Невірний формат нового ПІБ.\nНапр: TROKHYMETS DMYTRO",
                 reply_markup=CANCEL_KB
             )
             return
@@ -627,7 +618,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         old_name = tmp.get("old", "")
         new_name = text
 
-        # беремо поточні дані працівника (з merged), щоб НЕ втратити locker/knife
         rows = unique_by_key(get_effective_rows())
         old_key = canon_key(old_name)
 
@@ -638,8 +628,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 break
 
         if current is None:
-            # якщо не знайшли — все одно дозволимо "перейменування" через local:
-            # просто створимо новий запис, старий позначимо deleted
             mark_deleted_local(old_name)
             upsert_local(new_name, locker="", knife="2", deleted="0")
         else:
@@ -650,18 +638,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_edit", None)
-
         await update.message.reply_text(
             f"✅ Змінено:\nБуло: {old_name}\nСтало: {new_name}",
             reply_markup=MAIN_KB
         )
         return
 
-    # ---------------- DELETE FLOW ----------------
+    # DELETE
     if mode == MODE_DELETE_NAME:
-        if not text:
-            await update.message.reply_text("Введи ПІБ текстом.", reply_markup=CANCEL_KB)
-            return
         context.user_data["tmp_delete"] = {"name": text}
         context.user_data["mode"] = MODE_DELETE_CONFIRM
         await update.message.reply_text(
@@ -682,7 +666,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ Видалено: {name}", reply_markup=MAIN_KB)
         return
 
-    # ---------------- BUTTON ROUTER ----------------
+    # BUTTON ROUTER
     if text == BTN_STATS:
         return await stats(update, context)
     if text == BTN_ALL:
@@ -702,7 +686,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == BTN_DELETE:
         return await delete_employee_start(update, context)
 
-    # якщо просто текст поза режимами
     await update.message.reply_text("Обери дію кнопками 👇", reply_markup=MAIN_KB)
 
 # ==============================

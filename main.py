@@ -1,9 +1,10 @@
 import os
 import csv
 import re
+import time
+import shutil
 import threading
-import requests
-from io import StringIO
+from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update, ReplyKeyboardMarkup
@@ -39,11 +40,12 @@ threading.Thread(target=run_http_server, daemon=True).start()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Донор (тільки для імпорту)
-CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+# Основне сховище (Render Disk mount path)
+DATA_DIR = os.getenv("DATA_DIR", "/data")
+DB_PATH = os.path.join(DATA_DIR, "base_data.csv")
+BACKUP_DIR = os.path.join(DATA_DIR, "backups")
 
-# Основна локальна база
-DB_PATH = "base_data.csv"
+BACKUP_KEEP_LAST = int(os.getenv("BACKUP_KEEP_LAST", "200"))
 
 # Адміни (username без @). Якщо пусто — адмін-перевірка вимкнена.
 ADMIN_USERNAMES = set(filter(None, [
@@ -65,7 +67,7 @@ BTN_NO_KNIFE = "❌ Без ножа"
 BTN_ADD = "➕ Додати працівника"
 BTN_EDIT = "✏️ Редагувати працівника"
 BTN_DELETE = "🗑 Видалити працівника"
-BTN_IMPORT = "🔄 Імпорт з Google"
+BTN_BACKUP = "💾 Backup бази"
 
 BTN_CANCEL = "⛔ Скасувати"
 
@@ -80,7 +82,7 @@ MAIN_KB = ReplyKeyboardMarkup(
         [BTN_LOCKER, BTN_NO_LOCKER],
         [BTN_KNIFE, BTN_NO_KNIFE],
         [BTN_ADD, BTN_EDIT, BTN_DELETE],
-        [BTN_IMPORT],
+        [BTN_BACKUP],
     ],
     resize_keyboard=True
 )
@@ -151,17 +153,72 @@ def display_name(raw_surname: str, canon_map: dict) -> str:
     return canon_map.get(canon_key(raw), raw)
 
 # ==============================
-# 🗃 LOCAL DB (base_data.csv)
+# 🗃 STORAGE + BACKUPS
 # ==============================
 
 DB_FIELDS = ["Address", "surname", "knife", "locker", "deleted"]
 
+def ensure_storage():
+    """
+    Гарантує наявність папок /data та /data/backups.
+    Якщо /data недоступний (локально), все одно спробує працювати.
+    """
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+    except Exception:
+        # fallback: локальна директорія проєкту
+        global DATA_DIR, DB_PATH, BACKUP_DIR
+        DATA_DIR = "."
+        DB_PATH = "base_data.csv"
+        BACKUP_DIR = os.path.join(DATA_DIR, "backups")
+        os.makedirs(BACKUP_DIR, exist_ok=True)
+
 def ensure_db_exists():
+    ensure_storage()
     if os.path.exists(DB_PATH):
         return
     with open(DB_PATH, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=DB_FIELDS)
         w.writeheader()
+
+def _timestamp():
+    # 2026-01-10_184455
+    return datetime.now().strftime("%Y-%m-%d_%H%M%S")
+
+def _rotate_backups_keep_last(n: int):
+    try:
+        files = []
+        for fn in os.listdir(BACKUP_DIR):
+            if fn.lower().endswith(".csv") and fn.startswith("base_data_"):
+                files.append(os.path.join(BACKUP_DIR, fn))
+        files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+        for p in files[n:]:
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+def backup_db(reason: str = "auto") -> tuple[bool, str]:
+    """
+    Бекапить поточний DB_PATH (як є) у /data/backups/ перед зміною.
+    """
+    ensure_db_exists()
+    if not os.path.exists(DB_PATH):
+        return False, "DB file not found"
+
+    # якщо файл тільки з хедером — теж можна бекапити, але це не критично
+    ts = _timestamp()
+    safe_reason = re.sub(r"[^a-zA-Z0-9_\-]+", "_", reason or "auto")[:30]
+    dst = os.path.join(BACKUP_DIR, f"base_data_{ts}_{safe_reason}.csv")
+    try:
+        shutil.copy2(DB_PATH, dst)
+        _rotate_backups_keep_last(BACKUP_KEEP_LAST)
+        return True, dst
+    except Exception as e:
+        return False, str(e)
 
 def read_db_rows() -> list[dict]:
     ensure_db_exists()
@@ -178,9 +235,14 @@ def read_db_rows() -> list[dict]:
             })
     return rows
 
-def write_db_rows(rows: list[dict]):
+def write_db_rows_atomic(rows: list[dict]):
+    """
+    Атомарний запис: пишемо у tmp і os.replace.
+    Це критично, щоб зміни не губились/файл не ламався.
+    """
     ensure_db_exists()
-    with open(DB_PATH, "w", newline="", encoding="utf-8") as f:
+    tmp = DB_PATH + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=DB_FIELDS)
         w.writeheader()
         for r in rows:
@@ -191,6 +253,7 @@ def write_db_rows(rows: list[dict]):
                 "locker": r.get("locker", ""),
                 "deleted": r.get("deleted", "0") or "0",
             })
+    os.replace(tmp, DB_PATH)
 
 def dedupe_keep_last(rows: list[dict]) -> list[dict]:
     best = {}
@@ -202,7 +265,7 @@ def dedupe_keep_last(rows: list[dict]) -> list[dict]:
         k = canon_key(s)
         if k not in best:
             order.append(k)
-        best[k] = r  # перезапис = "останній виграє"
+        best[k] = r  # останній виграє
     return [best[k] for k in order]
 
 def active_rows_unique() -> list[dict]:
@@ -224,6 +287,9 @@ def find_active_by_name(input_name: str) -> dict | None:
     return None
 
 def upsert_employee(surname: str, locker: str, knife: str, address: str = ""):
+    # backup перед зміною
+    backup_db("auto_upsert")
+
     rows = read_db_rows()
     key = canon_key(surname)
 
@@ -248,9 +314,12 @@ def upsert_employee(surname: str, locker: str, knife: str, address: str = ""):
         })
 
     rows = dedupe_keep_last(rows)
-    write_db_rows(rows)
+    write_db_rows_atomic(rows)
 
 def soft_delete_employee(name: str) -> bool:
+    # backup перед зміною
+    backup_db("auto_delete")
+
     rows = read_db_rows()
     key = canon_key(name)
     changed = False
@@ -260,7 +329,7 @@ def soft_delete_employee(name: str) -> bool:
             changed = True
     if changed:
         rows = dedupe_keep_last(rows)
-        write_db_rows(rows)
+        write_db_rows_atomic(rows)
     return changed
 
 # ==============================
@@ -285,76 +354,6 @@ def require_admin(func):
             return
         return await func(update, context)
     return wrapper
-
-# ==============================
-# 🔄 IMPORT FROM GOOGLE
-# ==============================
-
-def _norm_header(h: str) -> str:
-    return (h or "").replace("\ufeff", "").strip().lower()
-
-def _fetch_google_rows() -> list[dict]:
-    r = requests.get(CSV_URL, timeout=20)
-    r.raise_for_status()
-    r.encoding = "utf-8"
-    f = StringIO(r.text)
-
-    reader = csv.reader(f)
-    try:
-        headers = next(reader)
-    except StopIteration:
-        return []
-
-    idx = {_norm_header(h): i for i, h in enumerate(headers)}
-
-    def pick_index(*candidates):
-        for c in candidates:
-            if c in idx:
-                return idx[c]
-        return None
-
-    i_address = pick_index("address", "адреса")
-    i_surname = pick_index("surname", "прізвище", "прiзвище")
-    i_knife = pick_index("knife", "ніж", "нiж")
-    i_locker = pick_index("locker", "шафка", "номер шафки")
-
-    rows = []
-    for row in reader:
-        def get(i):
-            if i is None:
-                return ""
-            return row[i] if i < len(row) else ""
-
-        rows.append({
-            "Address": get(i_address),
-            "surname": get(i_surname),
-            "knife": get(i_knife),
-            "locker": get(i_locker),
-            "deleted": "0",
-        })
-    return rows
-
-def import_from_google_overwrite_db() -> tuple[bool, str]:
-    try:
-        src = _fetch_google_rows()
-    except Exception as e:
-        return False, f"❌ Помилка імпорту: {e}"
-
-    clean = [r for r in src if _safe_strip(r.get("surname"))]
-    clean = dedupe_keep_last(clean)
-
-    ensure_db_exists()
-    write_db_rows(clean)
-    return True, f"✅ Імпорт завершено. Записів: {len(clean)}"
-
-def ensure_db_initialized_once():
-    if not os.path.exists(DB_PATH):
-        ensure_db_exists()
-        import_from_google_overwrite_db()
-        return
-    active = [r for r in read_db_rows() if _safe_strip(r.get("surname")) and _safe_strip(r.get("deleted")) != "1"]
-    if not active:
-        import_from_google_overwrite_db()
 
 # ==============================
 # 📨 LISTS / STATS
@@ -465,6 +464,18 @@ async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(("❌ Без ножа:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 # ==============================
+# 💾 BACKUP COMMAND
+# ==============================
+
+@require_admin
+async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ok, info = backup_db("manual")
+    if ok:
+        await update.message.reply_text(f"✅ Backup створено:\n{info}", reply_markup=MAIN_KB)
+    else:
+        await update.message.reply_text(f"❌ Backup не створено:\n{info}", reply_markup=MAIN_KB)
+
+# ==============================
 # ✍️ FLOWS: add/edit/delete
 # ==============================
 
@@ -486,11 +497,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for k in ("tmp_add", "tmp_edit", "tmp_delete"):
         context.user_data.pop(k, None)
     await update.message.reply_text("Скасовано ✅", reply_markup=MAIN_KB)
-
-@require_admin
-async def import_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    ok, msg = import_from_google_overwrite_db()
-    await update.message.reply_text(msg, reply_markup=MAIN_KB)
 
 @require_admin
 async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -648,11 +654,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new_locker = tmp.get("new_locker", _safe_strip(current.get("locker","")))
         address = _safe_strip(current.get("Address",""))
 
-        # якщо key не змінився — оновлюємо на місці
         if canon_key(new_surname) == old_key:
             upsert_employee(surname=new_surname, locker=new_locker, knife=knife_val, address=address)
         else:
-            # key змінився — старий soft delete, новий upsert
             soft_delete_employee(_safe_strip(current.get("surname","")))
             upsert_employee(surname=new_surname, locker=new_locker, knife=knife_val, address=address)
 
@@ -713,8 +717,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await edit_start(update, context)
     if text == BTN_DELETE:
         return await delete_start(update, context)
-    if text == BTN_IMPORT:
-        return await import_start(update, context)
+
+    if text == BTN_BACKUP:
+        return await backup_command(update, context)
 
     await update.message.reply_text("Обери дію кнопками 👇", reply_markup=MAIN_KB)
 
@@ -726,7 +731,7 @@ def main():
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN is not set")
 
-    ensure_db_initialized_once()
+    ensure_db_exists()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -737,7 +742,8 @@ def main():
     app.add_handler(CommandHandler("no_locker_list", no_locker_list))
     app.add_handler(CommandHandler("knife_list", knife_list))
     app.add_handler(CommandHandler("no_knife_list", no_knife_list))
-    app.add_handler(CommandHandler("import", import_start))
+
+    app.add_handler(CommandHandler("backup", backup_command))
 
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 

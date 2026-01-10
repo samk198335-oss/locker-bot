@@ -1,13 +1,14 @@
 import os
 import csv
 import re
-import time
 import shutil
 import threading
+from io import BytesIO
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update
+from telegram import ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -40,14 +41,12 @@ threading.Thread(target=run_http_server, daemon=True).start()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Основне сховище (Render Disk mount path)
-DATA_DIR = os.getenv("DATA_DIR", "/data")
-DB_PATH = os.path.join(DATA_DIR, "base_data.csv")
-BACKUP_DIR = os.path.join(DATA_DIR, "backups")
-
+# Free: локальні файли (після redeploy стираються — тому робимо backup у Telegram)
+DB_PATH = "base_data.csv"
+BACKUP_DIR = "backups"
 BACKUP_KEEP_LAST = int(os.getenv("BACKUP_KEEP_LAST", "200"))
 
-# Адміни (username без @). Якщо пусто — адмін-перевірка вимкнена.
+# Адміни (username без @). Якщо пусто — адмін-перевірка вимкнена (НЕ РЕКОМЕНДУЮ).
 ADMIN_USERNAMES = set(filter(None, [
     # "admin1",
     # "admin2",
@@ -64,10 +63,14 @@ BTN_NO_LOCKER = "🚫 Без шафки"
 BTN_KNIFE = "🔪 З ножем"
 BTN_NO_KNIFE = "❌ Без ножа"
 
+BTN_SEARCH = "🔎 Пошук"
+
 BTN_ADD = "➕ Додати працівника"
 BTN_EDIT = "✏️ Редагувати працівника"
 BTN_DELETE = "🗑 Видалити працівника"
+
 BTN_BACKUP = "💾 Backup бази"
+BTN_RESTORE = "♻️ Відновити з файлу"
 
 BTN_CANCEL = "⛔ Скасувати"
 
@@ -81,8 +84,9 @@ MAIN_KB = ReplyKeyboardMarkup(
         [BTN_STATS, BTN_ALL],
         [BTN_LOCKER, BTN_NO_LOCKER],
         [BTN_KNIFE, BTN_NO_KNIFE],
+        [BTN_SEARCH],
         [BTN_ADD, BTN_EDIT, BTN_DELETE],
-        [BTN_BACKUP],
+        [BTN_BACKUP, BTN_RESTORE],
     ],
     resize_keyboard=True
 )
@@ -93,6 +97,49 @@ KNIFE_KB = ReplyKeyboardMarkup(
     [[KNIFE_YES, KNIFE_NO], [KNIFE_UNKNOWN, KNIFE_KEEP], [BTN_CANCEL]],
     resize_keyboard=True
 )
+
+# ==============================
+# 🔐 ADMIN
+# ==============================
+
+def is_admin(update: Update) -> bool:
+    if not ADMIN_USERNAMES:
+        return True
+    u = update.effective_user
+    return bool(u and u.username and u.username in ADMIN_USERNAMES)
+
+def admin_only_text() -> str:
+    return "⛔ Доступ тільки для адмінів."
+
+def require_admin(func):
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        if not is_admin(update):
+            await update.message.reply_text(admin_only_text(), reply_markup=MAIN_KB)
+            return
+        return await func(update, context)
+    return wrapper
+
+def register_admin_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    На Free це не персиститься між деплоями — адмінам треба хоч раз написати /start після деплою,
+    щоб бот знав, куди слати autobackup.
+    """
+    if not is_admin(update):
+        return
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    if chat_id is None:
+        return
+    s = context.bot_data.get("admin_chat_ids")
+    if not isinstance(s, set):
+        s = set()
+    s.add(chat_id)
+    context.bot_data["admin_chat_ids"] = s
+
+def get_admin_chat_ids(context: ContextTypes.DEFAULT_TYPE) -> list[int]:
+    s = context.bot_data.get("admin_chat_ids")
+    if isinstance(s, set):
+        return list(s)
+    return []
 
 # ==============================
 # 🧰 HELPERS
@@ -132,8 +179,16 @@ def normalize_locker(value: str):
         return None
     return v
 
+def knife_label(v: str) -> str:
+    k = parse_knife(v)
+    if k == 1:
+        return "🔪"
+    if k == 0:
+        return "❌"
+    return "❓"
+
 # ==============================
-# ✅ CANON DISPLAY (підміна тільки для канонічних у "Всі")
+# ✅ CANON DISPLAY
 # ==============================
 
 def build_canonical_map(all_rows: list[dict]) -> dict:
@@ -153,29 +208,16 @@ def display_name(raw_surname: str, canon_map: dict) -> str:
     return canon_map.get(canon_key(raw), raw)
 
 # ==============================
-# 🗃 STORAGE + BACKUPS
+# 🗃 LOCAL DB + BACKUPS (FREE)
 # ==============================
 
 DB_FIELDS = ["Address", "surname", "knife", "locker", "deleted"]
 
-def ensure_storage():
-    """
-    Гарантує наявність папок /data та /data/backups.
-    Якщо /data недоступний (локально), все одно спробує працювати.
-    """
-    try:
-        os.makedirs(DATA_DIR, exist_ok=True)
-        os.makedirs(BACKUP_DIR, exist_ok=True)
-    except Exception:
-        # fallback: локальна директорія проєкту
-        global DATA_DIR, DB_PATH, BACKUP_DIR
-        DATA_DIR = "."
-        DB_PATH = "base_data.csv"
-        BACKUP_DIR = os.path.join(DATA_DIR, "backups")
-        os.makedirs(BACKUP_DIR, exist_ok=True)
+def ensure_dirs():
+    os.makedirs(BACKUP_DIR, exist_ok=True)
 
 def ensure_db_exists():
-    ensure_storage()
+    ensure_dirs()
     if os.path.exists(DB_PATH):
         return
     with open(DB_PATH, "w", newline="", encoding="utf-8") as f:
@@ -183,7 +225,6 @@ def ensure_db_exists():
         w.writeheader()
 
 def _timestamp():
-    # 2026-01-10_184455
     return datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
 def _rotate_backups_keep_last(n: int):
@@ -202,14 +243,10 @@ def _rotate_backups_keep_last(n: int):
         pass
 
 def backup_db(reason: str = "auto") -> tuple[bool, str]:
-    """
-    Бекапить поточний DB_PATH (як є) у /data/backups/ перед зміною.
-    """
     ensure_db_exists()
     if not os.path.exists(DB_PATH):
         return False, "DB file not found"
 
-    # якщо файл тільки з хедером — теж можна бекапити, але це не критично
     ts = _timestamp()
     safe_reason = re.sub(r"[^a-zA-Z0-9_\-]+", "_", reason or "auto")[:30]
     dst = os.path.join(BACKUP_DIR, f"base_data_{ts}_{safe_reason}.csv")
@@ -236,10 +273,6 @@ def read_db_rows() -> list[dict]:
     return rows
 
 def write_db_rows_atomic(rows: list[dict]):
-    """
-    Атомарний запис: пишемо у tmp і os.replace.
-    Це критично, щоб зміни не губились/файл не ламався.
-    """
     ensure_db_exists()
     tmp = DB_PATH + ".tmp"
     with open(tmp, "w", newline="", encoding="utf-8") as f:
@@ -265,7 +298,7 @@ def dedupe_keep_last(rows: list[dict]) -> list[dict]:
         k = canon_key(s)
         if k not in best:
             order.append(k)
-        best[k] = r  # останній виграє
+        best[k] = r
     return [best[k] for k in order]
 
 def active_rows_unique() -> list[dict]:
@@ -287,9 +320,6 @@ def find_active_by_name(input_name: str) -> dict | None:
     return None
 
 def upsert_employee(surname: str, locker: str, knife: str, address: str = ""):
-    # backup перед зміною
-    backup_db("auto_upsert")
-
     rows = read_db_rows()
     key = canon_key(surname)
 
@@ -317,9 +347,6 @@ def upsert_employee(surname: str, locker: str, knife: str, address: str = ""):
     write_db_rows_atomic(rows)
 
 def soft_delete_employee(name: str) -> bool:
-    # backup перед зміною
-    backup_db("auto_delete")
-
     rows = read_db_rows()
     key = canon_key(name)
     changed = False
@@ -332,34 +359,48 @@ def soft_delete_employee(name: str) -> bool:
         write_db_rows_atomic(rows)
     return changed
 
-# ==============================
-# 🔐 ADMIN
-# ==============================
+async def send_db_file(update: Update, context: ContextTypes.DEFAULT_TYPE, caption: str):
+    ensure_db_exists()
+    if not os.path.exists(DB_PATH):
+        await update.message.reply_text("❌ DB файл не знайдено.", reply_markup=MAIN_KB)
+        return
 
-def is_admin(update: Update) -> bool:
-    if not ADMIN_USERNAMES:
-        return True
-    u = update.effective_user
-    if not u or not u.username:
-        return False
-    return u.username in ADMIN_USERNAMES
+    with open(DB_PATH, "rb") as f:
+        data = f.read()
 
-def admin_only_text() -> str:
-    return "⛔ Доступ тільки для адмінів."
+    bio = BytesIO(data)
+    bio.name = f"base_data_{_timestamp()}.csv"
+    await update.message.reply_document(document=bio, caption=caption, reply_markup=MAIN_KB)
 
-def require_admin(func):
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        if not is_admin(update):
-            await update.message.reply_text(admin_only_text(), reply_markup=MAIN_KB)
-            return
-        return await func(update, context)
-    return wrapper
+async def notify_admins_backup(context: ContextTypes.DEFAULT_TYPE, reason: str):
+    ok, path_or_err = backup_db(reason)
+    if not ok:
+        return
+
+    chat_ids = get_admin_chat_ids(context)
+    if not chat_ids:
+        return
+
+    try:
+        with open(path_or_err, "rb") as f:
+            data = f.read()
+        for chat_id in chat_ids:
+            bio = BytesIO(data)
+            bio.name = os.path.basename(path_or_err)
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=bio,
+                caption=f"💾 Auto-backup ({reason}). Збережи файл ✅"
+            )
+    except Exception:
+        pass
 
 # ==============================
 # 📨 LISTS / STATS
 # ==============================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_admin_chat(update, context)
     await update.message.reply_text("Привіт! Обери дію кнопками нижче 👇", reply_markup=MAIN_KB)
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -464,19 +505,119 @@ async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(("❌ Без ножа:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 # ==============================
-# 💾 BACKUP COMMAND
+# 🔎 SEARCH
+# ==============================
+
+def _match_query(hay: str, q: str) -> bool:
+    return q.lower() in (hay or "").lower()
+
+async def search_results(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str):
+    q = _safe_strip(query)
+    if not q or len(q) < 2:
+        await update.message.reply_text("Введи мінімум 2 символи для пошуку.", reply_markup=CANCEL_KB)
+        return
+
+    rows = active_rows_unique()
+    canon_map = build_canonical_map(rows)
+
+    found = []
+    for r in rows:
+        name_raw = _safe_strip(r.get("surname", ""))
+        if not name_raw:
+            continue
+        if _match_query(name_raw, q):
+            name = display_name(name_raw, canon_map)
+            locker = normalize_locker(r.get("locker", "")) or "—"
+            k = knife_label(r.get("knife", ""))
+            found.append(f"{name} — {locker} — {k}")
+
+    found.sort()
+    if not found:
+        await update.message.reply_text("Нічого не знайдено 🤷", reply_markup=MAIN_KB)
+        return
+
+    # щоб не вбити телеграм довжелезним текстом
+    found = found[:30]
+    await update.message.reply_text("🔎 Результати:\n\n" + "\n".join(found), reply_markup=MAIN_KB)
+
+@require_admin
+async def search_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["mode"] = "search_query"
+    await update.message.reply_text("🔎 Введи частину ПІБ для пошуку (мін. 2 символи):", reply_markup=CANCEL_KB)
+
+async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # /find текст
+    q = " ".join(context.args) if context.args else ""
+    await search_results(update, context, q)
+
+# ==============================
+# 💾 BACKUP / RESTORE
 # ==============================
 
 @require_admin
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_admin_chat(update, context)
     ok, info = backup_db("manual")
-    if ok:
-        await update.message.reply_text(f"✅ Backup створено:\n{info}", reply_markup=MAIN_KB)
-    else:
+    if not ok:
         await update.message.reply_text(f"❌ Backup не створено:\n{info}", reply_markup=MAIN_KB)
+        return
+    await send_db_file(update, context, caption="💾 Поточна база (CSV). Збережи файл ✅")
+
+@require_admin
+async def restore_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_admin_chat(update, context)
+    context.user_data["mode"] = "restore_wait_file"
+    await update.message.reply_text(
+        "♻️ Відновлення:\nНадішли мені CSV-файл бази (base_data_*.csv).\n"
+        "Я перезапишу базу.\n\n⛔ Скасувати — кнопка нижче.",
+        reply_markup=CANCEL_KB
+    )
+
+@require_admin
+async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    mode = context.user_data.get("mode")
+    if mode != "restore_wait_file":
+        return
+
+    doc = update.message.document
+    if not doc:
+        await update.message.reply_text("❌ Немає файлу.", reply_markup=MAIN_KB)
+        context.user_data["mode"] = None
+        return
+
+    fn = (doc.file_name or "").lower()
+    if not fn.endswith(".csv"):
+        await update.message.reply_text("❌ Потрібен .csv файл.", reply_markup=MAIN_KB)
+        context.user_data["mode"] = None
+        return
+
+    try:
+        tg_file = await doc.get_file()
+        data = await tg_file.download_as_bytearray()
+
+        if os.path.exists(DB_PATH):
+            backup_db("before_restore")
+
+        ensure_db_exists()
+        tmp = DB_PATH + ".tmp"
+        with open(tmp, "wb") as f:
+            f.write(data)
+        os.replace(tmp, DB_PATH)
+
+        # валідація: прочитати
+        _ = read_db_rows()
+        backup_db("after_restore")
+
+        context.user_data["mode"] = None
+        await update.message.reply_text(f"✅ Відновлено! Активних: {len(active_rows_unique())}", reply_markup=MAIN_KB)
+        await notify_admins_backup(context, "restore")
+
+    except Exception as e:
+        context.user_data["mode"] = None
+        await update.message.reply_text(f"❌ Помилка відновлення: {e}", reply_markup=MAIN_KB)
 
 # ==============================
-# ✍️ FLOWS: add/edit/delete
+# ✍️ FLOWS: add/edit/delete + router
 # ==============================
 
 MODE_NONE = None
@@ -500,6 +641,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_admin_chat(update, context)
     context.user_data["mode"] = MODE_ADD_NAME
     context.user_data.pop("tmp_add", None)
     await update.message.reply_text(
@@ -509,6 +651,7 @@ async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def edit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_admin_chat(update, context)
     context.user_data["mode"] = MODE_EDIT_TARGET
     context.user_data.pop("tmp_edit", None)
     await update.message.reply_text(
@@ -518,6 +661,7 @@ async def edit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def delete_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_admin_chat(update, context)
     context.user_data["mode"] = MODE_DELETE_NAME
     context.user_data.pop("tmp_delete", None)
     await update.message.reply_text(
@@ -529,11 +673,15 @@ async def delete_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = _safe_strip(update.message.text)
 
-    # глобальна відміна
     if text == BTN_CANCEL:
         return await cancel(update, context)
 
     mode = context.user_data.get("mode")
+
+    # SEARCH flow
+    if mode == "search_query":
+        context.user_data["mode"] = MODE_NONE
+        return await search_results(update, context, text)
 
     # ---------------- ADD ----------------
     if mode == MODE_ADD_NAME:
@@ -570,6 +718,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         surname = data.get("surname", "")
         locker = data.get("locker", "")
         upsert_employee(surname=surname, locker=locker, knife=knife_val)
+
+        await notify_admins_backup(context, "add_or_upsert")
 
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_add", None)
@@ -626,7 +776,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text == "-":
             new_locker = _safe_strip(current.get("locker",""))
         else:
-            new_locker = normalize_locker(text) or ""  # "нет" -> ""
+            new_locker = normalize_locker(text) or ""
         tmp["new_locker"] = new_locker
         context.user_data["tmp_edit"] = tmp
         context.user_data["mode"] = MODE_EDIT_KNIFE
@@ -660,6 +810,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             soft_delete_employee(_safe_strip(current.get("surname","")))
             upsert_employee(surname=new_surname, locker=new_locker, knife=knife_val, address=address)
 
+        await notify_admins_backup(context, "edit")
+
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_edit", None)
 
@@ -689,6 +841,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Не підтверджено. Напиши YES або скасуй.", reply_markup=CANCEL_KB)
             return
         ok = soft_delete_employee(name)
+
+        await notify_admins_backup(context, "delete")
+
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_delete", None)
         await update.message.reply_text(
@@ -711,6 +866,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == BTN_NO_KNIFE:
         return await no_knife_list(update, context)
 
+    if text == BTN_SEARCH:
+        return await search_start(update, context)
+
     if text == BTN_ADD:
         return await add_start(update, context)
     if text == BTN_EDIT:
@@ -720,6 +878,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == BTN_BACKUP:
         return await backup_command(update, context)
+    if text == BTN_RESTORE:
+        return await restore_command(update, context)
 
     await update.message.reply_text("Обери дію кнопками 👇", reply_markup=MAIN_KB)
 
@@ -744,7 +904,10 @@ def main():
     app.add_handler(CommandHandler("no_knife_list", no_knife_list))
 
     app.add_handler(CommandHandler("backup", backup_command))
+    app.add_handler(CommandHandler("restore", restore_command))
+    app.add_handler(CommandHandler("find", find_command))
 
+    app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 
     app.run_polling(close_loop=False)

@@ -109,8 +109,9 @@ MANUAL_ALIASES = {
     "Таня Писанець": "PYSANETS TETIANA",
 }
 
-# internal marker for hidden/deleted rows
+# internal markers
 HIDDEN_FIELD = "__hidden"
+VIRTUAL_FIELD = "__virtual"
 
 # ==============================
 # 🔁 CACHE
@@ -279,41 +280,83 @@ def append_op(op: str, target: str, new_surname: str = "", knife: str = "", lock
 # ==============================
 
 def apply_ops(rows: list, ops: list) -> list:
-    # apply ops in order
+    """
+    Важливо: якщо оперуємо працівника, якого немає у rows (наприклад "віртуальний з еталону"),
+    ми створюємо мінімальний рядок у памʼяті, щоб правила працювали і працівник зʼявлявся у списках.
+    """
     for op in ops:
         kind = norm_key(op.get("op", ""))
         target = normalize_text(op.get("target", ""))
         if not target:
             continue
 
+        def find_matches():
+            return [r for r in rows if same_name(get_value(r, "surname"), target)]
+
+        matches = find_matches()
+
+        # if no matches -> create minimal row to attach ops
+        if not matches:
+            rows.append({
+                "Address": "",
+                "surname": target,
+                "knife": "",
+                "locker": "",
+                VIRTUAL_FIELD: "1"
+            })
+            matches = find_matches()
+
         if kind == "rename":
             new_surname = normalize_text(op.get("new_surname", ""))
             if not new_surname:
                 continue
-            for r in rows:
-                if same_name(get_value(r, "surname"), target):
-                    set_value(r, "surname", new_surname)
+            for r in matches:
+                set_value(r, "surname", new_surname)
             continue
 
         if kind == "set":
             knife = normalize_text(op.get("knife", ""))
             locker = normalize_text(op.get("locker", ""))
 
-            for r in rows:
-                if same_name(get_value(r, "surname"), target):
-                    if knife != "":
-                        set_value(r, "knife", "" if knife == "-" else knife)
-                    if locker != "":
-                        set_value(r, "locker", "" if locker in ("-", "—") else locker)
+            for r in matches:
+                if knife != "":
+                    set_value(r, "knife", "" if knife == "-" else knife)
+                if locker != "":
+                    set_value(r, "locker", "" if locker in ("-", "—") else locker)
             continue
 
         if kind == "hide":
-            # local delete: hide rows from lists/stats
-            for r in rows:
-                if same_name(get_value(r, "surname"), target):
-                    set_value(r, HIDDEN_FIELD, "1")
+            for r in matches:
+                set_value(r, HIDDEN_FIELD, "1")
             continue
 
+    return rows
+
+
+# ==============================
+# ✅ ENSURE ALL 57 ARE PRESENT
+# ==============================
+
+def ensure_canonical_present(rows: list) -> list:
+    """
+    Додає відсутніх з еталону 57 як "віртуальні" рядки (порожні ніж/шафка),
+    щоб у "👥 Всі" завжди було 57 еталонних + усі інші, що реально є.
+    """
+    present = set()
+    for r in rows:
+        s = get_value(r, "surname")
+        if s:
+            present.add(norm_name(s))
+
+    for name in CANONICAL_NAMES:
+        if norm_name(name) not in present:
+            rows.append({
+                "Address": "",
+                "surname": name,
+                "knife": "",
+                "locker": "",
+                VIRTUAL_FIELD: "1"
+            })
     return rows
 
 
@@ -336,6 +379,7 @@ def load_csv():
 
     data = remote + local
     data = apply_ops(data, ops)
+    data = ensure_canonical_present(data)
 
     _csv_cache["data"] = data
     _csv_cache["time"] = now
@@ -743,7 +787,7 @@ def best_canonical_match(current_name: str):
 
 
 async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = visible_rows()  # нормалізуємо тільки видимих
+    rows = visible_rows()
     surnames = []
     seen = set()
     for r in rows:
@@ -800,25 +844,21 @@ async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE)
     msg.append(f"🚫 Не зі списку 57 (не чіпаю): {len(not_in_list)}")
     msg.append(f"➖ Уже OK: {len(skipped)}")
     msg.append("")
-
     if applied:
         msg.append("✅ Приклади авто-заміни (до 10):")
         for old, new, sc in applied[:10]:
             msg.append(f"• {old} ➜ {new} ({sc:.2f})")
         msg.append("")
-
     if unsure:
-        msg.append("⚠️ Сумнівні (до 10) — напиши мені, що з них як правильно:")
+        msg.append("⚠️ Сумнівні (до 10):")
         for old, sug, sc in unsure[:10]:
             msg.append(f"• {old} ~ {sug} ({sc:.2f})")
         msg.append("")
-
     if not_in_list:
-        msg.append("🚫 Не зі списку 57 (не чіпаю) (до 10):")
+        msg.append("🚫 Не зі списку 57 (до 10):")
         for x in not_in_list[:10]:
             msg.append(f"• {x}")
         msg.append("")
-
     msg.append("ℹ️ Зміни збережені локально. Ножі/шафки не ламаються.")
     await back_to_menu(update, context, "\n".join(msg))
 
@@ -890,7 +930,6 @@ def run_health_server():
 
 
 def ping_loop():
-    """Try to keep Render free warm (helps, but not 100% guaranteed)."""
     if not SELF_PING_URL:
         return
 

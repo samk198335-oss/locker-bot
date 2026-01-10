@@ -42,8 +42,6 @@ threading.Thread(target=run_http_server, daemon=True).start()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Render Free: локальні файли тимчасові (після redeploy зникають),
-# тому робимо backup/restore через Telegram.
 DB_PATH = "base_data.csv"
 BACKUP_DIR = "backups"
 BACKUP_KEEP_LAST = int(os.getenv("BACKUP_KEEP_LAST", "200"))
@@ -51,11 +49,8 @@ BACKUP_KEEP_LAST = int(os.getenv("BACKUP_KEEP_LAST", "200"))
 # Донор для аварійного /seed (тільки коли база порожня!)
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 
-# Адміни (username без @). Якщо пусто — адмін-перевірка вимкнена (НЕ РЕКОМЕНДУЮ).
-ADMIN_USERNAMES = set(filter(None, [
-    # "admin1",
-    # "admin2",
-]))
+# ✅ БЕЗ АДМІНІВ (всі можуть користуватись)
+ADMIN_USERNAMES = set()  # залишаємо пустим
 
 # ==============================
 # 🧱 UI
@@ -104,7 +99,7 @@ KNIFE_KB = ReplyKeyboardMarkup(
 )
 
 # ==============================
-# 🔐 ADMIN
+# 🔐 ACCESS (no admins for now)
 # ==============================
 
 def is_admin(update: Update) -> bool:
@@ -113,36 +108,39 @@ def is_admin(update: Update) -> bool:
     u = update.effective_user
     return bool(u and u.username and u.username in ADMIN_USERNAMES)
 
-def admin_only_text() -> str:
-    return "⛔ Доступ тільки для адмінів."
-
 def require_admin(func):
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        # адмін-перевірка вимкнена, але лишаємо як каркас на майбутнє
         if not is_admin(update):
-            await update.message.reply_text(admin_only_text(), reply_markup=MAIN_KB)
+            await update.message.reply_text("⛔ Доступ тільки для адмінів.", reply_markup=MAIN_KB)
             return
         return await func(update, context)
     return wrapper
 
-def register_admin_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    На Free bot_data не персиститься між деплоями.
-    Тому адмінам треба хоч раз написати /start після деплою,
-    щоб бот знав, куди слати авто-backup.
-    """
-    if not is_admin(update):
-        return
+# ==============================
+# 🧠 CHATS REGISTRY (для авто-backup на 3 телефони)
+# ==============================
+
+MAX_BACKUP_CHATS = 10  # можна не чіпати
+
+def register_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id if update.effective_chat else None
     if chat_id is None:
         return
-    s = context.bot_data.get("admin_chat_ids")
+    s = context.bot_data.get("backup_chat_ids")
     if not isinstance(s, set):
         s = set()
     s.add(chat_id)
-    context.bot_data["admin_chat_ids"] = s
 
-def get_admin_chat_ids(context: ContextTypes.DEFAULT_TYPE) -> list[int]:
-    s = context.bot_data.get("admin_chat_ids")
+    # легка "ротація" щоб не розростався
+    if len(s) > MAX_BACKUP_CHATS:
+        # залишаємо будь-які MAX_BACKUP_CHATS
+        s = set(list(s)[:MAX_BACKUP_CHATS])
+
+    context.bot_data["backup_chat_ids"] = s
+
+def get_backup_chat_ids(context: ContextTypes.DEFAULT_TYPE) -> list[int]:
+    s = context.bot_data.get("backup_chat_ids")
     if isinstance(s, set):
         return list(s)
     return []
@@ -304,7 +302,7 @@ def dedupe_keep_last(rows: list[dict]) -> list[dict]:
         k = canon_key(s)
         if k not in best:
             order.append(k)
-        best[k] = r  # останній виграє
+        best[k] = r
     return [best[k] for k in order]
 
 def active_rows_unique() -> list[dict]:
@@ -378,12 +376,12 @@ async def send_db_file(update: Update, context: ContextTypes.DEFAULT_TYPE, capti
     bio.name = f"base_data_{_timestamp()}.csv"
     await update.message.reply_document(document=bio, caption=caption, reply_markup=MAIN_KB)
 
-async def notify_admins_backup(context: ContextTypes.DEFAULT_TYPE, reason: str):
+async def notify_chats_backup(context: ContextTypes.DEFAULT_TYPE, reason: str):
     ok, path_or_err = backup_db(reason)
     if not ok:
         return
 
-    chat_ids = get_admin_chat_ids(context)
+    chat_ids = get_backup_chat_ids(context)
     if not chat_ids:
         return
 
@@ -400,6 +398,26 @@ async def notify_admins_backup(context: ContextTypes.DEFAULT_TYPE, reason: str):
             )
     except Exception:
         pass
+
+# ==============================
+# ℹ️ EMPTY DB HINT
+# ==============================
+
+def empty_db_hint_text() -> str:
+    return (
+        "⚠️ База порожня (після деплою на Render Free файли стираються).\n\n"
+        "✅ Як відновити:\n"
+        "1) Натисни ♻️ Відновити з файлу і надішли CSV backup\n"
+        "або\n"
+        "2) Напиши /seed (аварійно підтягне з Google, тільки якщо база пуста)\n\n"
+        "Порада: перед кожним оновленням коду тисни 💾 Backup бази."
+    )
+
+async def hint_if_empty(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    if len(active_rows_unique()) == 0:
+        await update.message.reply_text(empty_db_hint_text(), reply_markup=MAIN_KB)
+        return True
+    return False
 
 # ==============================
 # 🔄 SEED FROM GOOGLE (тільки якщо база порожня)
@@ -456,7 +474,7 @@ def fetch_google_rows() -> list[dict]:
 
 @require_admin
 async def seed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_admin_chat(update, context)
+    register_chat(update, context)
 
     if len(active_rows_unique()) > 0:
         await update.message.reply_text("❌ Seed заборонений. База вже не порожня.", reply_markup=MAIN_KB)
@@ -471,7 +489,7 @@ async def seed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         write_db_rows_atomic(src)
 
         await update.message.reply_text(f"✅ Базу відновлено з Google.\nЗаписів: {len(src)}", reply_markup=MAIN_KB)
-        await notify_admins_backup(context, "seed")
+        await notify_chats_backup(context, "seed")
 
     except Exception as e:
         await update.message.reply_text(f"❌ Помилка seed: {e}", reply_markup=MAIN_KB)
@@ -481,10 +499,24 @@ async def seed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==============================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_admin_chat(update, context)
+    register_chat(update, context)
+
+    # ✅ (1) /start не збиває restore-режим
+    if context.user_data.get("mode") == "restore_wait_file":
+        await update.message.reply_text(
+            "♻️ Відновлення активне.\nНадішли CSV-файл бази (document) або натисни ⛔ Скасувати.",
+            reply_markup=CANCEL_KB
+        )
+        return
+
     await update.message.reply_text("Привіт! Обери дію кнопками нижче 👇", reply_markup=MAIN_KB)
+    await hint_if_empty(update, context)
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
+    if await hint_if_empty(update, context):
+        return
+
     rows = active_rows_unique()
 
     total = len(rows)
@@ -519,6 +551,10 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text, reply_markup=MAIN_KB)
 
 async def list_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
+    if await hint_if_empty(update, context):
+        return
+
     rows = active_rows_unique()
     canon_map = build_canonical_map(rows)
 
@@ -529,6 +565,10 @@ async def list_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(("👥 Всі:\n\n" + "\n".join(names)) if names else "Немає даних.", reply_markup=MAIN_KB)
 
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
+    if await hint_if_empty(update, context):
+        return
+
     rows = active_rows_unique()
     canon_map = build_canonical_map(rows)
 
@@ -544,6 +584,10 @@ async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(("🗄️ З шафкою:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
+    if await hint_if_empty(update, context):
+        return
+
     rows = active_rows_unique()
     canon_map = build_canonical_map(rows)
 
@@ -558,6 +602,10 @@ async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(("🚫 Без шафки:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
+    if await hint_if_empty(update, context):
+        return
+
     rows = active_rows_unique()
     canon_map = build_canonical_map(rows)
 
@@ -572,6 +620,10 @@ async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(("🔪 З ножем:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
+    if await hint_if_empty(update, context):
+        return
+
     rows = active_rows_unique()
     canon_map = build_canonical_map(rows)
 
@@ -622,11 +674,12 @@ async def search_results(update: Update, context: ContextTypes.DEFAULT_TYPE, que
 
 @require_admin
 async def search_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_admin_chat(update, context)
+    register_chat(update, context)
     context.user_data["mode"] = "search_query"
     await update.message.reply_text("🔎 Введи частину ПІБ для пошуку (мін. 2 символи):", reply_markup=CANCEL_KB)
 
 async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
     q = " ".join(context.args) if context.args else ""
     await search_results(update, context, q)
 
@@ -636,7 +689,7 @@ async def find_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_admin_chat(update, context)
+    register_chat(update, context)
     ok, info = backup_db("manual")
     if not ok:
         await update.message.reply_text(f"❌ Backup не створено:\n{info}", reply_markup=MAIN_KB)
@@ -645,30 +698,29 @@ async def backup_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def restore_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_admin_chat(update, context)
+    register_chat(update, context)
     context.user_data["mode"] = "restore_wait_file"
     await update.message.reply_text(
-        "♻️ Відновлення:\nНадішли мені CSV-файл бази (base_data_*.csv).\n"
+        "♻️ Відновлення:\nНадішли мені CSV-файл бази (base_data_*.csv) як ДОКУМЕНТ.\n"
         "Я перезапишу базу.\n\n⛔ Скасувати — кнопка нижче.",
         reply_markup=CANCEL_KB
     )
 
 @require_admin
 async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
     mode = context.user_data.get("mode")
     if mode != "restore_wait_file":
         return
 
     doc = update.message.document
     if not doc:
-        await update.message.reply_text("❌ Немає файлу.", reply_markup=MAIN_KB)
-        context.user_data["mode"] = None
+        await update.message.reply_text("❌ Немає файлу.", reply_markup=CANCEL_KB)
         return
 
     fn = (doc.file_name or "").lower()
     if not fn.endswith(".csv"):
-        await update.message.reply_text("❌ Потрібен .csv файл.", reply_markup=MAIN_KB)
-        context.user_data["mode"] = None
+        await update.message.reply_text("❌ Потрібен .csv файл.", reply_markup=CANCEL_KB)
         return
 
     try:
@@ -684,12 +736,12 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f.write(data)
         os.replace(tmp, DB_PATH)
 
-        _ = read_db_rows()  # валідація читання
+        _ = read_db_rows()
         backup_db("after_restore")
 
         context.user_data["mode"] = None
         await update.message.reply_text(f"✅ Відновлено! Активних: {len(active_rows_unique())}", reply_markup=MAIN_KB)
-        await notify_admins_backup(context, "restore")
+        await notify_chats_backup(context, "restore")
 
     except Exception as e:
         context.user_data["mode"] = None
@@ -720,7 +772,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_admin_chat(update, context)
+    register_chat(update, context)
     context.user_data["mode"] = MODE_ADD_NAME
     context.user_data.pop("tmp_add", None)
     await update.message.reply_text(
@@ -730,7 +782,7 @@ async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def edit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_admin_chat(update, context)
+    register_chat(update, context)
     context.user_data["mode"] = MODE_EDIT_TARGET
     context.user_data.pop("tmp_edit", None)
     await update.message.reply_text(
@@ -740,7 +792,7 @@ async def edit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def delete_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    register_admin_chat(update, context)
+    register_chat(update, context)
     context.user_data["mode"] = MODE_DELETE_NAME
     context.user_data.pop("tmp_delete", None)
     await update.message.reply_text(
@@ -750,12 +802,22 @@ async def delete_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @require_admin
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    register_chat(update, context)
     text = _safe_strip(update.message.text)
 
+    # глобальна відміна
     if text == BTN_CANCEL:
         return await cancel(update, context)
 
     mode = context.user_data.get("mode")
+
+    # ✅ (1) поки restore активний — нічого не збиваємо
+    if mode == "restore_wait_file":
+        await update.message.reply_text(
+            "♻️ Відновлення активне.\nНадішли CSV-файл бази як ДОКУМЕНТ або натисни ⛔ Скасувати.",
+            reply_markup=CANCEL_KB
+        )
+        return
 
     # SEARCH flow
     if mode == "search_query":
@@ -798,7 +860,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         locker = data.get("locker", "")
         upsert_employee(surname=surname, locker=locker, knife=knife_val)
 
-        await notify_admins_backup(context, "add_or_upsert")
+        await notify_chats_backup(context, "add_or_upsert")
 
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_add", None)
@@ -815,10 +877,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not emp:
             await update.message.reply_text("❌ Не знайдено в базі. Введи ПІБ точно як у списку або скасуй.", reply_markup=CANCEL_KB)
             return
-        context.user_data["tmp_edit"] = {
-            "old_key": canon_key(emp.get("surname", "")),
-            "current": emp,
-        }
+        context.user_data["tmp_edit"] = {"old_key": canon_key(emp.get("surname", "")), "current": emp}
         context.user_data["mode"] = MODE_EDIT_NEW_NAME
         await update.message.reply_text(
             "Введи НОВИЙ ПІБ у форматі LATIN UPPERCASE (або '-' щоб залишити як є):",
@@ -889,7 +948,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             soft_delete_employee(_safe_strip(current.get("surname", "")))
             upsert_employee(surname=new_surname, locker=new_locker, knife=knife_val, address=address)
 
-        await notify_admins_backup(context, "edit")
+        await notify_chats_backup(context, "edit")
 
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_edit", None)
@@ -921,7 +980,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         ok = soft_delete_employee(name)
 
-        await notify_admins_backup(context, "delete")
+        await notify_chats_backup(context, "delete")
 
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_delete", None)

@@ -4,6 +4,7 @@ import time
 import threading
 import requests
 import re
+import difflib
 from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -21,12 +22,80 @@ from telegram.ext import (
 # ==============================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 CACHE_TTL = 300  # 5 хв
 
 LOCAL_DATA_FILE = os.getenv("LOCAL_DATA_FILE", "local_data.csv")
 LOCAL_OPS_FILE = os.getenv("LOCAL_OPS_FILE", "local_ops.csv")
+
+# ✅ Render free keep-alive (optional)
+SELF_PING_URL = os.getenv("SELF_PING_URL", "").strip()  # наприклад: https://<your-service>.onrender.com/
+
+# ==============================
+# ✅ CANONICAL (ETALON) NAMES (LATIN)
+# ==============================
+
+CANONICAL_NAMES = [
+    "BABAKHANOVA OLHA",
+    "BRAHA VIKTOR",
+    "BRAHA VLADYSLAV",
+    "CHEREDNYK VOLODYMYR",
+    "DAKHNO IHOR",
+    "DOKTOR OLEKSANDRA",
+    "DORICHENKO VLADYSLAVA",
+    "FITENKO NATALIA",
+    "HAVRYLIUK YULIIA",
+    "HUNKA VLADYSLAV",
+    "ISAKOVA VALENTYNA",
+    "KOSENKO OLHA",
+    "KUFLOVSKYI DEMIAN",
+    "KUZ VALERII",
+    "KUZMINA OLHA",
+    "KYDUN SOFIIA",
+    "LAKHTIUK LARYSA",
+    "LAKHTIUK OLEH",
+    "LAPCHUK TETIANA",
+    "LARIN VALERII",
+    "MAKARENKO NATALIIA",
+    "MALKIN SERHII",
+    "MANDRIK ARTIOM",
+    "MARCHENKO OLEKSANDR",
+    "MARTYNIUK ILLIA",
+    "MELNIKAU DZMITRY",
+    "MOROZ VLADYSLAV",
+    "MUKHOV DANYLO",
+    "MURADYN IVAN",
+    "NIKOLTSIV MYKHAILO",
+    "NIKOLTSIV NADIIA",
+    "PEDORIAKA STANISLAV",
+    "PETRIV DMYTRO",
+    "PETRYSHYNETS LIUBOV",
+    "POLISHCHUK IVAN",
+    "PRYIMACHUK ANHELINA",
+    "PYSANETS TETIANA",
+    "ROMANENKO KARYNA",
+    "SAFRONIUK NATALIIA",
+    "SAMOLIUK YULIIA",
+    "SEREDA YANA",
+    "SHKURYNSKA NATALIIA",
+    "SINELNYK DENYS",
+    "SPALYLO MYKHAILO",
+    "SULEVA MARIIA",
+    "SVYRYDA BOHDAN",
+    "TROKHYMETS DMYTRO",
+    "TYMOSHCHUK BOHDAN",
+    "TYMOSHEVSKYI ANDRII",
+    "ULOSHVAI ARTEM",
+    "VOVK ANNA",
+    "YAKYMCHUK STEPAN",
+    "YURASHKEVYCH YURII",
+    "ZAICHENKO OLEKSANDR",
+    "ZALEVSKYI NAZAR",
+    "ZHUKOV VITALII",
+    "HONCHARYK TATSIANA",
+]
+
+CANON_SET = set(CANONICAL_NAMES)
 
 # ==============================
 # 🔁 CACHE
@@ -45,8 +114,7 @@ def invalidate_cache():
 # ==============================
 
 def normalize_text(s: str) -> str:
-    # NBSP -> space, collapse spaces, strip
-    s = (s or "").replace("\u00A0", " ")
+    s = (s or "").replace("\u00A0", " ")  # NBSP
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
@@ -56,8 +124,41 @@ def norm_key(s: str) -> str:
 
 
 def norm_name(s: str) -> str:
-    # name matching uses normalized lowercase
     return norm_key(s)
+
+
+# --- simple UA/RU -> Latin transliteration (для матчингу) ---
+_CYR_MAP = {
+    "А": "A", "Б": "B", "В": "V", "Г": "H", "Ґ": "G", "Д": "D", "Е": "E", "Є": "YE", "Ж": "ZH",
+    "З": "Z", "И": "Y", "І": "I", "Ї": "YI", "Й": "Y", "К": "K", "Л": "L", "М": "M", "Н": "N",
+    "О": "O", "П": "P", "Р": "R", "С": "S", "Т": "T", "У": "U", "Ф": "F", "Х": "KH", "Ц": "TS",
+    "Ч": "CH", "Ш": "SH", "Щ": "SHCH", "Ь": "", "Ю": "YU", "Я": "YA",
+    "а": "a", "б": "b", "в": "v", "г": "h", "ґ": "g", "д": "d", "е": "e", "є": "ye", "ж": "zh",
+    "з": "z", "и": "y", "і": "i", "ї": "yi", "й": "y", "к": "k", "л": "l", "м": "m", "н": "n",
+    "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u", "ф": "f", "х": "kh", "ц": "ts",
+    "ч": "ch", "ш": "sh", "щ": "shch", "ь": "", "ю": "yu", "я": "ya",
+    # RU extras:
+    "Ы": "Y", "Э": "E", "Ъ": "", "Ё": "YO",
+    "ы": "y", "э": "e", "ъ": "", "ё": "yo",
+}
+
+
+def translit_to_latin(s: str) -> str:
+    s = normalize_text(s)
+    out = []
+    for ch in s:
+        out.append(_CYR_MAP.get(ch, ch))
+    return "".join(out)
+
+
+def canon_norm_for_match(name: str) -> str:
+    # canonical already latin; normalize spaces and uppercase
+    return normalize_text(name).upper()
+
+
+def any_norm_for_match(name: str) -> str:
+    # handle cyrillic by translit, then normalize/uppercase
+    return normalize_text(translit_to_latin(name)).upper()
 
 
 # ==============================
@@ -73,16 +174,11 @@ def get_value(row: dict, field_name: str) -> str:
 
 
 def set_value(row: dict, field_name: str, new_value: str):
-    """
-    Set value using the actual key existing in row (case/space insensitive).
-    If not found, sets with canonical key.
-    """
     want = norm_key(field_name)
     for k in list(row.keys()):
         if k and norm_key(k) == want:
             row[k] = new_value
             return
-    # fallback
     row[field_name] = new_value
 
 
@@ -191,10 +287,8 @@ def apply_ops(rows: list, ops: list) -> list:
 
             for r in rows:
                 if same_name(get_value(r, "surname"), target):
-                    # knife: "1"/"0"/"-"(clear)
                     if knife != "":
                         set_value(r, "knife", knife)
-                    # locker: value or "-" clear marker
                     if locker != "":
                         set_value(r, "locker", locker)
             continue
@@ -203,7 +297,7 @@ def apply_ops(rows: list, ops: list) -> list:
 
 
 # ==============================
-# 📥 LOAD CSV (remote + local + ops)
+# 📥 LOAD CSV
 # ==============================
 
 def load_csv():
@@ -213,7 +307,6 @@ def load_csv():
 
     response = requests.get(CSV_URL, timeout=15)
     response.encoding = "utf-8"
-
     reader = csv.DictReader(StringIO(response.text))
     remote = list(reader)
 
@@ -239,6 +332,7 @@ KEYBOARD = ReplyKeyboardMarkup(
         ["👥 Всі", "📊 Статистика"],
         ["➕ Додати працівника"],
         ["✏️ Змінити прізвище", "🗄️ Редагувати шафку", "🔪 Редагувати ніж"],
+        ["🧾 Нормалізувати прізвища (Latin)"],
     ],
     resize_keyboard=True
 )
@@ -256,10 +350,9 @@ EDIT_KNIFE_KB = ReplyKeyboardMarkup(
 CANCEL_KB = ReplyKeyboardMarkup([["❌ Скасувати"]], resize_keyboard=True)
 
 
-async def back_to_menu(update: Update, text: str = "✅ Готово. Обери дію 👇"):
-    # hard reset flow + always restore keyboard
-    if update.message:
-        await update.message.reply_text(text, reply_markup=KEYBOARD)
+async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str = "✅ Готово. Обери дію 👇"):
+    context.user_data.clear()
+    await update.message.reply_text(text, reply_markup=KEYBOARD)
 
 
 # ==============================
@@ -355,8 +448,7 @@ async def add_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = normalize_text(update.message.text)
 
     if text == "❌ Скасувати":
-        context.user_data.clear()
-        await back_to_menu(update, "Скасовано. Обери дію 👇")
+        await back_to_menu(update, context, "Скасовано. Обери дію 👇")
         return
 
     state = context.user_data.get("state")
@@ -390,14 +482,16 @@ async def add_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         append_local_row(surname=surname, locker=locker, knife=knife)
         invalidate_cache()
-        context.user_data.clear()
 
-        await back_to_menu(update, f"✅ Додано: {surname}" + (f" — {locker}" if locker else "") + f"\nНіж: {'Є' if knife=='1' else 'Немає'}")
+        await back_to_menu(
+            update, context,
+            f"✅ Додано: {surname}" + (f" — {locker}" if locker else "") + f"\nНіж: {'Є' if knife=='1' else 'Немає'}"
+        )
         return
 
 
 # ==============================
-# ✏️ RENAME SURNAME
+# ✏️ RENAME SURNAME (manual)
 # ==============================
 
 async def rename_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -412,8 +506,7 @@ async def rename_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = normalize_text(update.message.text)
 
     if text == "❌ Скасувати":
-        context.user_data.clear()
-        await back_to_menu(update, "Скасовано. Обери дію 👇")
+        await back_to_menu(update, context, "Скасовано. Обери дію 👇")
         return
 
     state = context.user_data.get("state")
@@ -431,8 +524,7 @@ async def rename_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new = text
         append_op(op="rename", target=old, new_surname=new)
         invalidate_cache()
-        context.user_data.clear()
-        await back_to_menu(update, f"✅ Змінено:\n{old} ➜ {new}")
+        await back_to_menu(update, context, f"✅ Змінено:\n{old} ➜ {new}")
         return
 
 
@@ -452,8 +544,7 @@ async def edit_locker_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
     text = normalize_text(update.message.text)
 
     if text == "❌ Скасувати":
-        context.user_data.clear()
-        await back_to_menu(update, "Скасовано. Обери дію 👇")
+        await back_to_menu(update, context, "Скасовано. Обери дію 👇")
         return
 
     state = context.user_data.get("state")
@@ -472,8 +563,7 @@ async def edit_locker_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
         locker_to_store = locker if locker else "-"  # "-" forces clearing
         append_op(op="set", target=who, locker=locker_to_store)
         invalidate_cache()
-        context.user_data.clear()
-        await back_to_menu(update, f"✅ Шафку оновлено для: {who}\nНова шафка: {locker if locker else 'немає'}")
+        await back_to_menu(update, context, f"✅ Шафку оновлено для: {who}\nНова шафка: {locker if locker else 'немає'}")
         return
 
 
@@ -493,8 +583,7 @@ async def edit_knife_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = normalize_text(update.message.text)
 
     if text == "❌ Скасувати":
-        context.user_data.clear()
-        await back_to_menu(update, "Скасовано. Обери дію 👇")
+        await back_to_menu(update, context, "Скасовано. Обери дію 👇")
         return
 
     state = context.user_data.get("state")
@@ -517,21 +606,120 @@ async def edit_knife_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         knife = "1" if text == "🔪 Є ніж" else ("0" if text == "🚫 Немає ножа" else "-")
         append_op(op="set", target=who, knife=knife)
         invalidate_cache()
-        context.user_data.clear()
 
         shown = "Є" if knife == "1" else ("Немає" if knife == "0" else "не вказано")
-        await back_to_menu(update, f"✅ Ніж оновлено для: {who}\nНіж: {shown}")
+        await back_to_menu(update, context, f"✅ Ніж оновлено для: {who}\nНіж: {shown}")
         return
+
+
+# ==============================
+# 🧾 AUTO NORMALIZE SURNAMES (to CANONICAL LATIN)
+# ==============================
+
+def best_canonical_match(current_name: str):
+    """
+    returns: (best_name, best_score, second_score)
+    """
+    cur = any_norm_for_match(current_name)
+    if not cur:
+        return None, 0.0, 0.0
+
+    best_name = None
+    best_score = 0.0
+    second_score = 0.0
+
+    for cand in CANONICAL_NAMES:
+        c = canon_norm_for_match(cand)
+        score = difflib.SequenceMatcher(None, cur, c).ratio()
+        if score > best_score:
+            second_score = best_score
+            best_score = score
+            best_name = cand
+        elif score > second_score:
+            second_score = score
+
+    return best_name, best_score, second_score
+
+
+async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = load_csv()
+    surnames = []
+    seen = set()
+
+    for r in rows:
+        s = get_value(r, "surname")
+        if not s:
+            continue
+        key = norm_name(s)
+        if key not in seen:
+            seen.add(key)
+            surnames.append(s)
+
+    # Already canonical?
+    canonical_upper = {canon_norm_for_match(x) for x in CANONICAL_NAMES}
+
+    applied = []
+    unsure = []
+    skipped = []
+
+    # thresholds
+    MIN_SCORE = 0.86
+    MIN_GAP = 0.04  # best - second
+
+    for s in surnames:
+        s_norm_upper = any_norm_for_match(s)
+        if s_norm_upper in canonical_upper:
+            skipped.append(s)
+            continue
+
+        best, best_score, second_score = best_canonical_match(s)
+        if not best:
+            unsure.append((s, "-", 0.0))
+            continue
+
+        if best_score >= MIN_SCORE and (best_score - second_score) >= MIN_GAP:
+            # apply rename op
+            append_op(op="rename", target=s, new_surname=best)
+            applied.append((s, best, best_score))
+        else:
+            unsure.append((s, best, best_score))
+
+    invalidate_cache()
+
+    # Report (keep message not too long)
+    msg = []
+    msg.append("🧾 Нормалізація прізвищ (Latin)")
+    msg.append("")
+    msg.append(f"✅ Авто-замін: {len(applied)}")
+    msg.append(f"⚠️ Потрібно перевірити: {len(unsure)}")
+    msg.append(f"➖ Уже OK: {len(skipped)}")
+    msg.append("")
+
+    if applied:
+        msg.append("✅ Приклади авто-заміни (до 10):")
+        for old, new, sc in applied[:10]:
+            msg.append(f"• {old} ➜ {new} ({sc:.2f})")
+        msg.append("")
+
+    if unsure:
+        msg.append("⚠️ Сумнівні (до 10) — напиши мені, що з них і як правильно:")
+        for old, sug, sc in unsure[:10]:
+            msg.append(f"• {old} ~ {sug} ({sc:.2f})")
+        msg.append("")
+
+    msg.append("ℹ️ Зміни збережені як локальні правила (не ламають ножі/шафки).")
+    await back_to_menu(update, context, "\n".join(msg))
 
 
 # ==============================
 # 🎛️ MAIN HANDLER
 # ==============================
 
-async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = normalize_text(update.message.text)
     flow = context.user_data.get("flow")
 
+    # flows
     if flow == "add":
         await add_handle(update, context)
         return
@@ -545,6 +733,7 @@ async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_knife_handle(update, context)
         return
 
+    # menu buttons
     if text == "🔪 З ножем":
         await knife_list(update, context)
     elif text == "🚫 Без ножа":
@@ -565,6 +754,8 @@ async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_locker_start(update, context)
     elif text == "🔪 Редагувати ніж":
         await edit_knife_start(update, context)
+    elif text == "🧾 Нормалізувати прізвища (Latin)":
+        await normalize_surnames(update, context)
 
 
 # ==============================
@@ -583,6 +774,28 @@ def run_health_server():
     HTTPServer(("0.0.0.0", port), HealthHandler).serve_forever()
 
 
+def ping_loop():
+    """
+    Try to keep Render free service warm.
+    Not guaranteed on free plan, but usually helps.
+    """
+    if not SELF_PING_URL:
+        return
+
+    url = SELF_PING_URL
+    if not url.startswith("http"):
+        url = "https://" + url
+    url = url.rstrip("/") + "/"
+
+    while True:
+        try:
+            requests.get(url, timeout=10)
+        except Exception:
+            pass
+        # every 12 minutes
+        time.sleep(12 * 60)
+
+
 # ==============================
 # 🚀 MAIN
 # ==============================
@@ -592,6 +805,7 @@ def main():
         raise RuntimeError("BOT_TOKEN is not set")
 
     threading.Thread(target=run_health_server, daemon=True).start()
+    threading.Thread(target=ping_loop, daemon=True).start()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -601,8 +815,9 @@ def main():
     app.add_handler(CommandHandler("no_locker_list", no_locker_list))
     app.add_handler(CommandHandler("knife_list", knife_list))
     app.add_handler(CommandHandler("no_knife_list", no_knife_list))
+    app.add_handler(CommandHandler("normalize", normalize_surnames))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_filters))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
     app.run_polling(drop_pending_updates=True)
 

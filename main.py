@@ -194,7 +194,7 @@ def knife_label(v: str) -> str:
     return "❓"
 
 # ==============================
-# ✅ CANON DISPLAY (підміна тільки для канонічних у "Всі")
+# ✅ CANON DISPLAY
 # ==============================
 
 def build_canonical_map(all_rows: list[dict]) -> dict:
@@ -411,26 +411,53 @@ def fetch_google_rows() -> list[dict]:
     r.encoding = "utf-8"
     f = StringIO(r.text)
 
-    reader = csv.DictReader(f)
+    reader = csv.reader(f)
+    try:
+        headers = next(reader)
+    except StopIteration:
+        return []
+
+    def norm(h: str) -> str:
+        return (h or "").replace("\ufeff", "").strip().lower()
+
+    idx = {norm(h): i for i, h in enumerate(headers)}
+
+    def pick(*names):
+        for n in names:
+            if n in idx:
+                return idx[n]
+        return None
+
+    i_address = pick("address", "адреса")
+    i_surname = pick("surname", "прізвище", "прiзвище", "піб")
+    i_knife = pick("knife", "ніж", "нiж")
+    i_locker = pick("locker", "шафка", "номер шафки")
+
     rows = []
     for row in reader:
-        surname = _safe_strip(row.get("surname", ""))
+        def get(i):
+            if i is None or i >= len(row):
+                return ""
+            return row[i]
+
+        surname = _safe_strip(get(i_surname))
         if not surname:
             continue
+
         rows.append({
-            "Address": row.get("Address", ""),
+            "Address": get(i_address),
             "surname": surname,
-            "knife": row.get("knife", ""),
-            "locker": row.get("locker", ""),
+            "knife": get(i_knife),
+            "locker": get(i_locker),
             "deleted": "0",
         })
+
     return rows
 
 @require_admin
 async def seed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     register_admin_chat(update, context)
 
-    # захист: seed тільки коли база порожня
     if len(active_rows_unique()) > 0:
         await update.message.reply_text("❌ Seed заборонений. База вже не порожня.", reply_markup=MAIN_KB)
         return
@@ -438,7 +465,7 @@ async def seed_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         src = fetch_google_rows()
         if not src:
-            raise RuntimeError("Google CSV порожній або не має колонок surname/Address/knife/locker")
+            raise RuntimeError("Google CSV порожній або немає потрібних колонок")
 
         src = dedupe_keep_last(src)
         write_db_rows_atomic(src)

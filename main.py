@@ -193,14 +193,8 @@ def write_db_rows(rows: list[dict]):
             })
 
 def dedupe_keep_last(rows: list[dict]) -> list[dict]:
-    """
-    ✅ КЛЮЧОВИЙ ФІКС:
-    якщо є дублікати по canon_key(surname) — лишаємо ОСТАННІЙ запис (той, який додали/оновили останнім).
-    deleted=1 не відновлюємо випадково.
-    """
-    best = {}  # key -> row
-    order = []  # порядок появи ключів (для стабільного виводу)
-
+    best = {}
+    order = []
     for r in rows:
         s = _safe_strip(r.get("surname"))
         if not s:
@@ -208,25 +202,11 @@ def dedupe_keep_last(rows: list[dict]) -> list[dict]:
         k = canon_key(s)
         if k not in best:
             order.append(k)
-        # завжди перезаписуємо (тобто тримаємо "останній")
-        best[k] = r
-
-    # повернемо в порядку появи ключів
-    out = []
-    for k in order:
-        out.append(best[k])
-    return out
+        best[k] = r  # перезапис = "останній виграє"
+    return [best[k] for k in order]
 
 def active_rows_unique() -> list[dict]:
-    """
-    Активні рядки без дублікатів, де "перемагає останній" запис.
-    """
-    rows = read_db_rows()
-
-    # спочатку дедуп
-    rows = dedupe_keep_last(rows)
-
-    # потім відфільтруємо deleted
+    rows = dedupe_keep_last(read_db_rows())
     out = []
     for r in rows:
         if _safe_strip(r.get("deleted")) == "1":
@@ -234,7 +214,6 @@ def active_rows_unique() -> list[dict]:
         if not _safe_strip(r.get("surname")):
             continue
         out.append(r)
-
     return out
 
 def find_active_by_name(input_name: str) -> dict | None:
@@ -245,10 +224,6 @@ def find_active_by_name(input_name: str) -> dict | None:
     return None
 
 def upsert_employee(surname: str, locker: str, knife: str, address: str = ""):
-    """
-    Додає або оновлює працівника. Якщо через якісь причини в файлі були дублікати —
-    дедуп після запису гарантує, що "останній" буде показуватись.
-    """
     rows = read_db_rows()
     key = canon_key(surname)
 
@@ -272,7 +247,6 @@ def upsert_employee(surname: str, locker: str, knife: str, address: str = ""):
             "deleted": "0",
         })
 
-    # ✅ одразу чистимо дублікати, щоб новий точно “побачився”
     rows = dedupe_keep_last(rows)
     write_db_rows(rows)
 
@@ -284,7 +258,6 @@ def soft_delete_employee(name: str) -> bool:
         if canon_key(r.get("surname", "")) == key and _safe_strip(r.get("deleted")) != "1":
             r["deleted"] = "1"
             changed = True
-
     if changed:
         rows = dedupe_keep_last(rows)
         write_db_rows(rows)
@@ -367,12 +340,7 @@ def import_from_google_overwrite_db() -> tuple[bool, str]:
     except Exception as e:
         return False, f"❌ Помилка імпорту: {e}"
 
-    clean = []
-    for r in src:
-        if _safe_strip(r.get("surname")):
-            clean.append(r)
-
-    # ✅ дедуп одразу при імпорті
+    clean = [r for r in src if _safe_strip(r.get("surname"))]
     clean = dedupe_keep_last(clean)
 
     ensure_db_exists()
@@ -384,31 +352,23 @@ def ensure_db_initialized_once():
         ensure_db_exists()
         import_from_google_overwrite_db()
         return
-
-    rows = read_db_rows()
-    active = [r for r in rows if _safe_strip(r.get("surname")) and _safe_strip(r.get("deleted")) != "1"]
-    if len(active) == 0:
+    active = [r for r in read_db_rows() if _safe_strip(r.get("surname")) and _safe_strip(r.get("deleted")) != "1"]
+    if not active:
         import_from_google_overwrite_db()
 
 # ==============================
-# 📨 HANDLERS
+# 📨 LISTS / STATS
 # ==============================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Привіт! Обери дію кнопками нижче 👇",
-        reply_markup=MAIN_KB
-    )
+    await update.message.reply_text("Привіт! Обери дію кнопками нижче 👇", reply_markup=MAIN_KB)
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = active_rows_unique()
 
     total = len(rows)
-    with_knife = 0
-    no_knife = 0
-    unknown_knife = 0
-    with_locker = 0
-    no_locker = 0
+    with_knife = no_knife = unknown_knife = 0
+    with_locker = no_locker = 0
 
     for r in rows:
         knife = parse_knife(r.get("knife", ""))
@@ -445,8 +405,7 @@ async def list_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
     names = [n for n in names if n]
     names.sort()
 
-    text = "👥 Всі:\n\n" + "\n".join(names) if names else "Немає даних."
-    await update.message.reply_text(text, reply_markup=MAIN_KB)
+    await update.message.reply_text(("👥 Всі:\n\n" + "\n".join(names)) if names else "Немає даних.", reply_markup=MAIN_KB)
 
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = active_rows_unique()
@@ -461,8 +420,7 @@ async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         items.append(f"{name} — {locker}")
 
     items.sort()
-    text = "🗄️ З шафкою:\n\n" + "\n".join(items) if items else "Немає даних."
-    await update.message.reply_text(text, reply_markup=MAIN_KB)
+    await update.message.reply_text(("🗄️ З шафкою:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = active_rows_unique()
@@ -470,15 +428,13 @@ async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     items = []
     for r in rows:
-        locker = normalize_locker(r.get("locker",""))
-        if locker is not None:
+        if normalize_locker(r.get("locker","")) is not None:
             continue
-        name = display_name(r.get("surname",""), canon_map)
-        items.append(name)
+        items.append(display_name(r.get("surname",""), canon_map))
 
+    items = [x for x in items if x]
     items.sort()
-    text = "🚫 Без шафки:\n\n" + "\n".join(items) if items else "Немає даних."
-    await update.message.reply_text(text, reply_markup=MAIN_KB)
+    await update.message.reply_text(("🚫 Без шафки:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = active_rows_unique()
@@ -488,12 +444,11 @@ async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for r in rows:
         if parse_knife(r.get("knife","")) != 1:
             continue
-        name = display_name(r.get("surname",""), canon_map)
-        items.append(name)
+        items.append(display_name(r.get("surname",""), canon_map))
 
+    items = [x for x in items if x]
     items.sort()
-    text = "🔪 З ножем:\n\n" + "\n".join(items) if items else "Немає даних."
-    await update.message.reply_text(text, reply_markup=MAIN_KB)
+    await update.message.reply_text(("🔪 З ножем:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = active_rows_unique()
@@ -503,12 +458,11 @@ async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for r in rows:
         if parse_knife(r.get("knife","")) != 0:
             continue
-        name = display_name(r.get("surname",""), canon_map)
-        items.append(name)
+        items.append(display_name(r.get("surname",""), canon_map))
 
+    items = [x for x in items if x]
     items.sort()
-    text = "❌ Без ножа:\n\n" + "\n".join(items) if items else "Немає даних."
-    await update.message.reply_text(text, reply_markup=MAIN_KB)
+    await update.message.reply_text(("❌ Без ножа:\n\n" + "\n".join(items)) if items else "Немає даних.", reply_markup=MAIN_KB)
 
 # ==============================
 # ✍️ FLOWS: add/edit/delete
@@ -543,7 +497,7 @@ async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["mode"] = MODE_ADD_NAME
     context.user_data.pop("tmp_add", None)
     await update.message.reply_text(
-        "➕ Введи ПІБ у форматі LATIN UPPERCASE: SURNAME NAME\nНапр: TROKHYMETS DMYTRO",
+        "➕ Введи ПІБ у форматі LATIN UPPERCASE: SURNAME NAME\nНапр: BRAHA VIKTOR",
         reply_markup=CANCEL_KB
     )
 
@@ -568,12 +522,14 @@ async def delete_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @require_admin
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = _safe_strip(update.message.text)
-    mode = context.user_data.get("mode")
 
+    # глобальна відміна
     if text == BTN_CANCEL:
         return await cancel(update, context)
 
-    # ADD
+    mode = context.user_data.get("mode")
+
+    # ---------------- ADD ----------------
     if mode == MODE_ADD_NAME:
         if not looks_like_canonical_upper_latin(text):
             await update.message.reply_text(
@@ -612,15 +568,132 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["mode"] = MODE_NONE
         context.user_data.pop("tmp_add", None)
 
-        # ✅ додатково покажемо, що він точно є в базі
-        now_in_db = "✅ Так" if find_active_by_name(surname) else "⚠️ Ні (перевіримо дублікати)"
         await update.message.reply_text(
-            f"✅ Додано/оновлено:\n{surname}\nШафка: {locker or '—'}\nНіж: {knife_val}\n\nЄ в базі: {now_in_db}",
+            f"✅ Додано/оновлено:\n{surname}\nШафка: {locker or '—'}\nНіж: {knife_val}",
             reply_markup=MAIN_KB
         )
         return
 
-    # EDIT / DELETE і роутер кнопок — як раніше
+    # ---------------- EDIT ----------------
+    if mode == MODE_EDIT_TARGET:
+        emp = find_active_by_name(text)
+        if not emp:
+            await update.message.reply_text("❌ Не знайдено в базі. Введи ПІБ точно як у списку або скасуй.", reply_markup=CANCEL_KB)
+            return
+        context.user_data["tmp_edit"] = {
+            "old_key": canon_key(emp.get("surname","")),
+            "current": emp,
+        }
+        context.user_data["mode"] = MODE_EDIT_NEW_NAME
+        await update.message.reply_text(
+            "Введи НОВИЙ ПІБ у форматі LATIN UPPERCASE (або '-' щоб залишити як є):",
+            reply_markup=CANCEL_KB
+        )
+        return
+
+    if mode == MODE_EDIT_NEW_NAME:
+        tmp = context.user_data.get("tmp_edit") or {}
+        current = tmp.get("current") or {}
+        if text == "-":
+            new_name = _safe_strip(current.get("surname",""))
+        else:
+            if not looks_like_canonical_upper_latin(text):
+                await update.message.reply_text(
+                    "❌ Невірний формат.\nПотрібно: LATIN UPPERCASE 'SURNAME NAME'\nАбо '-' щоб залишити як є.",
+                    reply_markup=CANCEL_KB
+                )
+                return
+            new_name = text
+
+        tmp["new_surname"] = new_name
+        context.user_data["tmp_edit"] = tmp
+        context.user_data["mode"] = MODE_EDIT_LOCKER
+        await update.message.reply_text(
+            "Введи НОВУ шафку (або '-' щоб залишити як є, або 'нет' щоб прибрати):",
+            reply_markup=CANCEL_KB
+        )
+        return
+
+    if mode == MODE_EDIT_LOCKER:
+        tmp = context.user_data.get("tmp_edit") or {}
+        current = tmp.get("current") or {}
+        if text == "-":
+            new_locker = _safe_strip(current.get("locker",""))
+        else:
+            new_locker = normalize_locker(text) or ""  # "нет" -> ""
+        tmp["new_locker"] = new_locker
+        context.user_data["tmp_edit"] = tmp
+        context.user_data["mode"] = MODE_EDIT_KNIFE
+        await update.message.reply_text("Обери ніж (або ↩️ Залишити як є):", reply_markup=KNIFE_KB)
+        return
+
+    if mode == MODE_EDIT_KNIFE:
+        tmp = context.user_data.get("tmp_edit") or {}
+        current = tmp.get("current") or {}
+
+        if text == KNIFE_KEEP:
+            knife_val = _safe_strip(current.get("knife",""))
+        elif text == KNIFE_YES:
+            knife_val = "1"
+        elif text == KNIFE_NO:
+            knife_val = "0"
+        elif text == KNIFE_UNKNOWN:
+            knife_val = "2"
+        else:
+            await update.message.reply_text("Обери кнопку 👇", reply_markup=KNIFE_KB)
+            return
+
+        old_key = tmp.get("old_key","")
+        new_surname = tmp.get("new_surname", _safe_strip(current.get("surname","")))
+        new_locker = tmp.get("new_locker", _safe_strip(current.get("locker","")))
+        address = _safe_strip(current.get("Address",""))
+
+        # якщо key не змінився — оновлюємо на місці
+        if canon_key(new_surname) == old_key:
+            upsert_employee(surname=new_surname, locker=new_locker, knife=knife_val, address=address)
+        else:
+            # key змінився — старий soft delete, новий upsert
+            soft_delete_employee(_safe_strip(current.get("surname","")))
+            upsert_employee(surname=new_surname, locker=new_locker, knife=knife_val, address=address)
+
+        context.user_data["mode"] = MODE_NONE
+        context.user_data.pop("tmp_edit", None)
+
+        await update.message.reply_text(
+            f"✅ Оновлено:\n{new_surname}\nШафка: {new_locker or '—'}\nНіж: {knife_val}",
+            reply_markup=MAIN_KB
+        )
+        return
+
+    # ---------------- DELETE ----------------
+    if mode == MODE_DELETE_NAME:
+        if not text:
+            await update.message.reply_text("Введи ПІБ текстом.", reply_markup=CANCEL_KB)
+            return
+        context.user_data["tmp_delete"] = {"name": text}
+        context.user_data["mode"] = MODE_DELETE_CONFIRM
+        await update.message.reply_text(
+            f"Підтверди видалення:\n{text}\n\nНапиши: YES щоб підтвердити, або ⛔ Скасувати",
+            reply_markup=CANCEL_KB
+        )
+        return
+
+    if mode == MODE_DELETE_CONFIRM:
+        tmp = context.user_data.get("tmp_delete") or {}
+        name = tmp.get("name","")
+        if text.upper() != "YES":
+            await update.message.reply_text("Не підтверджено. Напиши YES або скасуй.", reply_markup=CANCEL_KB)
+            return
+        ok = soft_delete_employee(name)
+        context.user_data["mode"] = MODE_NONE
+        context.user_data.pop("tmp_delete", None)
+        await update.message.reply_text(
+            f"✅ Видалено: {name}" if ok else f"❌ Не знайдено: {name}",
+            reply_markup=MAIN_KB
+        )
+        return
+
+    # ---------------- BUTTON ROUTER ----------------
     if text == BTN_STATS:
         return await stats(update, context)
     if text == BTN_ALL:

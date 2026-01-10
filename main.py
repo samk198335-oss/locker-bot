@@ -21,15 +21,18 @@ from telegram.ext import (
 # 🔧 CONFIG
 # ==============================
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+
+DEFAULT_CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+CSV_URL = os.getenv("CSV_URL", DEFAULT_CSV_URL).strip()
+
 CACHE_TTL = 300  # 5 хв
 
-LOCAL_DATA_FILE = os.getenv("LOCAL_DATA_FILE", "local_data.csv")
-LOCAL_OPS_FILE = os.getenv("LOCAL_OPS_FILE", "local_ops.csv")
+LOCAL_DATA_FILE = os.getenv("LOCAL_DATA_FILE", "local_data.csv")   # додані працівники
+LOCAL_OPS_FILE = os.getenv("LOCAL_OPS_FILE", "local_ops.csv")      # локальні правила (rename/set)
 
-# ✅ Render free keep-alive (optional)
-SELF_PING_URL = os.getenv("SELF_PING_URL", "").strip()  # наприклад: https://<your-service>.onrender.com/
+# Render Free keep-alive (optional)
+SELF_PING_URL = os.getenv("SELF_PING_URL", "").strip()
 
 # ==============================
 # ✅ CANONICAL (ETALON) NAMES (LATIN)
@@ -95,8 +98,6 @@ CANONICAL_NAMES = [
     "HONCHARYK TATSIANA",
 ]
 
-CANON_SET = set(CANONICAL_NAMES)
-
 # ==============================
 # 🔁 CACHE
 # ==============================
@@ -110,11 +111,11 @@ def invalidate_cache():
 
 
 # ==============================
-# 🧠 NORMALIZATION
+# 🧠 TEXT HELPERS / TRANSLIT
 # ==============================
 
 def normalize_text(s: str) -> str:
-    s = (s or "").replace("\u00A0", " ")  # NBSP
+    s = (s or "").replace("\u00A0", " ")
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
@@ -127,7 +128,6 @@ def norm_name(s: str) -> str:
     return norm_key(s)
 
 
-# --- simple UA/RU -> Latin transliteration (для матчингу) ---
 _CYR_MAP = {
     "А": "A", "Б": "B", "В": "V", "Г": "H", "Ґ": "G", "Д": "D", "Е": "E", "Є": "YE", "Ж": "ZH",
     "З": "Z", "И": "Y", "І": "I", "Ї": "YI", "Й": "Y", "К": "K", "Л": "L", "М": "M", "Н": "N",
@@ -145,19 +145,14 @@ _CYR_MAP = {
 
 def translit_to_latin(s: str) -> str:
     s = normalize_text(s)
-    out = []
-    for ch in s:
-        out.append(_CYR_MAP.get(ch, ch))
-    return "".join(out)
+    return "".join(_CYR_MAP.get(ch, ch) for ch in s)
 
 
 def canon_norm_for_match(name: str) -> str:
-    # canonical already latin; normalize spaces and uppercase
     return normalize_text(name).upper()
 
 
 def any_norm_for_match(name: str) -> str:
-    # handle cyrillic by translit, then normalize/uppercase
     return normalize_text(translit_to_latin(name)).upper()
 
 
@@ -217,7 +212,7 @@ def ensure_local_file():
     if os.path.exists(LOCAL_DATA_FILE):
         return
     with open(LOCAL_DATA_FILE, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["Adress", "surname", "knife", "locker"])
+        w = csv.DictWriter(f, fieldnames=["Address", "surname", "knife", "locker"])
         w.writeheader()
 
 
@@ -230,8 +225,8 @@ def read_local_csv():
 def append_local_row(surname: str, locker: str, knife: str):
     ensure_local_file()
     with open(LOCAL_DATA_FILE, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["Adress", "surname", "knife", "locker"])
-        w.writerow({"Adress": "", "surname": surname, "knife": knife, "locker": locker})
+        w = csv.DictWriter(f, fieldnames=["Address", "surname", "knife", "locker"])
+        w.writerow({"Address": "", "surname": surname, "knife": knife, "locker": locker})
 
 
 def ensure_ops_file():
@@ -288,9 +283,12 @@ def apply_ops(rows: list, ops: list) -> list:
             for r in rows:
                 if same_name(get_value(r, "surname"), target):
                     if knife != "":
-                        set_value(r, "knife", knife)
+                        # "-" = очистити / невідомо
+                        set_value(r, "knife", "" if knife == "-" else knife)
+
                     if locker != "":
-                        set_value(r, "locker", locker)
+                        # "-" = прибрати шафку
+                        set_value(r, "locker", "" if locker in ("-", "—") else locker)
             continue
 
     return rows
@@ -356,7 +354,7 @@ async def back_to_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text:
 
 
 # ==============================
-# 🤖 COMMANDS
+# 🤖 COMMANDS / LISTS
 # ==============================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -491,7 +489,7 @@ async def add_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==============================
-# ✏️ RENAME SURNAME (manual)
+# ✏️ RENAME SURNAME
 # ==============================
 
 async def rename_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -560,7 +558,7 @@ async def edit_locker_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if state == "locker":
         who = data.get("who", "")
         locker = norm_locker(text)
-        locker_to_store = locker if locker else "-"  # "-" forces clearing
+        locker_to_store = locker if locker else "-"  # "-" means clear
         append_op(op="set", target=who, locker=locker_to_store)
         invalidate_cache()
         await back_to_menu(update, context, f"✅ Шафку оновлено для: {who}\nНова шафка: {locker if locker else 'немає'}")
@@ -613,24 +611,47 @@ async def edit_knife_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==============================
-# 🧾 AUTO NORMALIZE SURNAMES (to CANONICAL LATIN)
+# 🧾 NORMALIZE SURNAMES (SMART)
 # ==============================
+
+def token_key(s: str) -> str:
+    """
+    Uppercase + translit + keep only letters/spaces + tokens sorted.
+    So:
+      'Olha Kuzmina' == 'KUZMINA OLHA'
+    """
+    s = any_norm_for_match(s)
+    s = re.sub(r"[^A-Z\s]", " ", s)
+    tokens = [t for t in s.split() if t]
+    tokens.sort()
+    return " ".join(tokens)
+
+
+_CANON_TOKEN_KEYS = {token_key(x): x for x in CANONICAL_NAMES}
+_CANON_UPPER = {canon_norm_for_match(x) for x in CANONICAL_NAMES}
+
 
 def best_canonical_match(current_name: str):
     """
-    returns: (best_name, best_score, second_score)
+    Returns: (best_name, best_score, second_score, mode)
+    mode:
+      - token_exact: 100% safe match by words
+      - fuzzy: fuzzy on token_key
     """
-    cur = any_norm_for_match(current_name)
-    if not cur:
-        return None, 0.0, 0.0
+    cur_tk = token_key(current_name)
+    if not cur_tk:
+        return None, 0.0, 0.0, "none"
+
+    if cur_tk in _CANON_TOKEN_KEYS:
+        return _CANON_TOKEN_KEYS[cur_tk], 1.0, 0.0, "token_exact"
 
     best_name = None
     best_score = 0.0
     second_score = 0.0
 
     for cand in CANONICAL_NAMES:
-        c = canon_norm_for_match(cand)
-        score = difflib.SequenceMatcher(None, cur, c).ratio()
+        cand_tk = token_key(cand)
+        score = difflib.SequenceMatcher(None, cur_tk, cand_tk).ratio()
         if score > best_score:
             second_score = best_score
             best_score = score
@@ -638,60 +659,63 @@ def best_canonical_match(current_name: str):
         elif score > second_score:
             second_score = score
 
-    return best_name, best_score, second_score
+    return best_name, best_score, second_score, "fuzzy"
 
 
 async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
+
     surnames = []
     seen = set()
-
     for r in rows:
         s = get_value(r, "surname")
         if not s:
             continue
-        key = norm_name(s)
-        if key not in seen:
-            seen.add(key)
+        k = norm_name(s)
+        if k not in seen:
+            seen.add(k)
             surnames.append(s)
-
-    # Already canonical?
-    canonical_upper = {canon_norm_for_match(x) for x in CANONICAL_NAMES}
 
     applied = []
     unsure = []
+    not_in_list = []
     skipped = []
 
-    # thresholds
-    MIN_SCORE = 0.86
-    MIN_GAP = 0.04  # best - second
+    # Жорсткі пороги для fuzzy, щоб не було дурних підстановок
+    MIN_SCORE = 0.90
+    MIN_GAP = 0.06
 
     for s in surnames:
-        s_norm_upper = any_norm_for_match(s)
-        if s_norm_upper in canonical_upper:
+        # already canonical
+        if canon_norm_for_match(s) in _CANON_UPPER:
             skipped.append(s)
             continue
 
-        best, best_score, second_score = best_canonical_match(s)
-        if not best:
-            unsure.append((s, "-", 0.0))
+        best, best_score, second_score, mode = best_canonical_match(s)
+
+        if mode == "token_exact":
+            append_op(op="rename", target=s, new_surname=best)
+            applied.append((s, best, best_score))
             continue
 
-        if best_score >= MIN_SCORE and (best_score - second_score) >= MIN_GAP:
-            # apply rename op
+        if best and best_score >= MIN_SCORE and (best_score - second_score) >= MIN_GAP:
             append_op(op="rename", target=s, new_surname=best)
             applied.append((s, best, best_score))
         else:
-            unsure.append((s, best, best_score))
+            # якщо схожість дуже низька — це скоріше НЕ зі списку 57
+            if (not best) or best_score < 0.75:
+                not_in_list.append(s)
+            else:
+                unsure.append((s, best, best_score))
 
     invalidate_cache()
 
-    # Report (keep message not too long)
     msg = []
     msg.append("🧾 Нормалізація прізвищ (Latin)")
     msg.append("")
     msg.append(f"✅ Авто-замін: {len(applied)}")
     msg.append(f"⚠️ Потрібно перевірити: {len(unsure)}")
+    msg.append(f"🚫 Не зі списку 57 (не чіпаю): {len(not_in_list)}")
     msg.append(f"➖ Уже OK: {len(skipped)}")
     msg.append("")
 
@@ -702,9 +726,15 @@ async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE)
         msg.append("")
 
     if unsure:
-        msg.append("⚠️ Сумнівні (до 10) — напиши мені, що з них і як правильно:")
+        msg.append("⚠️ Сумнівні (до 10) — напиши мені, що з них як правильно:")
         for old, sug, sc in unsure[:10]:
             msg.append(f"• {old} ~ {sug} ({sc:.2f})")
+        msg.append("")
+
+    if not_in_list:
+        msg.append("🚫 Не зі списку 57 (не чіпаю) (до 10):")
+        for x in not_in_list[:10]:
+            msg.append(f"• {x}")
         msg.append("")
 
     msg.append("ℹ️ Зміни збережені як локальні правила (не ламають ножі/шафки).")
@@ -712,7 +742,7 @@ async def normalize_surnames(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 # ==============================
-# 🎛️ MAIN HANDLER
+# 🎛️ TEXT ROUTER
 # ==============================
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -733,7 +763,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await edit_knife_handle(update, context)
         return
 
-    # menu buttons
+    # menu
     if text == "🔪 З ножем":
         await knife_list(update, context)
     elif text == "🚫 Без ножа":
@@ -775,10 +805,7 @@ def run_health_server():
 
 
 def ping_loop():
-    """
-    Try to keep Render free service warm.
-    Not guaranteed on free plan, but usually helps.
-    """
+    """Try to keep Render free warm (helps, but not 100% guaranteed)."""
     if not SELF_PING_URL:
         return
 
@@ -792,8 +819,7 @@ def ping_loop():
             requests.get(url, timeout=10)
         except Exception:
             pass
-        # every 12 minutes
-        time.sleep(12 * 60)
+        time.sleep(12 * 60)  # кожні 12 хв
 
 
 # ==============================

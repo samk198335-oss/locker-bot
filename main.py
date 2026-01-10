@@ -3,6 +3,7 @@ import csv
 import time
 import threading
 import requests
+import re
 from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -22,13 +23,13 @@ from telegram.ext import (
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
-CACHE_TTL = 300  # 5 хвилин
+CACHE_TTL = 300  # 5 хв
 
 LOCAL_DATA_FILE = os.getenv("LOCAL_DATA_FILE", "local_data.csv")
 LOCAL_OPS_FILE = os.getenv("LOCAL_OPS_FILE", "local_ops.csv")
 
 # ==============================
-# 🔁 CSV CACHE
+# 🔁 CACHE
 # ==============================
 
 _csv_cache = {"data": [], "time": 0}
@@ -40,25 +41,57 @@ def invalidate_cache():
 
 
 # ==============================
-# 🧠 SAFE COLUMN ACCESS
+# 🧠 NORMALIZATION
+# ==============================
+
+def normalize_text(s: str) -> str:
+    # NBSP -> space, collapse spaces, strip
+    s = (s or "").replace("\u00A0", " ")
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def norm_key(s: str) -> str:
+    return normalize_text(s).lower()
+
+
+def norm_name(s: str) -> str:
+    # name matching uses normalized lowercase
+    return norm_key(s)
+
+
+# ==============================
+# 🧠 SAFE COLUMN ACCESS / SET
 # ==============================
 
 def get_value(row: dict, field_name: str) -> str:
-    field_name = field_name.strip().lower()
-    for key, value in row.items():
-        if key and key.strip().lower() == field_name:
-            return (value or "").strip()
+    want = norm_key(field_name)
+    for k, v in row.items():
+        if k and norm_key(k) == want:
+            return normalize_text(v)
     return ""
 
 
+def set_value(row: dict, field_name: str, new_value: str):
+    """
+    Set value using the actual key existing in row (case/space insensitive).
+    If not found, sets with canonical key.
+    """
+    want = norm_key(field_name)
+    for k in list(row.keys()):
+        if k and norm_key(k) == want:
+            row[k] = new_value
+            return
+    # fallback
+    row[field_name] = new_value
+
+
+def same_name(a: str, b: str) -> bool:
+    return norm_name(a) == norm_name(b)
+
+
 def knife_status(value: str) -> str:
-    """
-    STRICT knife logic:
-      "1" => yes
-      "0" => no
-      anything else => unknown
-    """
-    v = (value or "").strip()
+    v = normalize_text(value)
     if v == "1":
         return "yes"
     if v == "0":
@@ -67,21 +100,17 @@ def knife_status(value: str) -> str:
 
 
 def has_locker(value: str) -> bool:
-    if not value:
+    v = normalize_text(value)
+    if not v:
         return False
-    v = value.strip()
     return v not in ("-", "—", "0")
 
 
 def norm_locker(value: str) -> str:
-    v = (value or "").strip()
+    v = normalize_text(value)
     if v in ("", "-", "—"):
         return ""
     return v
-
-
-def same_name(a: str, b: str) -> bool:
-    return (a or "").strip().lower() == (b or "").strip().lower()
 
 
 # ==============================
@@ -99,20 +128,14 @@ def ensure_local_file():
 def read_local_csv():
     ensure_local_file()
     with open(LOCAL_DATA_FILE, "r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        return list(reader)
+        return list(csv.DictReader(f))
 
 
 def append_local_row(surname: str, locker: str, knife: str):
     ensure_local_file()
     with open(LOCAL_DATA_FILE, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=["Adress", "surname", "knife", "locker"])
-        w.writerow({
-            "Adress": "",
-            "surname": surname.strip(),
-            "knife": knife.strip(),
-            "locker": locker.strip(),
-        })
+        w.writerow({"Adress": "", "surname": surname, "knife": knife, "locker": locker})
 
 
 def ensure_ops_file():
@@ -126,8 +149,7 @@ def ensure_ops_file():
 def read_ops():
     ensure_ops_file()
     with open(LOCAL_OPS_FILE, "r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        return list(reader)
+        return list(csv.DictReader(f))
 
 
 def append_op(op: str, target: str, new_surname: str = "", knife: str = "", locker: str = ""):
@@ -136,10 +158,10 @@ def append_op(op: str, target: str, new_surname: str = "", knife: str = "", lock
         w = csv.DictWriter(f, fieldnames=["op", "target", "new_surname", "knife", "locker"])
         w.writerow({
             "op": op,
-            "target": target.strip(),
-            "new_surname": (new_surname or "").strip(),
-            "knife": (knife or "").strip(),
-            "locker": (locker or "").strip(),
+            "target": normalize_text(target),
+            "new_surname": normalize_text(new_surname),
+            "knife": normalize_text(knife),
+            "locker": normalize_text(locker),
         })
 
 
@@ -148,35 +170,33 @@ def append_op(op: str, target: str, new_surname: str = "", knife: str = "", lock
 # ==============================
 
 def apply_ops(rows: list, ops: list) -> list:
-    """
-    Applies local edit operations on top of rows.
-    Operations are applied sequentially.
-    - rename: changes surname but keeps knife/locker
-    - set: sets knife and/or locker for matching surname
-    """
     for op in ops:
-        kind = (op.get("op") or "").strip().lower()
-        target = (op.get("target") or "").strip()
-        new_surname = (op.get("new_surname") or "").strip()
-        knife = (op.get("knife") or "").strip()
-        locker = (op.get("locker") or "").strip()
-
+        kind = norm_key(op.get("op", ""))
+        target = normalize_text(op.get("target", ""))
         if not target:
             continue
 
-        if kind == "rename" and new_surname:
+        if kind == "rename":
+            new_surname = normalize_text(op.get("new_surname", ""))
+            if not new_surname:
+                continue
             for r in rows:
                 if same_name(get_value(r, "surname"), target):
-                    r["surname"] = new_surname  # keep other fields
+                    set_value(r, "surname", new_surname)
             continue
 
         if kind == "set":
+            knife = normalize_text(op.get("knife", ""))
+            locker = normalize_text(op.get("locker", ""))
+
             for r in rows:
                 if same_name(get_value(r, "surname"), target):
+                    # knife: "1"/"0"/"-"(clear)
                     if knife != "":
-                        r["knife"] = knife
+                        set_value(r, "knife", knife)
+                    # locker: value or "-" clear marker
                     if locker != "":
-                        r["locker"] = locker
+                        set_value(r, "locker", locker)
             continue
 
     return rows
@@ -188,7 +208,6 @@ def apply_ops(rows: list, ops: list) -> list:
 
 def load_csv():
     now = time.time()
-
     if _csv_cache["data"] and now - _csv_cache["time"] < CACHE_TTL:
         return _csv_cache["data"]
 
@@ -210,7 +229,7 @@ def load_csv():
 
 
 # ==============================
-# 📋 KEYBOARD
+# 📋 KEYBOARDS
 # ==============================
 
 KEYBOARD = ReplyKeyboardMarkup(
@@ -225,26 +244,23 @@ KEYBOARD = ReplyKeyboardMarkup(
 )
 
 ADD_KNIFE_KB = ReplyKeyboardMarkup(
-    [
-        ["🔪 Є ніж", "🚫 Немає ножа"],
-        ["❌ Скасувати"],
-    ],
+    [["🔪 Є ніж", "🚫 Немає ножа"], ["❌ Скасувати"]],
     resize_keyboard=True
 )
 
 EDIT_KNIFE_KB = ReplyKeyboardMarkup(
-    [
-        ["🔪 Є ніж", "🚫 Немає ножа"],
-        ["❓ Очистити (не вказано)"],
-        ["❌ Скасувати"],
-    ],
+    [["🔪 Є ніж", "🚫 Немає ножа"], ["❓ Очистити (не вказано)"], ["❌ Скасувати"]],
     resize_keyboard=True
 )
 
-CANCEL_KB = ReplyKeyboardMarkup(
-    [["❌ Скасувати"]],
-    resize_keyboard=True
-)
+CANCEL_KB = ReplyKeyboardMarkup([["❌ Скасувати"]], resize_keyboard=True)
+
+
+async def back_to_menu(update: Update, text: str = "✅ Готово. Обери дію 👇"):
+    # hard reset flow + always restore keyboard
+    if update.message:
+        await update.message.reply_text(text, reply_markup=KEYBOARD)
+
 
 # ==============================
 # 🤖 COMMANDS
@@ -252,17 +268,13 @@ CANCEL_KB = ReplyKeyboardMarkup(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    await update.message.reply_text(
-        "👋 Привіт! Обери фільтр або команду 👇",
-        reply_markup=KEYBOARD
-    )
+    await update.message.reply_text("👋 Привіт! Обери фільтр або команду 👇", reply_markup=KEYBOARD)
 
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = load_csv()
-    rows = [r for r in rows if get_value(r, "surname")]
-
+    rows = [r for r in load_csv() if get_value(r, "surname")]
     total = len(rows)
+
     knife_yes = knife_no = knife_unknown = 0
     locker_yes = locker_no = 0
 
@@ -295,10 +307,7 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def all_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
     result = [get_value(r, "surname") for r in rows if get_value(r, "surname")]
-    if not result:
-        await update.message.reply_text("👥 Всі:\n\nНемає даних.", reply_markup=KEYBOARD)
-        return
-    await update.message.reply_text("👥 Всі:\n\n" + "\n".join(result), reply_markup=KEYBOARD)
+    await update.message.reply_text("👥 Всі:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
 
 
 async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -309,59 +318,45 @@ async def locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
         locker = get_value(r, "locker")
         if surname and has_locker(locker):
             result.append(f"{surname} — {locker}")
-    if not result:
-        await update.message.reply_text("🗄️ З шафкою:\n\nНемає даних.", reply_markup=KEYBOARD)
-        return
-    await update.message.reply_text("🗄️ З шафкою:\n\n" + "\n".join(result), reply_markup=KEYBOARD)
+    await update.message.reply_text("🗄️ З шафкою:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
 
 
 async def no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
     result = [get_value(r, "surname") for r in rows if get_value(r, "surname") and not has_locker(get_value(r, "locker"))]
-    if not result:
-        await update.message.reply_text("❌ Без шафки:\n\nНемає даних.", reply_markup=KEYBOARD)
-        return
-    await update.message.reply_text("❌ Без шафки:\n\n" + "\n".join(result), reply_markup=KEYBOARD)
+    await update.message.reply_text("❌ Без шафки:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
 
 
 async def knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
     result = [get_value(r, "surname") for r in rows if get_value(r, "surname") and knife_status(get_value(r, "knife")) == "yes"]
-    if not result:
-        await update.message.reply_text("🔪 З ножем:\n\nНемає даних.", reply_markup=KEYBOARD)
-        return
-    await update.message.reply_text("🔪 З ножем:\n\n" + "\n".join(result), reply_markup=KEYBOARD)
+    await update.message.reply_text("🔪 З ножем:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
 
 
 async def no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = load_csv()
     result = [get_value(r, "surname") for r in rows if get_value(r, "surname") and knife_status(get_value(r, "knife")) == "no"]
-    if not result:
-        await update.message.reply_text("🚫 Без ножа:\n\nНемає даних.", reply_markup=KEYBOARD)
-        return
-    await update.message.reply_text("🚫 Без ножа:\n\n" + "\n".join(result), reply_markup=KEYBOARD)
+    await update.message.reply_text("🚫 Без ножа:\n\n" + ("\n".join(result) if result else "Немає даних."), reply_markup=KEYBOARD)
 
 
 # ==============================
-# ➕ ADD EMPLOYEE (state)
+# ➕ ADD EMPLOYEE
 # ==============================
 
 async def add_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     context.user_data["flow"] = "add"
     context.user_data["state"] = "surname"
     context.user_data["data"] = {}
-    await update.message.reply_text(
-        "➕ Додати працівника\n\nВведіть прізвище та імʼя (як у таблиці):",
-        reply_markup=CANCEL_KB
-    )
+    await update.message.reply_text("➕ Додати працівника\n\nВведіть прізвище та імʼя:", reply_markup=CANCEL_KB)
 
 
 async def add_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+    text = normalize_text(update.message.text)
 
     if text == "❌ Скасувати":
         context.user_data.clear()
-        await update.message.reply_text("Скасовано.", reply_markup=KEYBOARD)
+        await back_to_menu(update, "Скасовано. Обери дію 👇")
         return
 
     state = context.user_data.get("state")
@@ -386,73 +381,58 @@ async def add_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if state == "knife":
         if text not in ("🔪 Є ніж", "🚫 Немає ножа"):
-            await update.message.reply_text("Оберіть варіант кнопкою нижче 👇", reply_markup=ADD_KNIFE_KB)
+            await update.message.reply_text("Оберіть варіант кнопкою 👇", reply_markup=ADD_KNIFE_KB)
             return
+
         knife = "1" if text == "🔪 Є ніж" else "0"
-        surname = data.get("surname", "").strip()
+        surname = data.get("surname", "")
         locker = data.get("locker", "")
 
         append_local_row(surname=surname, locker=locker, knife=knife)
         invalidate_cache()
-
         context.user_data.clear()
 
-        msg = f"✅ Додано: {surname}"
-        if locker:
-            msg += f" — {locker}"
-        msg += f"\nНіж: {'Є' if knife == '1' else 'Немає'}"
-
-        await update.message.reply_text(msg, reply_markup=KEYBOARD)
+        await back_to_menu(update, f"✅ Додано: {surname}" + (f" — {locker}" if locker else "") + f"\nНіж: {'Є' if knife=='1' else 'Немає'}")
         return
 
 
 # ==============================
-# ✏️ RENAME SURNAME (keep locker+knife)
+# ✏️ RENAME SURNAME
 # ==============================
 
 async def rename_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     context.user_data["flow"] = "rename"
     context.user_data["state"] = "old"
     context.user_data["data"] = {}
-    await update.message.reply_text(
-        "✏️ Змінити прізвище\n\nВведіть поточне прізвище та імʼя (як у списках):",
-        reply_markup=CANCEL_KB
-    )
+    await update.message.reply_text("✏️ Змінити прізвище\n\nВведіть ПОТОЧНЕ прізвище та імʼя:", reply_markup=CANCEL_KB)
 
 
 async def rename_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+    text = normalize_text(update.message.text)
 
     if text == "❌ Скасувати":
         context.user_data.clear()
-        await update.message.reply_text("Скасовано.", reply_markup=KEYBOARD)
+        await back_to_menu(update, "Скасовано. Обери дію 👇")
         return
 
     state = context.user_data.get("state")
     data = context.user_data.get("data", {})
 
     if state == "old":
-        if not text:
-            await update.message.reply_text("Введіть поточне прізвище та імʼя:", reply_markup=CANCEL_KB)
-            return
         data["old"] = text
         context.user_data["data"] = data
         context.user_data["state"] = "new"
-        await update.message.reply_text("Введіть нове прізвище та імʼя:", reply_markup=CANCEL_KB)
+        await update.message.reply_text("Введіть НОВЕ прізвище та імʼя:", reply_markup=CANCEL_KB)
         return
 
     if state == "new":
-        if not text:
-            await update.message.reply_text("Введіть нове прізвище та імʼя:", reply_markup=CANCEL_KB)
-            return
         old = data.get("old", "")
         new = text
-
         append_op(op="rename", target=old, new_surname=new)
         invalidate_cache()
         context.user_data.clear()
-
-        await update.message.reply_text(f"✅ Змінено:\n{old} ➜ {new}", reply_markup=KEYBOARD)
+        await back_to_menu(update, f"✅ Змінено:\n{old} ➜ {new}")
         return
 
 
@@ -461,30 +441,25 @@ async def rename_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==============================
 
 async def edit_locker_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     context.user_data["flow"] = "edit_locker"
     context.user_data["state"] = "who"
     context.user_data["data"] = {}
-    await update.message.reply_text(
-        "🗄️ Редагувати шафку\n\nВведіть прізвище та імʼя працівника:",
-        reply_markup=CANCEL_KB
-    )
+    await update.message.reply_text("🗄️ Редагувати шафку\n\nВведіть прізвище та імʼя:", reply_markup=CANCEL_KB)
 
 
 async def edit_locker_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+    text = normalize_text(update.message.text)
 
     if text == "❌ Скасувати":
         context.user_data.clear()
-        await update.message.reply_text("Скасовано.", reply_markup=KEYBOARD)
+        await back_to_menu(update, "Скасовано. Обери дію 👇")
         return
 
     state = context.user_data.get("state")
     data = context.user_data.get("data", {})
 
     if state == "who":
-        if not text:
-            await update.message.reply_text("Введіть прізвище та імʼя:", reply_markup=CANCEL_KB)
-            return
         data["who"] = text
         context.user_data["data"] = data
         context.user_data["state"] = "locker"
@@ -494,20 +469,11 @@ async def edit_locker_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if state == "locker":
         who = data.get("who", "")
         locker = norm_locker(text)
-
-        # NOTE: to "clear" locker we store locker="-" as a marker in op (non-empty),
-        # and set locker to "-" so apply_ops will override. Norm_locker makes "" for "-",
-        # so we need a special non-empty marker to enforce clearing.
-        locker_to_store = locker if locker != "" else "-"
-
+        locker_to_store = locker if locker else "-"  # "-" forces clearing
         append_op(op="set", target=who, locker=locker_to_store)
         invalidate_cache()
         context.user_data.clear()
-
-        await update.message.reply_text(
-            f"✅ Шафку оновлено для: {who}\nНова шафка: {locker if locker else 'немає'}",
-            reply_markup=KEYBOARD
-        )
+        await back_to_menu(update, f"✅ Шафку оновлено для: {who}\nНова шафка: {locker if locker else 'немає'}")
         return
 
 
@@ -516,30 +482,25 @@ async def edit_locker_handle(update: Update, context: ContextTypes.DEFAULT_TYPE)
 # ==============================
 
 async def edit_knife_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
     context.user_data["flow"] = "edit_knife"
     context.user_data["state"] = "who"
     context.user_data["data"] = {}
-    await update.message.reply_text(
-        "🔪 Редагувати ніж\n\nВведіть прізвище та імʼя працівника:",
-        reply_markup=CANCEL_KB
-    )
+    await update.message.reply_text("🔪 Редагувати ніж\n\nВведіть прізвище та імʼя:", reply_markup=CANCEL_KB)
 
 
 async def edit_knife_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+    text = normalize_text(update.message.text)
 
     if text == "❌ Скасувати":
         context.user_data.clear()
-        await update.message.reply_text("Скасовано.", reply_markup=KEYBOARD)
+        await back_to_menu(update, "Скасовано. Обери дію 👇")
         return
 
     state = context.user_data.get("state")
     data = context.user_data.get("data", {})
 
     if state == "who":
-        if not text:
-            await update.message.reply_text("Введіть прізвище та імʼя:", reply_markup=CANCEL_KB)
-            return
         data["who"] = text
         context.user_data["data"] = data
         context.user_data["state"] = "knife"
@@ -550,33 +511,25 @@ async def edit_knife_handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         who = data.get("who", "")
 
         if text not in ("🔪 Є ніж", "🚫 Немає ножа", "❓ Очистити (не вказано)"):
-            await update.message.reply_text("Оберіть варіант кнопкою нижче 👇", reply_markup=EDIT_KNIFE_KB)
+            await update.message.reply_text("Оберіть варіант кнопкою 👇", reply_markup=EDIT_KNIFE_KB)
             return
 
-        if text == "🔪 Є ніж":
-            knife = "1"
-        elif text == "🚫 Немає ножа":
-            knife = "0"
-        else:
-            # clear -> store "-" marker to force overwrite, then apply will set to "-" which becomes unknown
-            knife = "-"
-
+        knife = "1" if text == "🔪 Є ніж" else ("0" if text == "🚫 Немає ножа" else "-")
         append_op(op="set", target=who, knife=knife)
         invalidate_cache()
         context.user_data.clear()
 
         shown = "Є" if knife == "1" else ("Немає" if knife == "0" else "не вказано")
-        await update.message.reply_text(f"✅ Ніж оновлено для: {who}\nНіж: {shown}", reply_markup=KEYBOARD)
+        await back_to_menu(update, f"✅ Ніж оновлено для: {who}\nНіж: {shown}")
         return
 
 
 # ==============================
-# 🎛️ FILTER HANDLER (КЛЮЧОВЕ!)
+# 🎛️ MAIN HANDLER
 # ==============================
 
 async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-
+    text = normalize_text(update.message.text)
     flow = context.user_data.get("flow")
 
     if flow == "add":

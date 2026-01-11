@@ -54,8 +54,11 @@ BACKUP_CHAT_ID = int(BACKUP_CHAT_ID_RAW) if BACKUP_CHAT_ID_RAW else None
 BACKUP_DIR = os.getenv("BACKUP_DIR", "backups").strip()
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
-CACHE_TTL = 3
-_db_cache = {"time": 0.0, "rows": []}
+# ✅ mtime-based cache (вирішує “редагую, а списки не міняються”)
+_db_cache = {
+    "mtime": None,   # час зміни файлу
+    "rows": []
+}
 
 # ==============================
 # 🧩 UI
@@ -106,68 +109,55 @@ def normalize_text(s: str) -> str:
 def safe_lower(s: str) -> str:
     return normalize_text(s).lower()
 
-# ✅ ТІЛЬКИ ЦЕ МІНЯЄМО ПО ШАФКАХ
+# ✅ Шафка: тільки реальне значення. Все це = немає
 def locker_has_value(v: str) -> bool:
     v = normalize_text(v)
     if not v:
         return False
     v_low = safe_lower(v)
-    if v_low in {"-", "—", "–", "нема", "нет", "ні", "no", "none"}:
-        return False
-    return True
+    return v_low not in {"-", "—", "–", "нема", "нет", "ні", "no", "none"}
 
-# ✅ ТІЛЬКИ ЦЕ МІНЯЄМО ПО НОЖАХ
+# ✅ Ніж: 1 або 2 = є, інше = нема
 def knife_has(v: str) -> bool:
     v = normalize_text(v)
-    return v in {"1", "2"}  # 1,2 = є ніж
+    return v in {"1", "2"}
 
 def ensure_columns(row: dict) -> dict:
-    """
-    Жорстко тримаємось назв колонок:
-    Address, surname, knife, locker
-
-    Але для відновлення/імпорту підтримуємо випадки, коли хедери інші (case/назви).
-    """
-    if not isinstance(row, dict):
-        row = {}
-
-    # case-insensitive mapping
-    norm = {safe_lower(k): (row.get(k) if k is not None else "") for k in row.keys()}
-
-    def pick(*keys, default=""):
-        for k in keys:
-            if k in norm and norm[k] not in (None, ""):
-                return norm[k]
-        return default
-
-    address = pick("address", "адреса", default=row.get("Address", ""))
-    surname = pick("surname", "прізвище", "фио", "fio", default=row.get("surname", ""))
-    knife = pick("knife", "ніж", "нож", default=row.get("knife", ""))
-    locker = pick("locker", "шафка", "шкафчик", "шкаф", default=row.get("locker", ""))
-
+    # жорсткі колонки
     return {
-        "Address": normalize_text(address),
-        "surname": normalize_text(surname),
-        "knife": normalize_text(knife),
-        "locker": normalize_text(locker),
+        "Address": normalize_text(row.get("Address", "")),
+        "surname": normalize_text(row.get("surname", "")),
+        "knife": normalize_text(row.get("knife", "")),
+        "locker": normalize_text(row.get("locker", "")),
     }
 
+def _file_mtime(path: str):
+    try:
+        return os.path.getmtime(path)
+    except Exception:
+        return None
+
 def read_local_db(force: bool = False):
-    now = time.time()
-    if (not force) and _db_cache["rows"] and (now - _db_cache["time"] < CACHE_TTL):
+    # якщо файлу нема — створюємо порожню базу
+    if not os.path.exists(LOCAL_DB_PATH):
+        write_local_db([])
+        _db_cache["mtime"] = _file_mtime(LOCAL_DB_PATH)
+        _db_cache["rows"] = []
+        return []
+
+    mtime = _file_mtime(LOCAL_DB_PATH)
+
+    if (not force) and _db_cache["mtime"] is not None and mtime == _db_cache["mtime"]:
         return _db_cache["rows"]
 
     rows = []
-    if os.path.exists(LOCAL_DB_PATH):
-        with open(LOCAL_DB_PATH, "r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for r in reader:
-                rows.append(ensure_columns(r))
-    else:
-        write_local_db([])
+    with open(LOCAL_DB_PATH, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            rows.append(ensure_columns(r))
 
     _db_cache["rows"] = rows
-    _db_cache["time"] = now
+    _db_cache["mtime"] = mtime
     return rows
 
 def write_local_db(rows):
@@ -176,8 +166,10 @@ def write_local_db(rows):
         writer.writeheader()
         for r in rows:
             writer.writerow(ensure_columns(r))
-    _db_cache["rows"] = rows
-    _db_cache["time"] = time.time()
+
+    # ✅ одразу синхронізуємо кеш, щоб наступна кнопка точно бачила нові дані
+    _db_cache["rows"] = [ensure_columns(r) for r in rows]
+    _db_cache["mtime"] = _file_mtime(LOCAL_DB_PATH)
 
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str = "Обери дію 👇"):
     await update.message.reply_text(text, reply_markup=MAIN_KB)
@@ -189,7 +181,6 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
 def make_backup_file(reason: str) -> str:
     filename = f"backup_{now_ts()}_{reason}.csv"
     path = os.path.join(BACKUP_DIR, filename)
-    # якщо бази ще нема — створимо
     if not os.path.exists(LOCAL_DB_PATH):
         write_local_db([])
     shutil.copyfile(LOCAL_DB_PATH, path)
@@ -269,7 +260,7 @@ def format_with_knife(rows):
 def format_no_knife(rows):
     out = []
     for r in rows:
-        if r["surname"] and (not knife_has(r["knife"])):  # 0 або пусто = без ножа
+        if r["surname"] and (not knife_has(r["knife"])):
             out.append(r["surname"])
     out = sorted(out, key=lambda x: safe_lower(x))
     return "🚫 Без ножа:\n\n" + ("\n".join(out) if out else "Немає даних")
@@ -279,8 +270,8 @@ def format_stats(rows):
     total = len(only)
     with_locker = len([r for r in only if locker_has_value(r["locker"])])
     no_locker = len([r for r in only if not locker_has_value(r["locker"])])
-    with_knife = len([r for r in only if knife_has(r["knife"])])       # 1/2
-    no_knife = len([r for r in only if not knife_has(r["knife"])])     # 0/пусто
+    with_knife = len([r for r in only if knife_has(r["knife"])])
+    no_knife = len([r for r in only if not knife_has(r["knife"])])
     return (
         "📊 Статистика:\n\n"
         f"Всього: {total}\n"
@@ -301,10 +292,6 @@ def reset_state():
     STATE["tmp"] = {}
 
 def is_btn(text: str, keyword: str) -> bool:
-    """
-    Робимо кнопки "невбиваними":
-    якщо Telegram/айфон підставив інші символи — все одно впізнаємо.
-    """
     t = safe_lower(text)
     k = safe_lower(keyword)
     return (t == k) or (k in t)
@@ -322,12 +309,10 @@ async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = normalize_text(update.message.text)
 
-    # якщо чекаємо файл для restore
     if STATE["mode"] == "restore_wait_file":
         await update.message.reply_text("❗️Надішли CSV файлом (документом).")
         return
 
-    # flow modes
     if STATE["mode"] in {
         "add_wait_surname", "add_wait_locker", "add_wait_knife",
         "edit_wait_target", "edit_wait_new_surname", "edit_wait_new_locker", "edit_wait_new_knife",
@@ -336,9 +321,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await flow_handler(update, context, text)
         return
 
+    # ✅ важливо: читаємо БД з mtime-кешем (вже вирішує проблему)
     rows = read_local_db()
 
-    # кнопки (робимо через contains)
     if is_btn(text, "Статистика"):
         await update.message.reply_text(format_stats(rows), reply_markup=MAIN_KB)
         return
@@ -366,15 +351,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_btn(text, "Seed"):
         if os.path.exists(LOCAL_DB_PATH):
             await backup_everywhere(context, update.effective_chat.id, reason="pre_seed")
-
         rows2 = fetch_google_csv_rows()
         write_local_db(rows2)
-
         await backup_everywhere(context, update.effective_chat.id, reason="after_seed")
         await show_main_menu(update, context, f"🧬 Seed завершено ✅\nЗаписів: {len(rows2)}")
         return
 
-    # ✅ ВІДНОВЛЕННЯ — головний фікс
     if is_btn(text, "Відновити"):
         STATE["mode"] = "restore_wait_file"
         STATE["tmp"] = {}
@@ -522,7 +504,6 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Потрібен CSV файл.")
         return
 
-    # pre-restore backup
     if os.path.exists(LOCAL_DB_PATH):
         await backup_everywhere(context, update.effective_chat.id, reason="pre_restore")
 

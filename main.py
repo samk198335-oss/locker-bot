@@ -4,12 +4,12 @@ import re
 import time
 import shutil
 import threading
-import requests
-from io import StringIO
 from datetime import datetime
+from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+import requests
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Document
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -40,54 +40,51 @@ threading.Thread(target=run_http_server, daemon=True).start()
 # 🔑 CONFIG
 # ==============================
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+# Google Sheets CSV (тільки seed/імпорт за потреби)
+CSV_URL = os.getenv(
+    "CSV_URL",
+    "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+).strip()
 
-DATA_FILE = "local_data.csv"
-BACKUP_DIR = "backups"
+# Локальна база, з якою працюємо далі
+LOCAL_DB_PATH = os.getenv("LOCAL_DB_PATH", "local_data.csv").strip()
 
-CACHE_TTL = 120  # для seed з Google (щоб не дергати часто)
-_google_cache = {"data": "", "time": 0}
+# Куди скидати бекапи в Telegram (група Backup_Alexpuls_bot)
+BACKUP_CHAT_ID_RAW = os.getenv("BACKUP_CHAT_ID", "").strip()
+BACKUP_CHAT_ID = int(BACKUP_CHAT_ID_RAW) if BACKUP_CHAT_ID_RAW else None
+
+# Папка для бекапів на сервері
+BACKUP_DIR = os.getenv("BACKUP_DIR", "backups").strip()
+os.makedirs(BACKUP_DIR, exist_ok=True)
+
+# Кеш читання локальної бази
+CACHE_TTL = 3  # сек (малий кеш, щоб не лагало, але й не читати файл 100 разів)
+_db_cache = {"time": 0.0, "rows": []}
 
 # ==============================
-# ✅ UI BUTTONS
+# 🧩 UI / MENUS
 # ==============================
 
 BTN_STATS = "📊 Статистика"
 BTN_ALL = "👥 Всі"
-BTN_WITH_LOCKER = "🗄 З шафкою"
-BTN_NO_LOCKER = "⛔️ Без шафки"
+
+BTN_WITH_LOCKER = "🗄️ З шафкою"
+BTN_NO_LOCKER = "⛔ Без шафки"
 BTN_WITH_KNIFE = "🔪 З ножем"
 BTN_NO_KNIFE = "🚫 Без ножа"
+
+BTN_ADD = "➕ Додати працівника"
+BTN_EDIT = "✏️ Редагувати працівника"
+BTN_DELETE = "🗑️ Видалити працівника"
 
 BTN_BACKUP = "💾 Backup бази"
 BTN_SEED = "🧬 Seed з Google"
 BTN_RESTORE = "♻️ Відновити з файлу"
 
-BTN_ADD = "➕ Додати працівника"
-BTN_EDIT = "✏️ Редагувати працівника"
-BTN_DELETE = "🗑 Видалити працівника"
-
-# add flow knife buttons
-K_YES = "✅ Є ніж"
-K_NO = "❌ Нема ножа"
-K_UNK = "❓ Невідомо"
-K_CANCEL = "↩️ Скасувати"
-
-# edit menu
-E_NAME = "✍️ Змінити прізвище"
-E_LOCKER = "🗄 Змінити шафку"
-E_KNIFE = "🔪 Змінити ніж"
-E_DONE = "✅ Готово"
-E_CANCEL = "↩️ Скасувати"
-
-# delete confirm
-D_CONFIRM = "✅ Так, видалити"
-D_CANCEL = "↩️ Скасувати"
-
-def main_keyboard() -> ReplyKeyboardMarkup:
-    keyboard = [
+MAIN_KB = ReplyKeyboardMarkup(
+    [
         [BTN_STATS, BTN_ALL],
         [BTN_WITH_LOCKER, BTN_NO_LOCKER],
         [BTN_WITH_KNIFE, BTN_NO_KNIFE],
@@ -95,726 +92,492 @@ def main_keyboard() -> ReplyKeyboardMarkup:
         [BTN_DELETE],
         [BTN_BACKUP, BTN_SEED],
         [BTN_RESTORE],
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-def knife_keyboard() -> ReplyKeyboardMarkup:
-    keyboard = [
-        [K_YES, K_NO],
-        [K_UNK],
-        [K_CANCEL],
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-def edit_keyboard() -> ReplyKeyboardMarkup:
-    keyboard = [
-        [E_NAME, E_LOCKER],
-        [E_KNIFE],
-        [E_DONE],
-        [E_CANCEL],
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-def delete_confirm_keyboard() -> ReplyKeyboardMarkup:
-    keyboard = [
-        [D_CONFIRM],
-        [D_CANCEL],
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    ],
+    resize_keyboard=True
+)
 
 # ==============================
-# 🧠 NORMALIZERS / PARSERS
+# 🧠 HELPERS
 # ==============================
 
-def norm_text(s: str) -> str:
-    return (s or "").strip()
+def now_ts() -> str:
+    return datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-def norm_key(s: str) -> str:
-    # for matching surnames: casefold + squeeze spaces
+def normalize_text(s: str) -> str:
     s = (s or "").strip()
     s = re.sub(r"\s+", " ", s)
-    return s.casefold()
+    return s
 
-def is_yes_token(v: str) -> bool:
-    v = norm_key(v)
-    return v in {"1", "yes", "y", "true", "так", "є", "имеется", "имеется все", "ключ є", "ключ", "да", "+"}
+def safe_lower(s: str) -> str:
+    return normalize_text(s).lower()
 
-def is_no_token(v: str) -> bool:
-    v = norm_key(v)
-    return v in {"0", "no", "n", "false", "ні", "нет", "-", "—"}
+def is_yes_like(v: str) -> bool:
+    v = safe_lower(v)
+    return v in {"1", "yes", "y", "так", "true", "+", "є", "имеется", "наявний", "наявно"}
 
-def parse_knife(value: str) -> int:
-    """
-    returns:
-      1 = has knife
-      0 = no knife
-      2 = unknown
-    """
-    v = norm_text(value)
-    if v == "":
-        return 2
-    vk = norm_key(v)
-    if vk in {"1", "2", "0"}:
-        # legacy numeric
-        n = int(vk)
-        if n in (0, 1, 2):
-            return n
-    if is_yes_token(v):
-        return 1
-    if is_no_token(v):
-        return 0
-    return 2
+def is_no_like(v: str) -> bool:
+    v = safe_lower(v)
+    return v in {"0", "no", "n", "ні", "нет", "false", "-"}
 
-def knife_to_str(n: int) -> str:
-    return "1" if n == 1 else "0" if n == 0 else "2"
-
-def has_locker(value: str) -> bool:
-    v = norm_text(value)
-    if v == "":
+def locker_has_value(v: str) -> bool:
+    v = normalize_text(v)
+    if not v:
         return False
-    vk = norm_key(v)
-    # if user wrote obvious "no"
-    if vk in {"0", "ні", "нет", "no", "false", "-", "—"}:
+    # будь-який текст/число окрім явного "нема"
+    if safe_lower(v) in {"нема", "нет", "ні", "no", "none"}:
         return False
     return True
 
-# ==============================
-# 📦 LOCAL DATA (CSV)
-# ==============================
+def knife_state(v: str) -> str:
+    """
+    Повертає: "yes" / "no" / "unknown"
+    В твоїй базі knife може бути 1/0/2 або текст.
+    """
+    v0 = normalize_text(v)
+    if not v0:
+        return "unknown"
+    if v0 == "2":
+        return "unknown"
+    if is_yes_like(v0) or v0 == "1":
+        return "yes"
+    if is_no_like(v0) or v0 == "0":
+        return "no"
+    # якщо записали щось інше — вважаємо unknown
+    return "unknown"
 
-def ensure_storage():
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-    if not os.path.exists(DATA_FILE):
-        # create empty with headers
-        with open(DATA_FILE, "w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=["Address", "surname", "knife", "locker"])
-            w.writeheader()
+def ensure_columns(row: dict) -> dict:
+    """
+    Жорстко тримаємось назв:
+    Address, surname, knife, locker
+    """
+    return {
+        "Address": normalize_text(row.get("Address", "")),
+        "surname": normalize_text(row.get("surname", "")),
+        "knife": normalize_text(row.get("knife", "")),
+        "locker": normalize_text(row.get("locker", "")),
+    }
 
-def read_local() -> list[dict]:
-    ensure_storage()
+def read_local_db(force: bool = False):
+    now = time.time()
+    if (not force) and _db_cache["rows"] and (now - _db_cache["time"] < CACHE_TTL):
+        return _db_cache["rows"]
+
     rows = []
-    with open(DATA_FILE, "r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for r in reader:
-            # keep only expected cols
-            rows.append({
-                "Address": r.get("Address", ""),
-                "surname": r.get("surname", ""),
-                "knife": r.get("knife", ""),
-                "locker": r.get("locker", ""),
-            })
+    if os.path.exists(LOCAL_DB_PATH):
+        with open(LOCAL_DB_PATH, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for r in reader:
+                rows.append(ensure_columns(r))
+    else:
+        # якщо файлу нема — створимо порожній
+        write_local_db([])
+
+    _db_cache["rows"] = rows
+    _db_cache["time"] = now
     return rows
 
-def write_local(rows: list[dict]):
-    ensure_storage()
-    with open(DATA_FILE, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["Address", "surname", "knife", "locker"])
-        w.writeheader()
+def write_local_db(rows):
+    with open(LOCAL_DB_PATH, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["Address", "surname", "knife", "locker"])
+        writer.writeheader()
         for r in rows:
-            w.writerow({
-                "Address": r.get("Address", ""),
-                "surname": r.get("surname", ""),
-                "knife": r.get("knife", ""),
-                "locker": r.get("locker", ""),
-            })
+            writer.writerow(ensure_columns(r))
+    _db_cache["rows"] = rows
+    _db_cache["time"] = time.time()
 
-def make_backup(reason: str = "auto") -> str:
-    ensure_storage()
-    ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    safe_reason = re.sub(r"[^a-zA-Z0-9_-]+", "_", reason)[:30]
-    dst = os.path.join(BACKUP_DIR, f"backup_{ts}_{safe_reason}.csv")
-    shutil.copy2(DATA_FILE, dst)
-    return dst
+async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str = None):
+    if text:
+        await update.message.reply_text(text, reply_markup=MAIN_KB)
+    else:
+        await update.message.reply_text("Меню 👇", reply_markup=MAIN_KB)
 
 # ==============================
-# 🌐 GOOGLE SEED
+# 💾 BACKUP (SERVER + TELEGRAM GROUP)
 # ==============================
 
-def fetch_google_csv() -> str:
-    now = time.time()
-    if _google_cache["data"] and now - _google_cache["time"] < CACHE_TTL:
-        return _google_cache["data"]
-    r = requests.get(CSV_URL, timeout=15)
-    r.encoding = "utf-8"
-    _google_cache["data"] = r.text
-    _google_cache["time"] = now
-    return r.text
+def make_backup_file(reason: str) -> str:
+    filename = f"backup_{now_ts()}_{reason}.csv"
+    path = os.path.join(BACKUP_DIR, filename)
+    shutil.copyfile(LOCAL_DB_PATH, path)
+    return path
 
-def seed_from_google() -> tuple[bool, str]:
-    try:
-        txt = fetch_google_csv()
-        # validate headers
-        reader = csv.DictReader(StringIO(txt))
-        headers = [h.strip() for h in (reader.fieldnames or [])]
-        required = {"Address", "surname", "knife", "locker"}
-        if not required.issubset(set(headers)):
-            return False, f"❌ У Google CSV нема потрібних колонок: {sorted(required)}\nЗнайдено: {headers}"
-        # backup before overwrite
-        make_backup("before_seed")
-        rows = []
-        for r in reader:
-            rows.append({
-                "Address": r.get("Address", "") or "",
-                "surname": r.get("surname", "") or "",
-                "knife": r.get("knife", "") or "",
-                "locker": r.get("locker", "") or "",
-            })
-        write_local(rows)
-        make_backup("after_seed")
-        return True, f"✅ Seed успішний. Записів: {len(rows)}"
-    except Exception as e:
-        return False, f"❌ Seed помилка: {e}"
+async def send_backup_to_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int, file_path: str, caption: str):
+    # Telegram може вимагати rb
+    with open(file_path, "rb") as f:
+        await context.bot.send_document(
+            chat_id=chat_id,
+            document=f,
+            filename=os.path.basename(file_path),
+            caption=caption
+        )
+
+async def backup_everywhere(context: ContextTypes.DEFAULT_TYPE, trigger_chat_id: int, reason: str, caption_extra: str = "") -> str:
+    """
+    1) робимо файл у backups/
+    2) відправляємо в групу BACKUP_CHAT_ID (якщо задано)
+    3) (опційно) можемо підтвердити в поточний чат текстом
+    """
+    path = make_backup_file(reason=reason)
+    caption = f"💾 Backup бази • {reason}\n{os.path.basename(path)}"
+    if caption_extra:
+        caption += f"\n{caption_extra}"
+
+    # 1) в групу бекапів (якщо налаштовано)
+    if BACKUP_CHAT_ID:
+        try:
+            await send_backup_to_chat(context, BACKUP_CHAT_ID, path, caption)
+        except Exception as e:
+            # не валимо роботу, просто залишимо як є
+            await context.bot.send_message(
+                chat_id=trigger_chat_id,
+                text=f"⚠️ Не зміг відправити backup у групу (BACKUP_CHAT_ID). Помилка: {e}"
+            )
+
+    return path
 
 # ==============================
-# 📊 STATS & LISTS
+# 🌱 SEED FROM GOOGLE CSV
 # ==============================
 
-def build_stats(rows: list[dict]) -> str:
-    total = 0
-    knife_yes = knife_no = knife_unk = 0
-    locker_yes = locker_no = 0
+def fetch_google_csv_rows():
+    resp = requests.get(CSV_URL, timeout=20)
+    resp.encoding = "utf-8"
+    content = resp.text
+    reader = csv.DictReader(StringIO(content))
+    rows = [ensure_columns(r) for r in reader]
+    # фільтр порожніх прізвищ
+    rows = [r for r in rows if r["surname"]]
+    return rows
 
+# ==============================
+# 📊 STATS + LISTS
+# ==============================
+
+def format_all(rows):
+    names = [r["surname"] for r in rows if r["surname"]]
+    names_sorted = sorted(names, key=lambda x: safe_lower(x))
+    return "👥 Всі:\n\n" + ("\n".join(names_sorted) if names_sorted else "Немає даних")
+
+def format_with_locker(rows):
+    out = []
     for r in rows:
-        sname = norm_text(r.get("surname", ""))
-        if not sname:
-            continue
-        total += 1
+        if r["surname"] and locker_has_value(r["locker"]):
+            out.append(f"{r['surname']} — {r['locker']}")
+    out = sorted(out, key=lambda x: safe_lower(x))
+    return "🗄️ З шафкою:\n\n" + ("\n".join(out) if out else "Немає даних")
 
-        k = parse_knife(r.get("knife", ""))
-        if k == 1:
-            knife_yes += 1
-        elif k == 0:
-            knife_no += 1
-        else:
-            knife_unk += 1
+def format_no_locker(rows):
+    out = []
+    for r in rows:
+        if r["surname"] and (not locker_has_value(r["locker"])):
+            out.append(r["surname"])
+    out = sorted(out, key=lambda x: safe_lower(x))
+    return "⛔ Без шафки:\n\n" + ("\n".join(out) if out else "Немає даних")
 
-        if has_locker(r.get("locker", "")):
-            locker_yes += 1
-        else:
-            locker_no += 1
+def format_with_knife(rows):
+    out = []
+    for r in rows:
+        if r["surname"] and knife_state(r["knife"]) == "yes":
+            out.append(r["surname"])
+    out = sorted(out, key=lambda x: safe_lower(x))
+    return "🔪 З ножем:\n\n" + ("\n".join(out) if out else "Немає даних")
+
+def format_no_knife(rows):
+    out = []
+    for r in rows:
+        if r["surname"] and knife_state(r["knife"]) == "no":
+            out.append(r["surname"])
+    out = sorted(out, key=lambda x: safe_lower(x))
+    return "🚫 Без ножа:\n\n" + ("\n".join(out) if out else "Немає даних")
+
+def format_stats(rows):
+    total = len([r for r in rows if r["surname"]])
+    with_knife = len([r for r in rows if r["surname"] and knife_state(r["knife"]) == "yes"])
+    no_knife = len([r for r in rows if r["surname"] and knife_state(r["knife"]) == "no"])
+
+    with_locker = len([r for r in rows if r["surname"] and locker_has_value(r["locker"])])
+    no_locker = len([r for r in rows if r["surname"] and (not locker_has_value(r["locker"]))])
 
     return (
         "📊 Статистика:\n\n"
-        f"Всього: {total}\n\n"
-        "🔪 Ніж:\n"
-        f"✅ Є: {knife_yes}\n"
-        f"🚫 Нема: {knife_no}\n"
-        f"❓ Невідомо: {knife_unk}\n\n"
-        "🗄 Шафка:\n"
-        f"✅ Є: {locker_yes}\n"
-        f"⛔️ Нема: {locker_no}"
+        f"Всього: {total}\n"
+        f"🔪 З ножем: {with_knife}\n"
+        f"🚫 Без ножа: {no_knife}\n"
+        f"🗄️ З шафкою: {with_locker}\n"
+        f"⛔ Без шафки: {no_locker}"
     )
 
-def list_all(rows: list[dict]) -> str:
-    people = []
-    for r in rows:
-        s = norm_text(r.get("surname", ""))
-        if s:
-            people.append(s)
-    people = sorted(people, key=lambda x: x.casefold())
-    if not people:
-        return "Немає даних."
-    return "👥 Всі:\n\n" + "\n".join(people)
-
-def list_with_locker(rows: list[dict]) -> str:
-    items = []
-    for r in rows:
-        s = norm_text(r.get("surname", ""))
-        l = norm_text(r.get("locker", ""))
-        if s and has_locker(l):
-            items.append((s, l))
-    items.sort(key=lambda x: x[0].casefold())
-    if not items:
-        return "Немає даних."
-    return "🗄 З шафкою:\n\n" + "\n".join([f"{s} — {l}" for s, l in items])
-
-def list_no_locker(rows: list[dict]) -> str:
-    people = []
-    for r in rows:
-        s = norm_text(r.get("surname", ""))
-        l = norm_text(r.get("locker", ""))
-        if s and not has_locker(l):
-            people.append(s)
-    people.sort(key=lambda x: x.casefold())
-    if not people:
-        return "Немає даних."
-    return "⛔️ Без шафки:\n\n" + "\n".join(people)
-
-def list_with_knife(rows: list[dict]) -> str:
-    people = []
-    for r in rows:
-        s = norm_text(r.get("surname", ""))
-        if s and parse_knife(r.get("knife", "")) == 1:
-            people.append(s)
-    people.sort(key=lambda x: x.casefold())
-    if not people:
-        return "Немає даних."
-    return "🔪 З ножем:\n\n" + "\n".join(people)
-
-def list_no_knife(rows: list[dict]) -> str:
-    people = []
-    for r in rows:
-        s = norm_text(r.get("surname", ""))
-        if s and parse_knife(r.get("knife", "")) == 0:
-            people.append(s)
-    people.sort(key=lambda x: x.casefold())
-    if not people:
-        return "Немає даних."
-    return "🚫 Без ножа:\n\n" + "\n".join(people)
-
 # ==============================
-# 🔎 FIND PERSON
+# 🧾 FLOWS (ADD / EDIT / DELETE / RESTORE)
 # ==============================
 
-def find_person_index(rows: list[dict], surname_query: str) -> int:
-    q = norm_key(surname_query)
-    if not q:
-        return -1
-    for i, r in enumerate(rows):
-        if norm_key(r.get("surname", "")) == q:
-            return i
-    return -1
+STATE = {
+    "mode": None,          # add / edit / delete / restore
+    "tmp": {},             # тимчасові поля
+}
 
-def suggest_similar(rows: list[dict], surname_query: str, limit: int = 8) -> list[str]:
-    q = norm_key(surname_query)
-    if not q:
-        return []
-    hits = []
-    for r in rows:
-        s = norm_text(r.get("surname", ""))
-        if s and q in norm_key(s):
-            hits.append(s)
-    hits = sorted(set(hits), key=lambda x: x.casefold())
-    return hits[:limit]
+def reset_state():
+    STATE["mode"] = None
+    STATE["tmp"] = {}
 
-# ==============================
-# 🤖 HANDLERS
-# ==============================
-
+# ---------- /start ----------
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    ensure_storage()
-    await update.message.reply_text(
-        "Привіт! Обери дію кнопками 👇",
-        reply_markup=main_keyboard()
-    )
+    reset_state()
+    await show_main_menu(update, context, "Готово ✅")
 
-async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = read_local()
-    await update.message.reply_text(build_stats(rows), reply_markup=main_keyboard())
+# ---------- /chatid ----------
+async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"chat_id = {update.effective_chat.id}")
 
-async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+# ---------- Button router ----------
+async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = normalize_text(update.message.text)
 
-    # If user is in some flow, handle it elsewhere
-    state = context.user_data.get("state")
-    if state:
-        await handle_flow(update, context)
+    # якщо ми в режимі очікування файлу для restore
+    if STATE["mode"] == "restore_wait_file":
+        await update.message.reply_text("❗️Надішли CSV файлом (як документ), не текстом.")
         return
 
-    rows = read_local()
+    # якщо ми в процесі add/edit/delete — обробка нижче
+    if STATE["mode"] in {"add_wait_surname", "add_wait_locker", "add_wait_knife",
+                         "edit_wait_target", "edit_wait_new_surname", "edit_wait_new_locker", "edit_wait_new_knife",
+                         "delete_wait_target"}:
+        await flow_handler(update, context, text)
+        return
+
+    rows = read_local_db()
 
     if text == BTN_STATS:
-        await update.message.reply_text(build_stats(rows), reply_markup=main_keyboard())
+        await update.message.reply_text(format_stats(rows), reply_markup=MAIN_KB)
         return
-
     if text == BTN_ALL:
-        await update.message.reply_text(list_all(rows), reply_markup=main_keyboard())
+        await update.message.reply_text(format_all(rows), reply_markup=MAIN_KB)
         return
-
     if text == BTN_WITH_LOCKER:
-        await update.message.reply_text(list_with_locker(rows), reply_markup=main_keyboard())
+        await update.message.reply_text(format_with_locker(rows), reply_markup=MAIN_KB)
         return
-
     if text == BTN_NO_LOCKER:
-        await update.message.reply_text(list_no_locker(rows), reply_markup=main_keyboard())
+        await update.message.reply_text(format_no_locker(rows), reply_markup=MAIN_KB)
         return
-
     if text == BTN_WITH_KNIFE:
-        await update.message.reply_text(list_with_knife(rows), reply_markup=main_keyboard())
+        await update.message.reply_text(format_with_knife(rows), reply_markup=MAIN_KB)
         return
-
     if text == BTN_NO_KNIFE:
-        await update.message.reply_text(list_no_knife(rows), reply_markup=main_keyboard())
+        await update.message.reply_text(format_no_knife(rows), reply_markup=MAIN_KB)
         return
 
     if text == BTN_BACKUP:
-        ensure_storage()
-        path = make_backup("manual")
-        await update.message.reply_text(f"💾 Backup зроблено: {path}", reply_markup=main_keyboard())
+        path = await backup_everywhere(context, update.effective_chat.id, reason="manual")
+        await update.message.reply_text(
+            f"💾 Backup зроблено: {os.path.basename(path)}",
+            reply_markup=MAIN_KB
+        )
         return
 
     if text == BTN_SEED:
-        ok, msg = seed_from_google()
-        await update.message.reply_text(msg, reply_markup=main_keyboard())
+        # перед seed — бекап поточної локальної бази
+        if os.path.exists(LOCAL_DB_PATH):
+            await backup_everywhere(context, update.effective_chat.id, reason="pre_seed")
+
+        rows = fetch_google_csv_rows()
+        write_local_db(rows)
+
+        await backup_everywhere(context, update.effective_chat.id, reason="after_seed")
+        await show_main_menu(update, context, f"🧬 Seed завершено ✅\nЗаписів: {len(rows)}")
         return
 
     if text == BTN_RESTORE:
-        context.user_data["state"] = "restore_wait_file"
-        await update.message.reply_text(
-            "♻️ Надішли сюди CSV файлом (Document). Я відновлю базу з нього.\n\n"
-            "⚠️ Потрібні колонки: Address, surname, knife, locker",
-            reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True)
-        )
+        STATE["mode"] = "restore_wait_file"
+        STATE["tmp"] = {}
+        await update.message.reply_text("♻️ Надішли CSV файлом (документом), щоб відновити базу.")
         return
 
-    # NEW: add/edit/delete
     if text == BTN_ADD:
-        context.user_data["state"] = "add_wait_surname"
-        context.user_data["tmp"] = {}
-        await update.message.reply_text("➕ Введи прізвище та ім’я працівника:", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
+        STATE["mode"] = "add_wait_surname"
+        STATE["tmp"] = {}
+        await update.message.reply_text("➕ Введи прізвище та ім'я працівника:")
         return
 
     if text == BTN_EDIT:
-        context.user_data["state"] = "edit_wait_target"
-        context.user_data["tmp"] = {}
-        await update.message.reply_text("✏️ Введи прізвище та ім’я працівника, як в базі:", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
+        STATE["mode"] = "edit_wait_target"
+        STATE["tmp"] = {}
+        await update.message.reply_text("✏️ Введи прізвище працівника, якого редагувати (точно як у списку):")
         return
 
     if text == BTN_DELETE:
-        context.user_data["state"] = "delete_wait_target"
-        context.user_data["tmp"] = {}
-        await update.message.reply_text("🗑 Введи прізвище та ім’я працівника, як в базі:", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
+        STATE["mode"] = "delete_wait_target"
+        STATE["tmp"] = {}
+        await update.message.reply_text("🗑️ Введи прізвище працівника, якого видалити (точно як у списку):")
         return
 
     # fallback
-    await update.message.reply_text("Обери дію кнопками 👇", reply_markup=main_keyboard())
+    await show_main_menu(update, context, "Не зрозумів команду. Обери кнопку 👇")
 
-async def handle_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
-    state = context.user_data.get("state")
-    tmp = context.user_data.get("tmp", {})
+# ---------- Flow handler for add/edit/delete ----------
+async def flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    rows = read_local_db()
 
-    # global cancel
-    if text == K_CANCEL or text == E_CANCEL or text == D_CANCEL:
-        context.user_data.clear()
-        await update.message.reply_text("Скасовано ✅", reply_markup=main_keyboard())
+    # ---- ADD ----
+    if STATE["mode"] == "add_wait_surname":
+        if not text:
+            await update.message.reply_text("Введи прізвище (не порожнє).")
+            return
+        STATE["tmp"]["surname"] = text
+        STATE["mode"] = "add_wait_locker"
+        await update.message.reply_text("Введи номер/опис шафки (або '-' якщо немає):")
         return
 
-    # ------------- RESTORE -------------
-    if state == "restore_wait_file":
-        await update.message.reply_text("Надішли CSV саме файлом (Document), не текстом.", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
-        return
-
-    # ------------- ADD FLOW -------------
-    if state == "add_wait_surname":
-        sname = norm_text(text)
-        if len(sname) < 2:
-            await update.message.reply_text("Введи нормальне прізвище/ім’я (мінімум 2 символи).", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
-            return
-        rows = read_local()
-        if find_person_index(rows, sname) != -1:
-            await update.message.reply_text(
-                "❌ Такий працівник вже є в базі.\n"
-                "Введи інше ім’я або натисни «Скасувати».",
-                reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True)
-            )
-            return
-        tmp["surname"] = sname
-        context.user_data["tmp"] = tmp
-        context.user_data["state"] = "add_wait_locker"
-        await update.message.reply_text(
-            "🗄 Введи номер/текст шафки (або напиши «-» якщо шафки нема):",
-            reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True)
+    if STATE["mode"] == "add_wait_locker":
+        STATE["tmp"]["locker"] = text
+        STATE["mode"] = "add_wait_knife"
+        kb = ReplyKeyboardMarkup(
+            [[KeyboardButton("1"), KeyboardButton("0"), KeyboardButton("2")]],
+            resize_keyboard=True,
+            one_time_keyboard=True
         )
+        await update.message.reply_text("Ніж: 1=є, 0=нема, 2=невідомо", reply_markup=kb)
         return
 
-    if state == "add_wait_locker":
-        locker = norm_text(text)
-        if locker == "":
-            locker = "-"
-        tmp["locker"] = locker
-        context.user_data["tmp"] = tmp
-        context.user_data["state"] = "add_wait_knife"
-        await update.message.reply_text("🔪 Вкажи ніж:", reply_markup=knife_keyboard())
-        return
-
-    if state == "add_wait_knife":
-        if text not in {K_YES, K_NO, K_UNK}:
-            await update.message.reply_text("Натисни кнопку для ножа 👇", reply_markup=knife_keyboard())
+    if STATE["mode"] == "add_wait_knife":
+        knife_val = text.strip()
+        if knife_val not in {"0", "1", "2"}:
+            await update.message.reply_text("Введи 1 або 0 або 2.")
             return
-        knife = 1 if text == K_YES else 0 if text == K_NO else 2
-        rows = read_local()
-        # autobackup before
-        make_backup("before_add")
-        rows.append({
+
+        new_row = {
             "Address": "",
-            "surname": tmp.get("surname", ""),
-            "knife": knife_to_str(knife),
-            "locker": tmp.get("locker", "-"),
-        })
-        write_local(rows)
-        make_backup("after_add")
+            "surname": STATE["tmp"].get("surname", ""),
+            "knife": knife_val,
+            "locker": STATE["tmp"].get("locker", ""),
+        }
+        rows.append(ensure_columns(new_row))
+        write_local_db(rows)
 
-        context.user_data.clear()
-        await update.message.reply_text(
-            f"✅ Додано: {rows[-1]['surname']}\n"
-            f"🗄 Шафка: {rows[-1]['locker']}\n"
-            f"🔪 Ніж: {'Є' if knife==1 else 'Нема' if knife==0 else 'Невідомо'}",
-            reply_markup=main_keyboard()
+        await backup_everywhere(context, update.effective_chat.id, reason="add_or_upsert", caption_extra=f"Додано: {new_row['surname']}")
+        reset_state()
+
+        # ✅ важливо: повертаємо меню одразу
+        await show_main_menu(update, context, f"✅ Додано: {new_row['surname']}")
+        return
+
+    # ---- EDIT ----
+    if STATE["mode"] == "edit_wait_target":
+        target = text
+        matches = [i for i, r in enumerate(rows) if r["surname"] == target]
+        if not matches:
+            reset_state()
+            await show_main_menu(update, context, "❌ Не знайдено працівника з таким прізвищем.")
+            return
+        STATE["tmp"]["help_idx"] = matches[0]
+        STATE["mode"] = "edit_wait_new_surname"
+        await update.message.reply_text("Введи нове прізвище (або залиш '-' щоб не змінювати):")
+        return
+
+    if STATE["mode"] == "edit_wait_new_surname":
+        if text != "-":
+            rows[STATE["tmp"]["help_idx"]]["surname"] = text
+        STATE["mode"] = "edit_wait_new_locker"
+        await update.message.reply_text("Введи нову шафку (або '-' щоб не змінювати):")
+        return
+
+    if STATE["mode"] == "edit_wait_new_locker":
+        if text != "-":
+            rows[STATE["tmp"]["help_idx"]]["locker"] = text
+        STATE["mode"] = "edit_wait_new_knife"
+        kb = ReplyKeyboardMarkup(
+            [[KeyboardButton("1"), KeyboardButton("0"), KeyboardButton("2"), KeyboardButton("-")]],
+            resize_keyboard=True,
+            one_time_keyboard=True
         )
+        await update.message.reply_text("Ніж: 1/0/2 або '-' щоб не змінювати", reply_markup=kb)
         return
 
-    # ------------- EDIT FLOW -------------
-    if state == "edit_wait_target":
-        target = norm_text(text)
-        rows = read_local()
-        idx = find_person_index(rows, target)
-        if idx == -1:
-            sim = suggest_similar(rows, target)
-            if sim:
-                await update.message.reply_text(
-                    "❌ Не знайшов точного співпадіння.\nСхожі варіанти:\n- " + "\n- ".join(sim) +
-                    "\n\nСкопіюй точне ім’я і надішли ще раз або «Скасувати».",
-                    reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True)
-                )
-            else:
-                await update.message.reply_text(
-                    "❌ Не знайшов такого працівника. Перевір написання або «Скасувати».",
-                    reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True)
-                )
-            return
+    if STATE["mode"] == "edit_wait_new_knife":
+        if text != "-":
+            if text not in {"0", "1", "2"}:
+                await update.message.reply_text("Введи 1 або 0 або 2 або '-'.")
+                return
+            rows[STATE["tmp"]["help_idx"]]["knife"] = text
 
-        tmp["edit_idx"] = idx
-        tmp["old_surname"] = rows[idx].get("surname", "")
-        context.user_data["tmp"] = tmp
-        context.user_data["state"] = "edit_choose_field"
+        write_local_db(rows)
+        await backup_everywhere(context, update.effective_chat.id, reason="edit", caption_extra=f"Редагування: {rows[STATE['tmp']['help_idx']]['surname']}")
+        reset_state()
 
-        current = rows[idx]
-        k = parse_knife(current.get("knife", ""))
-        await update.message.reply_text(
-            "✏️ Що змінюємо?\n\n"
-            f"Поточні дані:\n"
-            f"👤 {current.get('surname','')}\n"
-            f"🗄 {current.get('locker','')}\n"
-            f"🔪 {'Є' if k==1 else 'Нема' if k==0 else 'Невідомо'}",
-            reply_markup=edit_keyboard()
-        )
+        # ✅ меню одразу
+        await show_main_menu(update, context, "✅ Зміни збережено.")
         return
 
-    if state == "edit_choose_field":
-        if text == E_DONE:
-            context.user_data.clear()
-            await update.message.reply_text("✅ Редагування завершено.", reply_markup=main_keyboard())
+    # ---- DELETE ----
+    if STATE["mode"] == "delete_wait_target":
+        target = text
+        idxs = [i for i, r in enumerate(rows) if r["surname"] == target]
+        if not idxs:
+            reset_state()
+            await show_main_menu(update, context, "❌ Не знайдено працівника з таким прізвищем.")
             return
 
-        if text not in {E_NAME, E_LOCKER, E_KNIFE}:
-            await update.message.reply_text("Обери, що змінюємо 👇", reply_markup=edit_keyboard())
-            return
+        idx = idxs[0]
+        deleted = rows.pop(idx)
+        write_local_db(rows)
 
-        tmp["field"] = text
-        context.user_data["tmp"] = tmp
+        await backup_everywhere(context, update.effective_chat.id, reason="delete", caption_extra=f"Видалено: {deleted['surname']}")
+        reset_state()
 
-        if text == E_KNIFE:
-            context.user_data["state"] = "edit_wait_knife"
-            await update.message.reply_text("🔪 Вкажи новий стан ножа:", reply_markup=knife_keyboard())
-            return
-
-        if text == E_NAME:
-            context.user_data["state"] = "edit_wait_new_name"
-            await update.message.reply_text("✍️ Введи нове прізвище та ім’я:", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
-            return
-
-        if text == E_LOCKER:
-            context.user_data["state"] = "edit_wait_new_locker"
-            await update.message.reply_text("🗄 Введи нову шафку (або «-» щоб прибрати):", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
-            return
-
-    if state == "edit_wait_new_name":
-        new_name = norm_text(text)
-        if len(new_name) < 2:
-            await update.message.reply_text("Мало символів. Введи нормальне ім’я.", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
-            return
-
-        rows = read_local()
-        idx = tmp.get("edit_idx")
-        if idx is None or idx < 0 or idx >= len(rows):
-            context.user_data.clear()
-            await update.message.reply_text("❌ Помилка стану. Почни знову.", reply_markup=main_keyboard())
-            return
-
-        # prevent duplicates (except itself)
-        existing = find_person_index(rows, new_name)
-        if existing != -1 and existing != idx:
-            await update.message.reply_text("❌ Таке ім’я вже є в базі. Введи інше або «Скасувати».", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
-            return
-
-        make_backup("before_edit")
-        rows[idx]["surname"] = new_name
-        write_local(rows)
-        make_backup("after_edit")
-
-        await update.message.reply_text("✅ Прізвище змінено.", reply_markup=edit_keyboard())
-        context.user_data["state"] = "edit_choose_field"
+        # ✅ меню одразу
+        await show_main_menu(update, context, f"🗑️ Видалено: {deleted['surname']}")
         return
 
-    if state == "edit_wait_new_locker":
-        new_locker = norm_text(text)
-        if new_locker == "":
-            new_locker = "-"
-        rows = read_local()
-        idx = tmp.get("edit_idx")
-        if idx is None or idx < 0 or idx >= len(rows):
-            context.user_data.clear()
-            await update.message.reply_text("❌ Помилка стану. Почни знову.", reply_markup=main_keyboard())
-            return
+    # якщо сюди дійшли — скинемо стан
+    reset_state()
+    await show_main_menu(update, context, "Готово ✅")
 
-        make_backup("before_edit")
-        rows[idx]["locker"] = new_locker
-        write_local(rows)
-        make_backup("after_edit")
-
-        await update.message.reply_text("✅ Шафку змінено.", reply_markup=edit_keyboard())
-        context.user_data["state"] = "edit_choose_field"
+# ---------- Restore from document ----------
+async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if STATE["mode"] != "restore_wait_file":
+        await update.message.reply_text("Я отримав файл, але зараз не в режимі відновлення. Натисни ♻️ Відновити з файлу.")
         return
 
-    if state == "edit_wait_knife":
-        if text not in {K_YES, K_NO, K_UNK}:
-            await update.message.reply_text("Натисни кнопку 👇", reply_markup=knife_keyboard())
-            return
-        knife = 1 if text == K_YES else 0 if text == K_NO else 2
-
-        rows = read_local()
-        idx = tmp.get("edit_idx")
-        if idx is None or idx < 0 or idx >= len(rows):
-            context.user_data.clear()
-            await update.message.reply_text("❌ Помилка стану. Почни знову.", reply_markup=main_keyboard())
-            return
-
-        make_backup("before_edit")
-        rows[idx]["knife"] = knife_to_str(knife)
-        write_local(rows)
-        make_backup("after_edit")
-
-        await update.message.reply_text("✅ Ніж оновлено.", reply_markup=edit_keyboard())
-        context.user_data["state"] = "edit_choose_field"
+    doc: Document = update.message.document
+    if not doc.file_name.lower().endswith(".csv"):
+        await update.message.reply_text("❌ Потрібен саме CSV файл.")
         return
 
-    # ------------- DELETE FLOW -------------
-    if state == "delete_wait_target":
-        target = norm_text(text)
-        rows = read_local()
-        idx = find_person_index(rows, target)
-        if idx == -1:
-            sim = suggest_similar(rows, target)
-            if sim:
-                await update.message.reply_text(
-                    "❌ Не знайшов точного співпадіння.\nСхожі варіанти:\n- " + "\n- ".join(sim) +
-                    "\n\nСкопіюй точне ім’я і надішли ще раз або «Скасувати».",
-                    reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True)
-                )
-            else:
-                await update.message.reply_text("❌ Не знайшов такого працівника. Перевір написання або «Скасувати».", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
-            return
+    # pre-restore backup
+    if os.path.exists(LOCAL_DB_PATH):
+        await backup_everywhere(context, update.effective_chat.id, reason="pre_restore")
 
-        tmp["delete_idx"] = idx
-        tmp["delete_name"] = rows[idx].get("surname", "")
-        context.user_data["tmp"] = tmp
-        context.user_data["state"] = "delete_confirm"
+    file = await doc.get_file()
+    content = await file.download_as_bytearray()
+    text = content.decode("utf-8", errors="replace")
 
-        await update.message.reply_text(
-            f"🗑 Точно видалити?\n\n👤 {tmp['delete_name']}",
-            reply_markup=delete_confirm_keyboard()
-        )
-        return
+    # parse csv
+    reader = csv.DictReader(StringIO(text))
+    rows = [ensure_columns(r) for r in reader]
+    rows = [r for r in rows if r["surname"]]
 
-    if state == "delete_confirm":
-        if text != D_CONFIRM:
-            await update.message.reply_text("Натисни підтвердження або «Скасувати».", reply_markup=delete_confirm_keyboard())
-            return
+    write_local_db(rows)
+    await backup_everywhere(context, update.effective_chat.id, reason="after_restore", caption_extra=f"Записів: {len(rows)}")
 
-        rows = read_local()
-        idx = tmp.get("delete_idx")
-        if idx is None or idx < 0 or idx >= len(rows):
-            context.user_data.clear()
-            await update.message.reply_text("❌ Помилка стану. Почни знову.", reply_markup=main_keyboard())
-            return
-
-        make_backup("before_delete")
-        removed = rows.pop(idx)
-        write_local(rows)
-        make_backup("after_delete")
-
-        context.user_data.clear()
-        await update.message.reply_text(f"✅ Видалено: {removed.get('surname','')}", reply_markup=main_keyboard())
-        return
-
-    # unknown state fallback
-    context.user_data.clear()
-    await update.message.reply_text("❌ Щось пішло не так. Повернув у меню.", reply_markup=main_keyboard())
+    reset_state()
+    await show_main_menu(update, context, f"♻️ Відновлено ✅\nЗаписів: {len(rows)}")
 
 # ==============================
-# ♻️ RESTORE FROM FILE (Document handler)
+# 🚀 MAIN
 # ==============================
 
-async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.user_data.get("state")
-    if state != "restore_wait_file":
-        return
-
-    doc = update.message.document
-    if not doc:
-        return
-
-    if not (doc.file_name or "").lower().endswith(".csv"):
-        await update.message.reply_text("❌ Потрібен саме .csv файл.", reply_markup=ReplyKeyboardMarkup([[K_CANCEL]], resize_keyboard=True))
-        return
-
-    try:
-        tg_file = await doc.get_file()
-        content = await tg_file.download_as_bytearray()
-        text = content.decode("utf-8", errors="replace")
-
-        reader = csv.DictReader(StringIO(text))
-        headers = [h.strip() for h in (reader.fieldnames or [])]
-        required = {"Address", "surname", "knife", "locker"}
-        if not required.issubset(set(headers)):
-            await update.message.reply_text(
-                f"❌ У файлі нема потрібних колонок: {sorted(required)}\nЗнайдено: {headers}",
-                reply_markup=main_keyboard()
-            )
-            context.user_data.clear()
-            return
-
-        make_backup("before_restore")
-        rows = []
-        for r in reader:
-            rows.append({
-                "Address": r.get("Address", "") or "",
-                "surname": r.get("surname", "") or "",
-                "knife": r.get("knife", "") or "",
-                "locker": r.get("locker", "") or "",
-            })
-        write_local(rows)
-        make_backup("after_restore")
-
-        context.user_data.clear()
-        await update.message.reply_text(f"✅ Відновлено з файлу. Записів: {len(rows)}", reply_markup=main_keyboard())
-    except Exception as e:
-        context.user_data.clear()
-        await update.message.reply_text(f"❌ Помилка відновлення: {e}", reply_markup=main_keyboard())
-
-# ==============================
-# 🚀 RUN
-# ==============================
-
-def build_app():
+def main():
     if not BOT_TOKEN:
-        raise RuntimeError("BOT_TOKEN is not set")
+        raise RuntimeError("BOT_TOKEN is missing")
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("chatid", cmd_chatid))
 
-    # restore file
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    app.add_handler(MessageHandler(filters.Document.ALL, on_document))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
 
-    # main text handler
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu))
-
-    return app
+    app.run_polling(close_loop=False)
 
 if __name__ == "__main__":
-    ensure_storage()
-    app = build_app()
-    app.run_polling(close_loop=False)
+    main()

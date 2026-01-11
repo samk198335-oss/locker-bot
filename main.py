@@ -1,15 +1,12 @@
 import os
 import csv
 import time
-import asyncio
-import logging
+import re
 import threading
+import requests
 from io import StringIO
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from typing import Dict, List, Tuple, Optional
-
-import requests
 
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.constants import ChatAction
@@ -22,16 +19,7 @@ from telegram.ext import (
 )
 
 # ==================================================
-# LOGGING
-# ==================================================
-logging.basicConfig(
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger("locker-bot")
-
-# ==================================================
-# RENDER FREE: SIMPLE HTTP SERVER (keeps service "healthy")
+# 🔧 RENDER FREE STABILIZATION (HTTP PORT)
 # ==================================================
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -41,451 +29,478 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"OK")
 
 def run_http_server():
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", "10000"))
     server = HTTPServer(("0.0.0.0", port), HealthHandler)
     server.serve_forever()
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
 # ==================================================
-# CONFIG
+# 🔑 CONFIG
 # ==================================================
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "").strip()
-if not BOT_TOKEN:
-    raise RuntimeError("BOT_TOKEN is not set")
 
-CSV_URL = os.environ.get("CSV_URL", "").strip()  # optional seed source
-BACKUP_CHAT_ID_RAW = os.environ.get("BACKUP_CHAT_ID", "").strip()  # required for auto-restore via pinned backup
-SELF_PING_URL = os.environ.get("SELF_PING_URL", "").strip()  # optional (for uptime robot)
+CSV_URL = os.environ.get(
+    "CSV_URL",
+    "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
+).strip()
 
-BASE_FILE = "local_data.csv"
+BACKUP_CHAT_ID = os.environ.get("BACKUP_CHAT_ID", "").strip()  # e.g. -1003573002174
+SELF_PING_URL = os.environ.get("SELF_PING_URL", "").strip()
 
-CACHE_TTL = 300  # seconds for Google CSV cache
-_google_cache = {"time": 0.0, "rows": []}  # type: ignore
+CACHE_TTL = int(os.environ.get("CACHE_TTL", "300"))
 
-# CSV columns (fixed)
-COL_ADDRESS = "Address"
-COL_SURNAME = "surname"
-COL_KNIFE = "knife"
-COL_LOCKER = "locker"
+DATA_FILE = "base_data.csv"
 
 # ==================================================
-# UI
+# 🧠 STATE (simple)
 # ==================================================
-MAIN_KB = ReplyKeyboardMarkup(
-    [
-        ["📊 Статистика", "👥 Всі"],
-        ["🗄️ З шафкою", "🚫 Без шафки"],
-        ["🔪 З ножем", "🚫 Без ножа"],
-        ["💾 Backup бази", "♻️ Seed з Google"],
-    ],
-    resize_keyboard=True,
-)
+# Якщо ти вже маєш інші “режими” додавання/редагування — їх можна інтегрувати пізніше.
+_user_state = {}  # user_id -> dict
 
 # ==================================================
-# HELPERS
+# 🔁 CSV CACHE (для Google seed)
+# ==================================================
+_csv_cache = {"data": None, "ts": 0.0}
+
+# ==================================================
+# 🧩 Helpers
 # ==================================================
 def now_ts() -> str:
-    return datetime.now().strftime("%Y%m%d_%H%M%S")
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-def normalize_str(s: str) -> str:
-    return (s or "").strip()
+def normalize_text(v: str) -> str:
+    return (v or "").strip()
 
-def file_exists_and_not_empty(path: str) -> bool:
-    try:
-        return os.path.exists(path) and os.path.getsize(path) > 0
-    except Exception:
+def normalize_key(v: str) -> str:
+    return re.sub(r"\s+", " ", normalize_text(v)).lower()
+
+def parse_knife(v: str):
+    """
+    knife column: 1 / 0 / 2 or text variants.
+    returns: 1 (yes), 0 (no), 2 (unknown/empty)
+    """
+    s = normalize_key(v)
+    if s in ("1", "yes", "y", "так", "є", "+", "true", "on"):
+        return 1
+    if s in ("0", "no", "n", "ні", "нема", "-", "false", "off"):
+        return 0
+    if s in ("2", "unknown", "невідомо", "?", ""):
+        return 2
+    # якщо вписали щось дивне — вважаємо unknown, щоб не ламати списки
+    return 2
+
+def has_locker(v: str) -> bool:
+    s = normalize_text(v)
+    if not s:
         return False
-
-def safe_int(s: str) -> Optional[int]:
-    try:
-        return int(str(s).strip())
-    except Exception:
-        return None
-
-def parse_backup_chat_id() -> Optional[int]:
-    if not BACKUP_CHAT_ID_RAW:
-        return None
-    try:
-        return int(BACKUP_CHAT_ID_RAW)
-    except Exception:
-        return None
-
-def read_csv_file(path: str) -> List[Dict[str, str]]:
-    if not os.path.exists(path):
-        return []
-    with open(path, "r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        rows = []
-        for r in reader:
-            # normalize required keys
-            row = {
-                COL_ADDRESS: normalize_str(r.get(COL_ADDRESS, "")),
-                COL_SURNAME: normalize_str(r.get(COL_SURNAME, "")),
-                COL_KNIFE: normalize_str(r.get(COL_KNIFE, "")),
-                COL_LOCKER: normalize_str(r.get(COL_LOCKER, "")),
-            }
-            # skip completely empty lines
-            if any(row.values()):
-                rows.append(row)
-        return rows
-
-def write_csv_file(path: str, rows: List[Dict[str, str]]) -> None:
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=[COL_ADDRESS, COL_SURNAME, COL_KNIFE, COL_LOCKER])
-        writer.writeheader()
-        for r in rows:
-            writer.writerow({
-                COL_ADDRESS: normalize_str(r.get(COL_ADDRESS, "")),
-                COL_SURNAME: normalize_str(r.get(COL_SURNAME, "")),
-                COL_KNIFE: normalize_str(r.get(COL_KNIFE, "")),
-                COL_LOCKER: normalize_str(r.get(COL_LOCKER, "")),
-            })
-
-def load_google_csv_cached() -> List[Dict[str, str]]:
-    if not CSV_URL:
-        return []
-    now = time.time()
-    if _google_cache["rows"] and now - _google_cache["time"] < CACHE_TTL:
-        return _google_cache["rows"]
-
-    resp = requests.get(CSV_URL, timeout=20)
-    resp.raise_for_status()
-    text = resp.text
-    f = StringIO(text)
-    reader = csv.DictReader(f)
-
-    rows = []
-    for r in reader:
-        row = {
-            COL_ADDRESS: normalize_str(r.get(COL_ADDRESS, "")),
-            COL_SURNAME: normalize_str(r.get(COL_SURNAME, "")),
-            COL_KNIFE: normalize_str(r.get(COL_KNIFE, "")),
-            COL_LOCKER: normalize_str(r.get(COL_LOCKER, "")),
-        }
-        if any(row.values()):
-            rows.append(row)
-
-    _google_cache["rows"] = rows
-    _google_cache["time"] = now
-    return rows
-
-def is_knife_yes(v: str) -> bool:
-    # knife expected 1/0/2, but we are tolerant
-    v = normalize_str(v).lower()
-    return v in {"1", "yes", "y", "true", "так", "+", "є", "имеется", "наявний"}
-
-def is_knife_no(v: str) -> bool:
-    v = normalize_str(v).lower()
-    return v in {"0", "no", "n", "false", "ні", "нет", "-"}
-
-def is_locker_yes(v: str) -> bool:
-    v0 = normalize_str(v)
-    if not v0:
+    if normalize_key(s) in ("-", "нема", "ні", "no", "0"):
         return False
-    low = v0.lower()
-    if low in {"-", "0", "ні", "нет", "no", "нема", "немає"}:
-        return False
-    # any non-empty locker value counts as "has locker"
     return True
 
-def is_locker_no(v: str) -> bool:
-    return not is_locker_yes(v)
+def ensure_columns(row: dict) -> dict:
+    # жорстко по назвах колонок, як зафіксовано
+    return {
+        "Address": row.get("Address", ""),
+        "surname": row.get("surname", ""),
+        "knife": row.get("knife", ""),
+        "locker": row.get("locker", ""),
+    }
 
-def format_people_list(rows: List[Dict[str, str]], with_locker_number: bool = False) -> str:
-    lines = []
-    for r in rows:
-        name = normalize_str(r.get(COL_SURNAME, ""))
-        if not name:
-            continue
-        if with_locker_number:
-            locker = normalize_str(r.get(COL_LOCKER, ""))
-            if locker:
-                lines.append(f"{name} — {locker}")
-            else:
-                lines.append(name)
-        else:
-            lines.append(name)
-    return "\n".join(lines) if lines else "Немає даних."
-
-# ==================================================
-# BACKUP/RESTORE CORE (Pinned message trick)
-# ==================================================
-async def restore_from_pinned_backup(app, backup_chat_id: int) -> Tuple[bool, str]:
-    """
-    Auto-restore by downloading DOCUMENT from pinned message in backup group.
-    Works because getChat returns pinned_message even without history access.
-    """
+def read_local_db() -> list[dict]:
+    if not os.path.exists(DATA_FILE):
+        return []
     try:
-        chat = await app.bot.get_chat(backup_chat_id)
-        pinned = getattr(chat, "pinned_message", None)
-        if not pinned:
-            return False, "У backup-групі немає закріпленого (pinned) повідомлення з CSV."
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            rows = []
+            for r in reader:
+                r = ensure_columns(r)
+                # пропускаємо повністю пусті записи
+                if not normalize_text(r["surname"]) and not normalize_text(r["Address"]):
+                    continue
+                rows.append(r)
+            return rows
+    except Exception:
+        return []
 
-        doc = getattr(pinned, "document", None)
-        if not doc:
-            return False, "Pinned повідомлення є, але в ньому немає документа (CSV)."
+def write_local_db(rows: list[dict]) -> None:
+    with open(DATA_FILE, "w", encoding="utf-8", newline="") as f:
+        fieldnames = ["Address", "surname", "knife", "locker"]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for r in rows:
+            r = ensure_columns(r)
+            writer.writerow(r)
 
-        file = await app.bot.get_file(doc.file_id)
-        content = await file.download_as_bytearray()
+def local_db_is_empty() -> bool:
+    rows = read_local_db()
+    return len(rows) == 0
 
-        # write raw bytes to file
-        with open(BASE_FILE, "wb") as f:
-            f.write(content)
+def load_google_csv_rows() -> list[dict]:
+    now = time.time()
+    if _csv_cache["data"] is not None and (now - _csv_cache["ts"] < CACHE_TTL):
+        return _csv_cache["data"]
 
-        # quick validate: must have header with surname column
-        rows = read_csv_file(BASE_FILE)
-        if not rows:
-            return False, "CSV з pinned відновився, але вийшов порожнім або з неправильними колонками."
+    resp = requests.get(CSV_URL, timeout=15)
+    resp.encoding = "utf-8"
+    text = resp.text
+    reader = csv.DictReader(StringIO(text))
+    rows = []
+    for r in reader:
+        rows.append(ensure_columns(r))
+    _csv_cache["data"] = rows
+    _csv_cache["ts"] = now
+    return rows
 
-        return True, f"✅ Відновив базу з pinned backup ({len(rows)} записів)."
-
-    except Exception as e:
-        logger.exception("restore_from_pinned_backup failed")
-        return False, f"Помилка авто-відновлення з pinned backup: {e}"
-
-async def ensure_local_db_ready(app) -> str:
+# ==================================================
+# 📌 Backup / Restore (Telegram pinned in group)
+# ==================================================
+async def backup_to_group(bot, reason: str = "manual") -> tuple[bool, str]:
     """
-    On boot: if local DB missing/empty -> try pinned backup -> else try seed from Google.
-    Returns human-readable status.
+    Створює backup-файл і надсилає в BACKUP_CHAT_ID, потім pin.
     """
-    if file_exists_and_not_empty(BASE_FILE):
-        rows = read_csv_file(BASE_FILE)
-        return f"✅ Локальна база OK ({len(rows)} записів)."
+    if not BACKUP_CHAT_ID:
+        return False, "BACKUP_CHAT_ID не заданий у Render Environment."
 
-    backup_chat_id = parse_backup_chat_id()
-    if backup_chat_id:
-        ok, msg = await restore_from_pinned_backup(app, backup_chat_id)
-        if ok:
-            return msg
-        logger.warning(msg)
-
-    # fallback seed from Google
-    if CSV_URL:
-        try:
-            rows = load_google_csv_cached()
-            if rows:
-                write_csv_file(BASE_FILE, rows)
-                return f"✅ База була пуста — зробив seed з Google ({len(rows)} записів)."
-            return "⚠️ База пуста і Google seed повернув 0 записів."
-        except Exception as e:
-            logger.exception("seed from Google failed")
-            return f"⚠️ База пуста, pinned backup недоступний, seed з Google не вдався: {e}"
-
-    return "⚠️ База пуста. Додай BACKUP_CHAT_ID або CSV_URL, або зроби /restore (надішли CSV)."
-
-async def send_backup_and_pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    backup_chat_id = parse_backup_chat_id()
-    if not backup_chat_id:
-        await update.message.reply_text("❌ BACKUP_CHAT_ID не заданий у Render → Environment Variables.")
-        return
-
-    rows = read_csv_file(BASE_FILE)
+    rows = read_local_db()
     if not rows:
-        await update.message.reply_text("⚠️ База пуста — нічого бекапити.")
-        return
+        return False, "Немає даних для backup (база порожня)."
 
-    await update.message.reply_text("💾 Роблю backup…")
-    filename = f"base_data_{now_ts()}.csv"
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    fname = f"base_data_{ts}.csv"
 
-    # create temp file
-    write_csv_file(filename, rows)
+    # пишемо тимчасово
+    with open(fname, "w", encoding="utf-8", newline="") as f:
+        fieldnames = ["Address", "surname", "knife", "locker"]
+        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w.writeheader()
+        for r in rows:
+            w.writerow(ensure_columns(r))
 
+    # пробуємо зняти попередній pin (якщо є)
+    old_pin_id = None
     try:
-        with open(filename, "rb") as f:
-            msg = await context.bot.send_document(
-                chat_id=backup_chat_id,
-                document=f,
-                filename=filename,
-                caption=f"💾 Backup бази ({len(rows)} записів) • {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            )
+        chat = await bot.get_chat(BACKUP_CHAT_ID)
+        if getattr(chat, "pinned_message", None):
+            old_pin_id = chat.pinned_message.message_id
+    except Exception:
+        old_pin_id = None
 
-        # pin the backup message (this is the KEY for auto-restore)
+    caption = f"💾 Backup бази ({len(rows)} записів) • {now_ts()} • {reason}"
+    try:
+        msg = await bot.send_document(
+            chat_id=BACKUP_CHAT_ID,
+            document=open(fname, "rb"),
+            caption=caption,
+        )
         try:
-            await context.bot.pin_chat_message(
-                chat_id=backup_chat_id,
-                message_id=msg.message_id,
-                disable_notification=True,
-            )
-            await update.message.reply_text("✅ Backup відправив у backup-групу і закріпив (pinned).")
-        except Exception as e:
-            await update.message.reply_text(
-                "⚠️ Backup відправив, але НЕ зміг закріпити (pinned).\n"
-                "Дай боту право 'Pin messages' у backup-групі.\n"
-                f"Помилка: {e}"
-            )
+            # pin new
+            await bot.pin_chat_message(chat_id=BACKUP_CHAT_ID, message_id=msg.message_id, disable_notification=True)
+            # unpin old (optional)
+            if old_pin_id and old_pin_id != msg.message_id:
+                try:
+                    await bot.unpin_chat_message(chat_id=BACKUP_CHAT_ID, message_id=old_pin_id)
+                except Exception:
+                    pass
+        except Exception:
+            # якщо pin не вдався — не критично
+            pass
 
+        return True, f"Backup відправив у backup-групу і закріпив (pinned). Файл: {fname}"
+    except Exception as e:
+        return False, f"Не зміг надіслати backup у групу: {e}"
     finally:
         try:
-            os.remove(filename)
+            os.remove(fname)
         except Exception:
             pass
 
-async def manual_restore_from_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def restore_from_group_pinned(bot) -> tuple[bool, str]:
     """
-    User sends a CSV document => overwrite local DB.
+    Якщо в backup-групі є pinned message з CSV документом — завантажує і відновлює base_data.csv
     """
-    msg = update.message
-    if not msg or not msg.document:
-        await msg.reply_text("Надішли CSV як документ.")
-        return
+    if not BACKUP_CHAT_ID:
+        return False, "BACKUP_CHAT_ID не заданий у Render Environment."
 
-    await msg.reply_chat_action(ChatAction.TYPING)
-    file = await context.bot.get_file(msg.document.file_id)
-    content = await file.download_as_bytearray()
-
-    with open(BASE_FILE, "wb") as f:
-        f.write(content)
-
-    rows = read_csv_file(BASE_FILE)
-    if not rows:
-        await msg.reply_text("⚠️ Файл прийняв, але база вийшла порожня або не ті колонки.")
-        return
-
-    await msg.reply_text(f"✅ Відновлено базу з файлу ({len(rows)} записів).")
-
-    # optionally also backup+pin immediately (so next deploy auto-restores)
-    backup_chat_id = parse_backup_chat_id()
-    if backup_chat_id:
-        await msg.reply_text("📌 Зараз одразу зроблю backup у групу і закріплю (щоб після деплою відновлювалось автоматично)…")
-        await send_backup_and_pin(update, context)
-
-# ==================================================
-# BOT COMMANDS
-# ==================================================
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    status = await ensure_local_db_ready(context.application)
-    await update.message.reply_text(
-        "Привіт! Я готовий.\n\n"
-        f"{status}\n\n"
-        "Команди:\n"
-        "/stats\n"
-        "/all_list\n"
-        "/locker_list\n"
-        "/no_locker_list\n"
-        "/knife_list\n"
-        "/no_knife_list\n"
-        "/backup\n"
-        "/seed\n"
-        "/restore (надішли CSV документом)\n",
-        reply_markup=MAIN_KB,
-    )
-
-async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await ensure_local_db_ready(context.application)
-
-    rows = read_csv_file(BASE_FILE)
-    total = len(rows)
-    knife_yes = sum(1 for r in rows if is_knife_yes(r.get(COL_KNIFE, "")))
-    knife_no = sum(1 for r in rows if is_knife_no(r.get(COL_KNIFE, "")))
-    knife_unknown = total - knife_yes - knife_no
-
-    locker_yes = sum(1 for r in rows if is_locker_yes(r.get(COL_LOCKER, "")))
-    locker_no = total - locker_yes
-
-    text = (
-        f"📊 Статистика:\n\n"
-        f"Всього: {total}\n\n"
-        f"🔪 Ніж:\n"
-        f"  ✅ Є: {knife_yes}\n"
-        f"  🚫 Нема: {knife_no}\n"
-        f"  ❓ Невідомо: {knife_unknown}\n\n"
-        f"🗄️ Шафка:\n"
-        f"  ✅ Є: {locker_yes}\n"
-        f"  🚫 Нема: {locker_no}\n"
-    )
-    await update.message.reply_text(text)
-
-async def cmd_all_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await ensure_local_db_ready(context.application)
-    rows = read_csv_file(BASE_FILE)
-    rows_sorted = sorted(rows, key=lambda r: normalize_str(r.get(COL_SURNAME, "")).lower())
-    text = "👥 Всі:\n\n" + format_people_list(rows_sorted)
-    await update.message.reply_text(text)
-
-async def cmd_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await ensure_local_db_ready(context.application)
-    rows = [r for r in read_csv_file(BASE_FILE) if is_locker_yes(r.get(COL_LOCKER, ""))]
-    rows_sorted = sorted(rows, key=lambda r: normalize_str(r.get(COL_SURNAME, "")).lower())
-    text = "🗄️ З шафкою:\n\n" + format_people_list(rows_sorted, with_locker_number=True)
-    await update.message.reply_text(text)
-
-async def cmd_no_locker_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await ensure_local_db_ready(context.application)
-    rows = [r for r in read_csv_file(BASE_FILE) if is_locker_no(r.get(COL_LOCKER, ""))]
-    rows_sorted = sorted(rows, key=lambda r: normalize_str(r.get(COL_SURNAME, "")).lower())
-    text = "🚫 Без шафки:\n\n" + format_people_list(rows_sorted)
-    await update.message.reply_text(text)
-
-async def cmd_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await ensure_local_db_ready(context.application)
-    rows = [r for r in read_csv_file(BASE_FILE) if is_knife_yes(r.get(COL_KNIFE, ""))]
-    rows_sorted = sorted(rows, key=lambda r: normalize_str(r.get(COL_SURNAME, "")).lower())
-    text = "🔪 З ножем:\n\n" + format_people_list(rows_sorted)
-    await update.message.reply_text(text)
-
-async def cmd_no_knife_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await ensure_local_db_ready(context.application)
-    rows = [r for r in read_csv_file(BASE_FILE) if is_knife_no(r.get(COL_KNIFE, ""))]
-    rows_sorted = sorted(rows, key=lambda r: normalize_str(r.get(COL_SURNAME, "")).lower())
-    text = "🚫 Без ножа:\n\n" + format_people_list(rows_sorted)
-    await update.message.reply_text(text)
-
-async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await ensure_local_db_ready(context.application)
-    await send_backup_and_pin(update, context)
-
-async def cmd_seed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not CSV_URL:
-        await update.message.reply_text("❌ CSV_URL не заданий у Render. Seed неможливий.")
-        return
     try:
-        rows = load_google_csv_cached()
-        if not rows:
-            await update.message.reply_text("⚠️ Seed: Google CSV повернув 0 записів.")
-            return
-        write_csv_file(BASE_FILE, rows)
-        await update.message.reply_text(f"✅ Seed з Google виконано ({len(rows)} записів).")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Seed помилка: {e}")
+        chat = await bot.get_chat(BACKUP_CHAT_ID)
+        pm = getattr(chat, "pinned_message", None)
+        if not pm:
+            return False, "У backup-групі немає pinned повідомлення."
+        if not pm.document:
+            return False, "Pinned повідомлення є, але там не файл-документ."
+        if not (pm.document.file_name or "").lower().endswith(".csv"):
+            # все одно дозволимо, але попередимо
+            pass
 
-async def cmd_restore(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        file = await bot.get_file(pm.document.file_id)
+        await file.download_to_drive(custom_path=DATA_FILE)
+
+        rows = read_local_db()
+        if not rows:
+            return False, "Файл завантажив, але база все одно порожня (перевір CSV)."
+
+        return True, f"✅ Відновив базу з pinned backup: {pm.document.file_name} ({len(rows)} записів)"
+    except Exception as e:
+        return False, f"Не зміг відновити з backup-групи: {e}"
+
+async def seed_from_google() -> tuple[bool, str]:
+    try:
+        rows = load_google_csv_rows()
+        if not rows:
+            return False, "Google CSV порожній."
+        write_local_db(rows)
+        return True, f"✅ Seed зроблено з Google: {len(rows)} записів"
+    except Exception as e:
+        return False, f"Seed з Google не вдався: {e}"
+
+async def ensure_db_on_start(app) -> None:
+    """
+    Запускається один раз при старті: якщо база порожня після деплою —
+    1) пробує відновити з pinned backup у Telegram,
+    2) якщо не вийшло — пробує seed з Google.
+    """
+    bot = app.bot
+    if not local_db_is_empty():
+        return
+
+    # 1) telegram pinned backup
+    ok, msg = await restore_from_group_pinned(bot)
+    if ok:
+        return
+
+    # 2) google seed
+    ok2, _ = await seed_from_google()
+    return
+
+# ==================================================
+# 📊 Stats & Lists (єдина логіка)
+# ==================================================
+def compute_stats(rows: list[dict]) -> dict:
+    total = len(rows)
+    knife_yes = 0
+    knife_no = 0
+    knife_unknown = 0
+    locker_yes = 0
+    locker_no = 0
+
+    for r in rows:
+        k = parse_knife(r.get("knife", ""))
+        if k == 1:
+            knife_yes += 1
+        elif k == 0:
+            knife_no += 1
+        else:
+            knife_unknown += 1
+
+        if has_locker(r.get("locker", "")):
+            locker_yes += 1
+        else:
+            locker_no += 1
+
+    return {
+        "total": total,
+        "knife_yes": knife_yes,
+        "knife_no": knife_no,
+        "knife_unknown": knife_unknown,
+        "locker_yes": locker_yes,
+        "locker_no": locker_no,
+    }
+
+def format_person(r: dict, with_locker_number: bool = False) -> str:
+    name = normalize_text(r.get("surname", ""))
+    locker = normalize_text(r.get("locker", ""))
+    if with_locker_number and has_locker(locker):
+        return f"{name} — {locker}"
+    return name
+
+def list_all(rows: list[dict]) -> list[str]:
+    out = [format_person(r) for r in rows if normalize_text(r.get("surname", ""))]
+    return sorted(out, key=lambda x: x.lower())
+
+def list_with_locker(rows: list[dict]) -> list[str]:
+    out = []
+    for r in rows:
+        if normalize_text(r.get("surname", "")) and has_locker(r.get("locker", "")):
+            out.append(format_person(r, with_locker_number=True))
+    return sorted(out, key=lambda x: x.lower())
+
+def list_without_locker(rows: list[dict]) -> list[str]:
+    out = []
+    for r in rows:
+        if normalize_text(r.get("surname", "")) and not has_locker(r.get("locker", "")):
+            out.append(format_person(r))
+    return sorted(out, key=lambda x: x.lower())
+
+def list_with_knife(rows: list[dict]) -> list[str]:
+    out = []
+    for r in rows:
+        if normalize_text(r.get("surname", "")) and parse_knife(r.get("knife", "")) == 1:
+            out.append(format_person(r))
+    return sorted(out, key=lambda x: x.lower())
+
+def list_without_knife(rows: list[dict]) -> list[str]:
+    out = []
+    for r in rows:
+        if normalize_text(r.get("surname", "")) and parse_knife(r.get("knife", "")) == 0:
+            out.append(format_person(r))
+    return sorted(out, key=lambda x: x.lower())
+
+# ==================================================
+# 🧷 UI
+# ==================================================
+MENU = ReplyKeyboardMarkup(
+    [
+        ["📊 Статистика", "👥 Всі"],
+        ["🗄️ З шафкою", "⛔️ Без шафки"],
+        ["🔪 З ножем", "⛔️ Без ножа"],
+        ["💾 Backup бази", "🧬 Seed з Google"],
+    ],
+    resize_keyboard=True
+)
+
+# ==================================================
+# 🤖 Handlers
+# ==================================================
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    _user_state.pop(update.effective_user.id, None)  # скидаємо будь-які "режими", щоб не блокувало списки
     await update.message.reply_text(
-        "♻️ Відновлення:\n"
-        "Надішли мені CSV-файл бази як *ДОКУМЕНТ* (не фото).\n"
-        "Я перезапишу local_data.csv.\n",
-        parse_mode="Markdown",
+        "Готово ✅\nОбери дію кнопками 👇",
+        reply_markup=MENU
     )
 
-# ==================================================
-# TEXT BUTTONS (keyboard)
-# ==================================================
-async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    t = (update.message.text or "").strip()
+async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = read_local_db()
+    st = compute_stats(rows)
+    txt = (
+        f"📊 Статистика:\n\n"
+        f"Всього: {st['total']}\n\n"
+        f"🔪 Ніж:\n"
+        f"✅ Є: {st['knife_yes']}\n"
+        f"⛔️ Нема: {st['knife_no']}\n"
+        f"❓ Невідомо: {st['knife_unknown']}\n\n"
+        f"🗄️ Шафка:\n"
+        f"✅ Є: {st['locker_yes']}\n"
+        f"⛔️ Нема: {st['locker_no']}"
+    )
+    await update.message.reply_text(txt, reply_markup=MENU)
 
-    if t == "📊 Статистика":
-        await cmd_stats(update, context)
-    elif t == "👥 Всі":
-        await cmd_all_list(update, context)
-    elif t == "🗄️ З шафкою":
-        await cmd_locker_list(update, context)
-    elif t == "🚫 Без шафки":
-        await cmd_no_locker_list(update, context)
-    elif t == "🔪 З ножем":
-        await cmd_knife_list(update, context)
-    elif t == "🚫 Без ножа":
-        await cmd_no_knife_list(update, context)
-    elif t == "💾 Backup бази":
-        await cmd_backup(update, context)
-    elif t == "♻️ Seed з Google":
-        await cmd_seed(update, context)
-    else:
-        await update.message.reply_text("Не зрозумів. Натисни кнопку або /start", reply_markup=MAIN_KB)
+async def cmd_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = read_local_db()
+    items = list_all(rows)
+    if not items:
+        await update.message.reply_text("👥 Всі:\n\nНемає даних.", reply_markup=MENU)
+        return
+    await update.message.reply_text("👥 Всі:\n\n" + "\n".join(items), reply_markup=MENU)
+
+async def cmd_with_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = read_local_db()
+    items = list_with_locker(rows)
+    if not items:
+        await update.message.reply_text("🗄️ З шафкою:\n\nНемає даних.", reply_markup=MENU)
+        return
+    await update.message.reply_text("🗄️ З шафкою:\n\n" + "\n".join(items), reply_markup=MENU)
+
+async def cmd_without_locker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = read_local_db()
+    items = list_without_locker(rows)
+    if not items:
+        await update.message.reply_text("⛔️ Без шафки:\n\nНемає даних.", reply_markup=MENU)
+        return
+    await update.message.reply_text("⛔️ Без шафки:\n\n" + "\n".join(items), reply_markup=MENU)
+
+async def cmd_with_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = read_local_db()
+    items = list_with_knife(rows)
+    if not items:
+        await update.message.reply_text("🔪 З ножем:\n\nНемає даних.", reply_markup=MENU)
+        return
+    await update.message.reply_text("🔪 З ножем:\n\n" + "\n".join(items), reply_markup=MENU)
+
+async def cmd_without_knife(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = read_local_db()
+    items = list_without_knife(rows)
+    if not items:
+        await update.message.reply_text("⛔️ Без ножа:\n\nНемає даних.", reply_markup=MENU)
+        return
+    await update.message.reply_text("⛔️ Без ножа:\n\n" + "\n".join(items), reply_markup=MENU)
+
+async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.chat.send_action(ChatAction.UPLOAD_DOCUMENT)
+    ok, msg = await backup_to_group(context.bot, reason="manual")
+    await update.message.reply_text(("✅ " if ok else "⚠️ ") + msg, reply_markup=MENU)
+
+async def cmd_seed(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    ok, msg = await seed_from_google()
+    if ok:
+        # після seed — одразу backup (щоб завжди був pinned)
+        await backup_to_group(context.bot, reason="seed_from_google")
+    await update.message.reply_text(("✅ " if ok else "⚠️ ") + msg, reply_markup=MENU)
+
+async def cmd_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # ручне відновлення (на всяк випадок)
+    await update.message.chat.send_action(ChatAction.DOWNLOAD_DOCUMENT)
+    ok, msg = await restore_from_group_pinned(context.bot)
+    await update.message.reply_text(("✅ " if ok else "⚠️ ") + msg, reply_markup=MENU)
+
+async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"chat_id = {update.effective_chat.id}")
 
 # ==================================================
-# OPTIONAL SELF-PING (to keep Render from sleeping; used with UptimeRobot anyway)
+# ✍️ Change operations (приклад) + AUTO BACKUP
 # ==================================================
-async def self_ping_loop(app):
+# Щоб “автобекап після кожної зміни” працював реально, нам треба викликати backup_to_group
+# у місцях де ти міняєш базу (додати/видалити/редагувати).
+#
+# Нижче — дуже прості команди (за бажанням можемо інтегрувати у твої кнопки/кроки потім).
+
+async def cmd_add_simple(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    /add Прізвище Ім'я | locker=12 | knife=1 | Address=...
+    мінімально: /add Прізвище Ім'я
+    """
+    text = update.message.text
+    payload = text.replace("/add", "", 1).strip()
+    if not payload:
+        await update.message.reply_text(
+            "Формат:\n/add Прізвище Ім'я | locker=12 | knife=1 | Address=...\n\n"
+            "knife: 1/0/2",
+            reply_markup=MENU
+        )
+        return
+
+    parts = [p.strip() for p in payload.split("|")]
+    name = parts[0].strip()
+    locker = ""
+    knife = ""
+    addr = ""
+
+    for p in parts[1:]:
+        if "=" in p:
+            k, v = p.split("=", 1)
+            k = normalize_key(k)
+            v = v.strip()
+            if k == "locker":
+                locker = v
+            elif k == "knife":
+                knife = v
+            elif k == "address":
+                addr = v
+
+    rows = read_local_db()
+    rows.append({"Address": addr, "surname": name, "knife": knife, "locker": locker})
+    write_local_db(rows)
+
+    # ✅ AUTO BACKUP після зміни
+    await backup_to_group(context.bot, reason="add_or_change")
+
+    await update.message.reply_text(f"✅ Додав: {name}", reply_markup=MENU)
+
+# ==================================================
+# 🌐 Self ping loop (optional)
+# ==================================================
+def keep_self_awake():
     if not SELF_PING_URL:
         return
     while True:
@@ -493,48 +508,65 @@ async def self_ping_loop(app):
             requests.get(SELF_PING_URL, timeout=10)
         except Exception:
             pass
-        await asyncio.sleep(240)  # every 4 minutes
+        time.sleep(600)  # 10 хв
+
+if SELF_PING_URL:
+    threading.Thread(target=keep_self_awake, daemon=True).start()
 
 # ==================================================
-# APP STARTUP
+# 🚀 MAIN
 # ==================================================
 async def post_init(app):
-    # Ensure DB is ready as soon as bot boots
-    status = await ensure_local_db_ready(app)
-    logger.info(status)
-
-    # Optionally start self-ping loop
-    if SELF_PING_URL:
-        app.create_task(self_ping_loop(app))
+    # авто-відновлення/seed якщо база порожня після деплою
+    await ensure_db_on_start(app)
 
 def main():
-    application = (
-        ApplicationBuilder()
-        .token(BOT_TOKEN)
-        .post_init(post_init)
-        .build()
-    )
+    if not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN is not set")
+
+    app = ApplicationBuilder().token(BOT_TOKEN).post_init(post_init).build()
 
     # commands
-    application.add_handler(CommandHandler("start", cmd_start))
-    application.add_handler(CommandHandler("stats", cmd_stats))
-    application.add_handler(CommandHandler("all_list", cmd_all_list))
-    application.add_handler(CommandHandler("locker_list", cmd_locker_list))
-    application.add_handler(CommandHandler("no_locker_list", cmd_no_locker_list))
-    application.add_handler(CommandHandler("knife_list", cmd_knife_list))
-    application.add_handler(CommandHandler("no_knife_list", cmd_no_knife_list))
-    application.add_handler(CommandHandler("backup", cmd_backup))
-    application.add_handler(CommandHandler("seed", cmd_seed))
-    application.add_handler(CommandHandler("restore", cmd_restore))
+    app.add_handler(CommandHandler("start", cmd_start))
+    app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("backup", cmd_backup))
+    app.add_handler(CommandHandler("seed", cmd_seed))
+    app.add_handler(CommandHandler("restore", cmd_restore))
+    app.add_handler(CommandHandler("chatid", cmd_chatid))
 
-    # restore by sending a document
-    application.add_handler(MessageHandler(filters.Document.ALL, manual_restore_from_document))
+    # simple add (example)
+    app.add_handler(CommandHandler("add", cmd_add_simple))
 
-    # text buttons
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
+    # buttons (text)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_buttons))
 
-    logger.info("Bot starting polling…")
-    application.run_polling(close_loop=False)
+    app.run_polling(close_loop=False)
+
+async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    txt = (update.message.text or "").strip()
+
+    # якщо десь залишився “режим” — не блокуємо кнопки
+    _user_state.pop(update.effective_user.id, None)
+
+    if txt == "📊 Статистика":
+        return await cmd_stats(update, context)
+    if txt == "👥 Всі":
+        return await cmd_all(update, context)
+    if txt == "🗄️ З шафкою":
+        return await cmd_with_locker(update, context)
+    if txt == "⛔️ Без шафки":
+        return await cmd_without_locker(update, context)
+    if txt == "🔪 З ножем":
+        return await cmd_with_knife(update, context)
+    if txt == "⛔️ Без ножа":
+        return await cmd_without_knife(update, context)
+    if txt == "💾 Backup бази":
+        return await cmd_backup(update, context)
+    if txt == "🧬 Seed з Google":
+        return await cmd_seed(update, context)
+
+    # fallback
+    await update.message.reply_text("Не зрозумів. Натисни кнопку або /start", reply_markup=MENU)
 
 if __name__ == "__main__":
     main()

@@ -3,7 +3,7 @@ import csv
 import re
 import shutil
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import StringIO
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -112,6 +112,7 @@ EMPLOYEE_KB = ReplyKeyboardMarkup(
 # WORK submenu
 BTN_SHIFT_CREATE = "➕ Створити зміну"
 BTN_GROUP_ADD_WORKERS = "👥 Додати працівників у групу"
+BTN_AUTO_DISTRIBUTE = "🤖 Авто-розподіл по HALA 1–4"
 BTN_SHIFT_SHOW = "📋 Показати зміну"
 BTN_GROUP_SET_PERCENT = "📈 Внести % групи"
 BTN_SORT_WORKERS = "📌 Сортування працівників"
@@ -121,7 +122,7 @@ BTN_SHIFT_BACKUP = "💾 Backup зміни"
 WORK_KB = ReplyKeyboardMarkup(
     [
         [BTN_SHIFT_CREATE, BTN_SHIFT_SHOW],
-        [BTN_GROUP_ADD_WORKERS],
+        [BTN_GROUP_ADD_WORKERS, BTN_AUTO_DISTRIBUTE],
         [BTN_GROUP_SET_PERCENT, BTN_SORT_WORKERS],
         [BTN_EXPORT_TXT],
         [BTN_SHIFT_BACKUP],
@@ -139,6 +140,41 @@ def now_ts() -> str:
 
 def today_ddmmyyyy() -> str:
     return datetime.now().strftime("%d.%m.%Y")
+
+def date_from_keyword(text: str) -> str | None:
+    """
+    Accepts quick calendar keywords/buttons and returns DD.MM.YYYY.
+    Supported:
+      - "-" (today)
+      - "сьогодні", "today"
+      - "завтра", "tomorrow"
+      - "вчора", "yesterday"
+      - "📅 <DD.MM.YYYY>" buttons
+    """
+    t = normalize_text(text)
+    tl = safe_lower(t)
+    if t == "-" or tl in {"сьогодні", "today", "📅 сьогодні"}:
+        return today_ddmmyyyy()
+    if tl in {"завтра", "tomorrow", "📅 завтра"}:
+        return (datetime.now() + timedelta(days=1)).strftime("%d.%m.%Y")
+    if tl in {"вчора", "yesterday", "📅 вчора"}:
+        return (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
+    m = re.search(r"(\d{2}\.\d{2}\.\d{4})", t)
+    if m:
+        return m.group(1)
+    return None
+
+def date_kb(days_forward: int = 7) -> ReplyKeyboardMarkup:
+    """Simple 'calendar' keyboard: today + next N days."""
+    base = datetime.now().date()
+    buttons = [KeyboardButton(f"📅 {(base + timedelta(days=i)).strftime('%d.%m.%Y')}") for i in range(0, days_forward + 1)]
+    rows = []
+    # 2 per row to keep compact on iPhone
+    for i in range(0, len(buttons), 2):
+        rows.append(buttons[i:i+2])
+    rows.append([KeyboardButton(BTN_CANCEL)])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True)
+
 
 def normalize_text(s: str) -> str:
     s = (s or "").strip()
@@ -747,12 +783,11 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     # create shift context
     if STATE["mode"] == "work_create_shift_wait_date":
-        if text == "-":
-            text = today_ddmmyyyy()
-        if parse_ddmmyyyy(text) is None:
+        d = date_from_keyword(text)
+        if not d or parse_ddmmyyyy(d) is None:
             await update.message.reply_text("❌ Дата має бути DD.MM.YYYY або '-' для сьогодні.")
             return
-        STATE["tmp"]["date"] = text
+        STATE["tmp"]["date"] = d
         STATE["mode"] = "work_create_shift_wait_type"
         await update.message.reply_text("Тип зміни: day або night", reply_markup=shift_type_kb())
         return
@@ -773,12 +808,11 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     # show shift
     if STATE["mode"] == "work_show_shift_wait_date":
-        if text == "-":
-            text = today_ddmmyyyy()
-        if parse_ddmmyyyy(text) is None:
+        d = date_from_keyword(text)
+        if not d or parse_ddmmyyyy(d) is None:
             await update.message.reply_text("❌ Дата має бути DD.MM.YYYY або '-'")
             return
-        STATE["tmp"]["date"] = text
+        STATE["tmp"]["date"] = d
         STATE["mode"] = "work_show_shift_wait_type"
         await update.message.reply_text("Тип зміни: day або night", reply_markup=shift_type_kb())
         return
@@ -873,6 +907,150 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         await show_work_menu(update, context, msg)
         return
 
+
+    # auto distribute: paste names -> choose halas -> group size -> write
+    if STATE["mode"] == "work_auto_wait_names":
+        active = STATE.get("active_shift")
+        if not active:
+            reset_state()
+            await show_work_menu(update, context, "❗ Спочатку створи/обери зміну: ➕ Створити зміну або 📋 Показати зміну")
+            return
+
+        raw = update.message.text or ""
+        names = [normalize_text(x) for x in raw.splitlines() if normalize_text(x)]
+        if not names:
+            await update.message.reply_text("Не бачу прізвищ у повідомленні. Встав список (кожен з нового рядка).")
+            return
+
+        emp_set = {r["surname"] for r in employees if r["surname"]}
+        ok = [n for n in names if n in emp_set]
+        missing = [n for n in names if n not in emp_set]
+
+        if not ok:
+            await update.message.reply_text("❌ Жодного прізвища не знайдено у базі працівників.")
+            return
+
+        STATE["tmp"]["names_ok"] = ok
+        STATE["tmp"]["missing"] = missing
+        STATE["mode"] = "work_auto_wait_halas"
+        kb = ReplyKeyboardMarkup(
+            [
+                [KeyboardButton("ALL"), KeyboardButton("HALA 1,2,3,4")],
+                [KeyboardButton("HALA 1,2"), KeyboardButton("HALA 3,4")],
+                [KeyboardButton(BTN_CANCEL)],
+            ],
+            resize_keyboard=True
+        )
+        await update.message.reply_text(
+            "Які зали використовуємо?\n"
+            "Варіанти: ALL або напиши, наприклад: HALA 1,2,4",
+            reply_markup=kb
+        )
+        return
+
+    if STATE["mode"] == "work_auto_wait_halas":
+        t = safe_lower(text).replace(" ", "")
+        if t in {"all", "hala1,2,3,4", "hala1-4"}:
+            halas = ["HALA 1", "HALA 2", "HALA 3", "HALA 4"]
+        else:
+            # accept "hala1,2,4" or "1,2,4"
+            t2 = t.replace("hala", "")
+            nums = [x for x in re.split(r"[^0-9]+", t2) if x]
+            halas = []
+            for n in nums:
+                if n in {"1", "2", "3", "4"}:
+                    halas.append(f"HALA {n}")
+            halas = list(dict.fromkeys(halas))  # unique preserve order
+        if not halas:
+            await update.message.reply_text("❌ Не зрозумів зали. Приклад: ALL або HALA 1,2,4")
+            return
+
+        STATE["tmp"]["halas"] = halas
+        STATE["mode"] = "work_auto_wait_group_size"
+        await update.message.reply_text(
+            "Вкажи розмір групи (скільки людей в одній групі).\n"
+            "Наприклад: 7",
+            reply_markup=ReplyKeyboardMarkup([[KeyboardButton("7"), KeyboardButton("8")],[KeyboardButton(BTN_CANCEL)]], resize_keyboard=True)
+        )
+        return
+
+    if STATE["mode"] == "work_auto_wait_group_size":
+        try:
+            size = int(re.sub(r"[^0-9]", "", text))
+        except Exception:
+            size = 0
+        if size <= 0 or size > 50:
+            await update.message.reply_text("❌ Розмір групи має бути числом (1–50). Наприклад: 7")
+            return
+
+        active = STATE.get("active_shift")
+        if not active:
+            reset_state()
+            await show_work_menu(update, context, "❗ Спочатку створи/обери зміну: ➕ Створити зміну або 📋 Показати зміну")
+            return
+
+        date_str = active["date"]
+        st = active["shift_type"]
+        halas = STATE["tmp"]["halas"]
+        names_ok = STATE["tmp"]["names_ok"]
+        missing = STATE["tmp"]["missing"]
+
+        # round-robin across halas, chunk into groups per hala
+        buckets = {h: [] for h in halas}
+        for i, n in enumerate(names_ok):
+            h = halas[i % len(halas)]
+            buckets[h].append(n)
+
+        new_rows = shifts_rows[:]
+        added = 0
+        for hala, arr in buckets.items():
+            # groups: G1, G2, ...
+            gnum = 1
+            for i in range(0, len(arr), size):
+                group = f"G{gnum}"
+                gnum += 1
+                chunk = arr[i:i+size]
+                for n in chunk:
+                    exists = any(
+                        r["date"] == date_str and safe_lower(r["shift_type"]) == st and r["hala"] == hala and r["group"] == group and r["surname"] == n
+                        for r in new_rows
+                    )
+                    if exists:
+                        continue
+                    new_rows.append(ensure_shift_columns({
+                        "date": date_str,
+                        "shift_type": st,
+                        "hala": hala,
+                        "group": group,
+                        "surname": n
+                    }))
+                    added += 1
+
+        write_shifts_db(new_rows)
+        await backup_everywhere(
+            context,
+            update.effective_chat.id,
+            reason="shift_auto_distribute",
+            caption_extra=f"{date_str} {st} auto +{added}"
+        )
+
+        reset_state()
+
+        # summary
+        lines = [f"✅ Авто-розподіл готовий: додано {added} записів.",
+                 f"Зміна: {date_str} ({shift_type_label(st)})",
+                 f"Зали: {', '.join(halas)}",
+                 f"Розмір групи: {size}"]
+        for h in halas:
+            cnt = len(buckets.get(h, []))
+            if cnt:
+                lines.append(f"• {h}: {cnt} людей")
+        if missing:
+            lines.append("\n⚠️ Не знайдені у базі працівників:")
+            lines.extend(missing[:30])
+
+        await show_work_menu(update, context, "\n".join(lines))
+        return
     # set group percent
     if STATE["mode"] == "work_set_percent_wait_hala":
         hala = normalize_text(text)
@@ -963,12 +1141,11 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     # export txt (date+type)
     if STATE["mode"] == "work_export_wait_date":
-        if text == "-":
-            text = today_ddmmyyyy()
-        if parse_ddmmyyyy(text) is None:
+        d = date_from_keyword(text)
+        if not d or parse_ddmmyyyy(d) is None:
             await update.message.reply_text("❌ Дата має бути DD.MM.YYYY або '-'")
             return
-        STATE["tmp"]["date"] = text
+        STATE["tmp"]["date"] = d
         STATE["mode"] = "work_export_wait_type"
         await update.message.reply_text("Тип зміни: day або night", reply_markup=shift_type_kb())
         return
@@ -1110,12 +1287,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if STATE["menu"] == "work":
         if is_btn(text, "Створити зміну"):
             STATE["mode"] = "work_create_shift_wait_date"; STATE["tmp"] = {}
-            await update.message.reply_text(f"Введи дату DD.MM.YYYY або '-' для сьогодні ({today_ddmmyyyy()}):", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+            await update.message.reply_text("Обери дату кнопкою (календар) або введи DD.MM.YYYY:", reply_markup=date_kb())
             return
 
         if is_btn(text, "Показати зміну"):
             STATE["mode"] = "work_show_shift_wait_date"; STATE["tmp"] = {}
-            await update.message.reply_text(f"Введи дату DD.MM.YYYY або '-' для сьогодні ({today_ddmmyyyy()}):", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+            await update.message.reply_text("Обери дату кнопкою (календар) або введи DD.MM.YYYY:", reply_markup=date_kb())
             return
 
         if is_btn(text, "Додати працівників"):
@@ -1126,6 +1303,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Обери зал:", reply_markup=hala_kb())
             return
 
+        if is_btn(text, "Авто-розподіл"):
+            active = STATE.get("active_shift")
+            if not active:
+                await show_work_menu(update, context, "❗ Спочатку створи зміну: ➕ Створити зміну"); return
+            STATE["mode"] = "work_auto_wait_names"
+            STATE["tmp"] = {}
+            await update.message.reply_text(
+                "Встав список працівників (кожен з нового рядка).\n\nПотім я автоматично розкладу по HALA 1–4.",
+                reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+            )
+            return
         if is_btn(text, "Внести %"):
             active = STATE.get("active_shift")
             if not active:
@@ -1147,7 +1335,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if is_btn(text, "Експорт"):
             STATE["mode"] = "work_export_wait_date"; STATE["tmp"] = {}
-            await update.message.reply_text(f"Введи дату DD.MM.YYYY або '-' для сьогодні ({today_ddmmyyyy()}):", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+            await update.message.reply_text("Обери дату кнопкою (календар) або введи DD.MM.YYYY:", reply_markup=date_kb())
             return
 
         if is_btn(text, BTN_BACK):

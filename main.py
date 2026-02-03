@@ -2,9 +2,11 @@ import os
 import csv
 import re
 import shutil
+import zipfile
 import threading
 from datetime import datetime, timedelta
 from io import StringIO
+import io
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import requests
@@ -50,6 +52,7 @@ LOCAL_DB_PATH = os.getenv("LOCAL_DB_PATH", "local_data.csv").strip()
 # New data files
 SHIFTS_DB_PATH = os.getenv("SHIFTS_DB_PATH", "shifts.csv").strip()
 PERF_DB_PATH = os.getenv("PERF_DB_PATH", "performance.csv").strip()
+SHIFT_SUMMARY_DB_PATH = os.getenv("SHIFT_SUMMARY_DB_PATH", "shift_summary.csv").strip()
 
 BACKUP_CHAT_ID_RAW = os.getenv("BACKUP_CHAT_ID", "").strip()
 BACKUP_CHAT_ID = int(BACKUP_CHAT_ID_RAW) if BACKUP_CHAT_ID_RAW else None
@@ -63,6 +66,7 @@ WRITE_LOCK = threading.Lock()
 _db_cache = {"mtime": None, "rows": []}
 _shifts_cache = {"mtime": None, "rows": []}
 _perf_cache = {"mtime": None, "rows": []}
+_summary_cache = {"mtime": None, "rows": []}
 
 # ==============================
 # 🧩 UI: MENUS
@@ -112,18 +116,19 @@ EMPLOYEE_KB = ReplyKeyboardMarkup(
 # WORK submenu
 BTN_SHIFT_CREATE = "➕ Створити зміну"
 BTN_GROUP_ADD_WORKERS = "👥 Додати працівників у групу"
-BTN_AUTO_DISTRIBUTE = "🤖 Авто-розподіл по HALA 1–4"
 BTN_SHIFT_SHOW = "📋 Показати зміну"
 BTN_GROUP_SET_PERCENT = "📈 Внести % групи"
 BTN_SORT_WORKERS = "📌 Сортування працівників"
 BTN_EXPORT_TXT = "📝 Експорт зміни в TXT"
 BTN_SHIFT_BACKUP = "💾 Backup зміни"
+BTN_SHIFT_SUMMARY = "📊 % по зміні"
 
 WORK_KB = ReplyKeyboardMarkup(
     [
         [BTN_SHIFT_CREATE, BTN_SHIFT_SHOW],
-        [BTN_GROUP_ADD_WORKERS, BTN_AUTO_DISTRIBUTE],
-        [BTN_GROUP_SET_PERCENT, BTN_SORT_WORKERS],
+        [BTN_GROUP_ADD_WORKERS],
+        [BTN_GROUP_SET_PERCENT, BTN_SHIFT_SUMMARY],
+        [BTN_SORT_WORKERS],
         [BTN_EXPORT_TXT],
         [BTN_SHIFT_BACKUP],
         [BTN_BACK],
@@ -141,40 +146,37 @@ def now_ts() -> str:
 def today_ddmmyyyy() -> str:
     return datetime.now().strftime("%d.%m.%Y")
 
-def date_from_keyword(text: str) -> str | None:
-    """
-    Accepts quick calendar keywords/buttons and returns DD.MM.YYYY.
-    Supported:
-      - "-" (today)
-      - "сьогодні", "today"
-      - "завтра", "tomorrow"
-      - "вчора", "yesterday"
-      - "📅 <DD.MM.YYYY>" buttons
-    """
-    t = normalize_text(text)
-    tl = safe_lower(t)
-    if t == "-" or tl in {"сьогодні", "today", "📅 сьогодні"}:
-        return today_ddmmyyyy()
-    if tl in {"завтра", "tomorrow", "📅 завтра"}:
-        return (datetime.now() + timedelta(days=1)).strftime("%d.%m.%Y")
-    if tl in {"вчора", "yesterday", "📅 вчора"}:
-        return (datetime.now() - timedelta(days=1)).strftime("%d.%m.%Y")
-    m = re.search(r"(\d{2}\.\d{2}\.\d{4})", t)
-    if m:
-        return m.group(1)
-    return None
 
-def date_kb(days_forward: int = 7) -> ReplyKeyboardMarkup:
-    """Simple 'calendar' keyboard: today + next N days."""
-    base = datetime.now().date()
-    buttons = [KeyboardButton(f"📅 {(base + timedelta(days=i)).strftime('%d.%m.%Y')}") for i in range(0, days_forward + 1)]
+def date_kb(days_back: int = 14, days_forward: int = 7):
+    """Quick calendar buttons: past + future dates (DD.MM.YYYY) + Cancel."""
+    today = datetime.now().date()
+    dates = []
+    for d in range(days_back, 0, -1):
+        dates.append((today - timedelta(days=d)).strftime("%d.%m.%Y"))
+    dates.append(today.strftime("%d.%m.%Y"))
+    for d in range(1, days_forward + 1):
+        dates.append((today + timedelta(days=d)).strftime("%d.%m.%Y"))
+
     rows = []
-    # 2 per row to keep compact on iPhone
-    for i in range(0, len(buttons), 2):
-        rows.append(buttons[i:i+2])
+    row = []
+    for s in dates:
+        row.append(KeyboardButton(f"📅 {s}"))
+        if len(row) == 3:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
     rows.append([KeyboardButton(BTN_CANCEL)])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True)
 
+def extract_date_from_btn(text: str) -> str:
+    """Accept '📅 DD.MM.YYYY' or plain 'DD.MM.YYYY' or '-'."""
+    t = normalize_text(text)
+    if t == "-":
+        return today_ddmmyyyy()
+    if t.startswith("📅"):
+        t = normalize_text(t.replace("📅", ""))
+    return t
 
 def normalize_text(s: str) -> str:
     s = (s or "").strip()
@@ -361,6 +363,7 @@ def write_shifts_db(rows):
 
 def read_perf_db(force: bool = False):
     ensure_perf_file()
+    ensure_summary_file()
     mtime = _file_mtime(PERF_DB_PATH)
     if (not force) and _perf_cache["mtime"] is not None and mtime == _perf_cache["mtime"]:
         return _perf_cache["rows"]
@@ -377,6 +380,7 @@ def read_perf_db(force: bool = False):
 
 def write_perf_db(rows):
     ensure_perf_file()
+    ensure_summary_file()
     with WRITE_LOCK:
         normalized = [ensure_perf_columns(r) for r in rows]
         atomic_write_csv(
@@ -386,6 +390,92 @@ def write_perf_db(rows):
         )
         _perf_cache["rows"] = normalized
         _perf_cache["mtime"] = _file_mtime(PERF_DB_PATH)
+
+# ==============================
+# 📊 SHIFT SUMMARY (total/agency % per shift)
+# ==============================
+
+def ensure_summary_columns(r: dict) -> dict:
+    r = r or {}
+    return {
+        "date": normalize_text(r.get("date", "")),
+        "shift_type": normalize_shift_type(r.get("shift_type", "")) or normalize_text(r.get("shift_type","")),
+        "total_percent": normalize_text(r.get("total_percent", "")),
+        "agency_percent": normalize_text(r.get("agency_percent", "")),
+    }
+
+def ensure_summary_file():
+    if not os.path.exists(SHIFT_SUMMARY_DB_PATH):
+        atomic_write_csv(
+            SHIFT_SUMMARY_DB_PATH,
+            fieldnames=["date", "shift_type", "total_percent", "agency_percent"],
+            rows=[]
+        )
+
+def read_summary_db(force: bool = False):
+    ensure_summary_file()
+    mtime = _file_mtime(SHIFT_SUMMARY_DB_PATH)
+    if (not force) and _summary_cache["mtime"] is not None and mtime == _summary_cache["mtime"]:
+        return _summary_cache["rows"]
+
+    rows = []
+    with open(SHIFT_SUMMARY_DB_PATH, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            rows.append(ensure_summary_columns(r))
+
+    _summary_cache["rows"] = rows
+    _summary_cache["mtime"] = mtime
+    return rows
+
+def write_summary_db(rows):
+    ensure_summary_file()
+    with WRITE_LOCK:
+        normalized = [ensure_summary_columns(r) for r in rows]
+        atomic_write_csv(
+            SHIFT_SUMMARY_DB_PATH,
+            fieldnames=["date", "shift_type", "total_percent", "agency_percent"],
+            rows=normalized
+        )
+        _summary_cache["rows"] = normalized
+        _summary_cache["mtime"] = _file_mtime(SHIFT_SUMMARY_DB_PATH)
+
+def get_shift_summary(summary_rows: list, date_str: str, shift_type: str):
+    st = safe_lower(shift_type)
+    for r in summary_rows:
+        if r["date"] == date_str and safe_lower(r["shift_type"]) == st:
+            return r
+    return None
+
+def compute_shift_avg_by_people(perf_rows: list, date_str: str, shift_type: str):
+    st = safe_lower(shift_type)
+    vals = []
+    for r in perf_rows:
+        if r["date"] != date_str:
+            continue
+        if safe_lower(r.get("shift_type","")) != st:
+            continue
+        p = safe_float(r.get("percent",""))
+        if p is None:
+            continue
+        vals.append(p)
+    if not vals:
+        return None
+    return sum(vals) / len(vals)
+
+def compute_day_total(summary_rows: list, date_str: str):
+    """Return (total_avg, agency_avg) for day+night divided by 2 if both exist."""
+    day = get_shift_summary(summary_rows, date_str, "day")
+    night = get_shift_summary(summary_rows, date_str, "night")
+    if not day or not night:
+        return None
+    td = safe_float(day.get("total_percent",""))
+    tn = safe_float(night.get("total_percent",""))
+    ad = safe_float(day.get("agency_percent",""))
+    an = safe_float(night.get("agency_percent",""))
+    if td is None or tn is None or ad is None or an is None:
+        return None
+    return ((td + tn) / 2.0, (ad + an) / 2.0)
 
 # ==============================
 # UI helpers
@@ -421,25 +511,26 @@ def safe_float(s: str):
 # 💾 BACKUP (all 3 db files)
 # ==============================
 
-def make_backup_files(reason: str) -> list:
+
+def make_backup_zip(reason: str) -> str:
     ts = now_ts()
-    paths = []
 
-    for p in [LOCAL_DB_PATH, SHIFTS_DB_PATH, PERF_DB_PATH]:
-        if p == LOCAL_DB_PATH and not os.path.exists(LOCAL_DB_PATH):
-            write_local_db([])
-        if p == SHIFTS_DB_PATH:
-            ensure_shifts_file()
-        if p == PERF_DB_PATH:
-            ensure_perf_file()
+    if not os.path.exists(LOCAL_DB_PATH):
+        write_local_db([])
+    ensure_shifts_file()
+    ensure_perf_file()
+    ensure_summary_file()
+    ensure_summary_file()
 
-        base = os.path.basename(p)
-        filename = f"backup_{ts}_{reason}__{base}"
-        dst = os.path.join(BACKUP_DIR, filename)
-        shutil.copyfile(p, dst)
-        paths.append(dst)
+    zip_name = f"backup_{ts}_{reason}.zip"
+    zip_path = os.path.join(BACKUP_DIR, zip_name)
 
-    return paths
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        for p in [LOCAL_DB_PATH, SHIFTS_DB_PATH, PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH]:
+            if os.path.exists(p):
+                z.write(p, arcname=os.path.basename(p))
+
+    return zip_path
 
 async def send_backup_to_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int, file_path: str, caption: str):
     with open(file_path, "rb") as f:
@@ -451,7 +542,8 @@ async def send_backup_to_chat(context: ContextTypes.DEFAULT_TYPE, chat_id: int, 
         )
 
 async def backup_everywhere(context: ContextTypes.DEFAULT_TYPE, trigger_chat_id: int, reason: str, caption_extra: str = "") -> list:
-    paths = make_backup_files(reason=reason)
+    path = make_backup_zip(reason=reason)
+    paths = [path]
     for path in paths:
         caption = f"💾 Backup • {reason}\n{os.path.basename(path)}"
         if caption_extra:
@@ -539,13 +631,43 @@ def format_stats(rows):
 # 🏭 WORK: shift formatting + sorting + export txt
 # ==============================
 
-def format_shift(date_str: str, shift_type: str, shifts_rows: list) -> str:
+def format_shift(date_str: str, shift_type: str, shifts_rows: list, perf_rows: list = None, summary_rows: list = None) -> str:
+    perf_rows = perf_rows or []
+    summary_rows = summary_rows or []
+
     items = [r for r in shifts_rows if r["date"] == date_str and safe_lower(r["shift_type"]) == safe_lower(shift_type)]
-    if not items:
-        return "Немає даних по цій зміні."
 
     header = f"{date_str} ({shift_type_label(shift_type)} зміна)\n"
+
+    summ = get_shift_summary(summary_rows, date_str, shift_type)
+    if summ:
+        tp = summ.get("total_percent", "")
+        ap = summ.get("agency_percent", "")
+        header += f"Загальний %: {tp or '-'} | Агенція %: {ap or '-'}\n"
+
+    avg_people = compute_shift_avg_by_people(perf_rows, date_str, shift_type)
+    if avg_people is not None:
+        header += f"Розрах. по працівниках (за кількістю людей): {avg_people:.1f}%\n"
+
+    dn = compute_day_total(summary_rows, date_str)
+    if dn:
+        header += f"Разом день+ніч (/2): Загальний {dn[0]:.1f}% | Агенція {dn[1]:.1f}%\n"
+
+    if not items:
+        return (header + "Немає даних по працівниках для цієї зміни.").strip()
+
     items_sorted = sorted(items, key=lambda r: (safe_lower(r["hala"]), safe_lower(r["group"]), safe_lower(r["surname"])))
+
+    def group_percent(hala, group):
+        vals = []
+        for r in perf_rows:
+            if r["date"] == date_str and safe_lower(r.get("shift_type","")) == safe_lower(shift_type) and r.get("hala") == hala and r.get("group") == group:
+                p = safe_float(r.get("percent",""))
+                if p is not None:
+                    vals.append(p)
+        if not vals:
+            return None
+        return sum(vals) / len(vals)
 
     blocks = []
     cur_key = None
@@ -556,7 +678,11 @@ def format_shift(date_str: str, shift_type: str, shifts_rows: list) -> str:
             if cur_key and cur_lines:
                 blocks.append("\n".join(cur_lines))
             cur_key = key
-            cur_lines = [f"\n{r['hala']} / {r['group']}"]
+            gp = group_percent(r["hala"], r["group"])
+            if gp is None:
+                cur_lines = [f"\n{r['hala']} / {r['group']}"]
+            else:
+                cur_lines = [f"\n{r['hala']} / {r['group']}   ({gp:.1f}%)"]
         cur_lines.append(r["surname"])
     if cur_key and cur_lines:
         blocks.append("\n".join(cur_lines))
@@ -783,11 +909,11 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     # create shift context
     if STATE["mode"] == "work_create_shift_wait_date":
-        d = date_from_keyword(text)
-        if not d or parse_ddmmyyyy(d) is None:
+        text = extract_date_from_btn(text)
+        if parse_ddmmyyyy(text) is None:
             await update.message.reply_text("❌ Дата має бути DD.MM.YYYY або '-' для сьогодні.")
             return
-        STATE["tmp"]["date"] = d
+        STATE["tmp"]["date"] = text
         STATE["mode"] = "work_create_shift_wait_type"
         await update.message.reply_text("Тип зміни: day або night", reply_markup=shift_type_kb())
         return
@@ -808,11 +934,11 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     # show shift
     if STATE["mode"] == "work_show_shift_wait_date":
-        d = date_from_keyword(text)
-        if not d or parse_ddmmyyyy(d) is None:
+        text = extract_date_from_btn(text)
+        if parse_ddmmyyyy(text) is None:
             await update.message.reply_text("❌ Дата має бути DD.MM.YYYY або '-'")
             return
-        STATE["tmp"]["date"] = d
+        STATE["tmp"]["date"] = text
         STATE["mode"] = "work_show_shift_wait_type"
         await update.message.reply_text("Тип зміни: day або night", reply_markup=shift_type_kb())
         return
@@ -827,8 +953,10 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         STATE["active_shift"] = {"date": date_str, "shift_type": st}
 
         shifts_rows = read_shifts_db(force=True)
+        perf_rows2 = read_perf_db(force=True)
+        summary_rows2 = read_summary_db(force=True)
         reset_state()
-        await update.message.reply_text(format_shift(date_str, st, shifts_rows), reply_markup=WORK_KB)
+        await update.message.reply_text(format_shift(date_str, st, shifts_rows, perf_rows2, summary_rows2), reply_markup=WORK_KB)
         return
 
     # add workers: hala -> group -> list
@@ -907,150 +1035,6 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         await show_work_menu(update, context, msg)
         return
 
-
-    # auto distribute: paste names -> choose halas -> group size -> write
-    if STATE["mode"] == "work_auto_wait_names":
-        active = STATE.get("active_shift")
-        if not active:
-            reset_state()
-            await show_work_menu(update, context, "❗ Спочатку створи/обери зміну: ➕ Створити зміну або 📋 Показати зміну")
-            return
-
-        raw = update.message.text or ""
-        names = [normalize_text(x) for x in raw.splitlines() if normalize_text(x)]
-        if not names:
-            await update.message.reply_text("Не бачу прізвищ у повідомленні. Встав список (кожен з нового рядка).")
-            return
-
-        emp_set = {r["surname"] for r in employees if r["surname"]}
-        ok = [n for n in names if n in emp_set]
-        missing = [n for n in names if n not in emp_set]
-
-        if not ok:
-            await update.message.reply_text("❌ Жодного прізвища не знайдено у базі працівників.")
-            return
-
-        STATE["tmp"]["names_ok"] = ok
-        STATE["tmp"]["missing"] = missing
-        STATE["mode"] = "work_auto_wait_halas"
-        kb = ReplyKeyboardMarkup(
-            [
-                [KeyboardButton("ALL"), KeyboardButton("HALA 1,2,3,4")],
-                [KeyboardButton("HALA 1,2"), KeyboardButton("HALA 3,4")],
-                [KeyboardButton(BTN_CANCEL)],
-            ],
-            resize_keyboard=True
-        )
-        await update.message.reply_text(
-            "Які зали використовуємо?\n"
-            "Варіанти: ALL або напиши, наприклад: HALA 1,2,4",
-            reply_markup=kb
-        )
-        return
-
-    if STATE["mode"] == "work_auto_wait_halas":
-        t = safe_lower(text).replace(" ", "")
-        if t in {"all", "hala1,2,3,4", "hala1-4"}:
-            halas = ["HALA 1", "HALA 2", "HALA 3", "HALA 4"]
-        else:
-            # accept "hala1,2,4" or "1,2,4"
-            t2 = t.replace("hala", "")
-            nums = [x for x in re.split(r"[^0-9]+", t2) if x]
-            halas = []
-            for n in nums:
-                if n in {"1", "2", "3", "4"}:
-                    halas.append(f"HALA {n}")
-            halas = list(dict.fromkeys(halas))  # unique preserve order
-        if not halas:
-            await update.message.reply_text("❌ Не зрозумів зали. Приклад: ALL або HALA 1,2,4")
-            return
-
-        STATE["tmp"]["halas"] = halas
-        STATE["mode"] = "work_auto_wait_group_size"
-        await update.message.reply_text(
-            "Вкажи розмір групи (скільки людей в одній групі).\n"
-            "Наприклад: 7",
-            reply_markup=ReplyKeyboardMarkup([[KeyboardButton("7"), KeyboardButton("8")],[KeyboardButton(BTN_CANCEL)]], resize_keyboard=True)
-        )
-        return
-
-    if STATE["mode"] == "work_auto_wait_group_size":
-        try:
-            size = int(re.sub(r"[^0-9]", "", text))
-        except Exception:
-            size = 0
-        if size <= 0 or size > 50:
-            await update.message.reply_text("❌ Розмір групи має бути числом (1–50). Наприклад: 7")
-            return
-
-        active = STATE.get("active_shift")
-        if not active:
-            reset_state()
-            await show_work_menu(update, context, "❗ Спочатку створи/обери зміну: ➕ Створити зміну або 📋 Показати зміну")
-            return
-
-        date_str = active["date"]
-        st = active["shift_type"]
-        halas = STATE["tmp"]["halas"]
-        names_ok = STATE["tmp"]["names_ok"]
-        missing = STATE["tmp"]["missing"]
-
-        # round-robin across halas, chunk into groups per hala
-        buckets = {h: [] for h in halas}
-        for i, n in enumerate(names_ok):
-            h = halas[i % len(halas)]
-            buckets[h].append(n)
-
-        new_rows = shifts_rows[:]
-        added = 0
-        for hala, arr in buckets.items():
-            # groups: G1, G2, ...
-            gnum = 1
-            for i in range(0, len(arr), size):
-                group = f"G{gnum}"
-                gnum += 1
-                chunk = arr[i:i+size]
-                for n in chunk:
-                    exists = any(
-                        r["date"] == date_str and safe_lower(r["shift_type"]) == st and r["hala"] == hala and r["group"] == group and r["surname"] == n
-                        for r in new_rows
-                    )
-                    if exists:
-                        continue
-                    new_rows.append(ensure_shift_columns({
-                        "date": date_str,
-                        "shift_type": st,
-                        "hala": hala,
-                        "group": group,
-                        "surname": n
-                    }))
-                    added += 1
-
-        write_shifts_db(new_rows)
-        await backup_everywhere(
-            context,
-            update.effective_chat.id,
-            reason="shift_auto_distribute",
-            caption_extra=f"{date_str} {st} auto +{added}"
-        )
-
-        reset_state()
-
-        # summary
-        lines = [f"✅ Авто-розподіл готовий: додано {added} записів.",
-                 f"Зміна: {date_str} ({shift_type_label(st)})",
-                 f"Зали: {', '.join(halas)}",
-                 f"Розмір групи: {size}"]
-        for h in halas:
-            cnt = len(buckets.get(h, []))
-            if cnt:
-                lines.append(f"• {h}: {cnt} людей")
-        if missing:
-            lines.append("\n⚠️ Не знайдені у базі працівників:")
-            lines.extend(missing[:30])
-
-        await show_work_menu(update, context, "\n".join(lines))
-        return
     # set group percent
     if STATE["mode"] == "work_set_percent_wait_hala":
         hala = normalize_text(text)
@@ -1123,7 +1107,66 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         await show_work_menu(update, context, f"✅ Записано {p}% для {hala}/{group}\nПрацівників: {len(members)}")
         return
 
-    # sort workers (month)
+        # shift summary percent (total/agency)
+    if STATE["mode"] == "work_summary_wait_date":
+        date_in = extract_date_from_btn(text)
+        if parse_ddmmyyyy(date_in) is None:
+            await update.message.reply_text("❌ Дата має бути DD.MM.YYYY (або кнопкою 📅).", reply_markup=date_kb())
+            return
+        STATE["tmp"]["date"] = date_in
+        STATE["mode"] = "work_summary_wait_type"
+        await update.message.reply_text("Тип зміни: day або night", reply_markup=shift_type_kb())
+        return
+
+    if STATE["mode"] == "work_summary_wait_type":
+        st = normalize_shift_type(text)
+        if not st:
+            await update.message.reply_text("Введи day або night.")
+            return
+        STATE["tmp"]["shift_type"] = st
+        STATE["mode"] = "work_summary_wait_total"
+        await update.message.reply_text("Введи Загальний % (наприклад 102 або 99.5):", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+        return
+
+    if STATE["mode"] == "work_summary_wait_total":
+        p = safe_float(text)
+        if p is None:
+            await update.message.reply_text("❌ Не схоже на число. Приклад: 102 або 99.5")
+            return
+        STATE["tmp"]["total_percent"] = str(p)
+        STATE["mode"] = "work_summary_wait_agency"
+        await update.message.reply_text("Введи Агенційний % (наприклад 101 або 98.5):", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+        return
+
+    if STATE["mode"] == "work_summary_wait_agency":
+        p = safe_float(text)
+        if p is None:
+            await update.message.reply_text("❌ Не схоже на число. Приклад: 101 або 98.5")
+            return
+
+        date_str = STATE["tmp"]["date"]
+        st = STATE["tmp"]["shift_type"]
+        total_p = STATE["tmp"]["total_percent"]
+        agency_p = str(p)
+
+        rows2 = read_summary_db(force=True)
+        filtered = [r for r in rows2 if not (r["date"] == date_str and safe_lower(r["shift_type"]) == safe_lower(st))]
+        filtered.append(ensure_summary_columns({
+            "date": date_str,
+            "shift_type": st,
+            "total_percent": total_p,
+            "agency_percent": agency_p,
+        }))
+        write_summary_db(filtered)
+
+        await backup_everywhere(context, update.effective_chat.id, reason="shift_summary",
+                                caption_extra=f"{date_str} {st}: total {total_p} / agency {agency_p}")
+
+        reset_state()
+        await show_work_menu(update, context, f"✅ Збережено % по зміні: {date_str} ({shift_type_label(st)})\nЗагальний {total_p}% | Агенція {agency_p}%")
+        return
+
+# sort workers (month)
     if STATE["mode"] == "work_sort_wait_month":
         if text == "-" or safe_lower(text) == "поточний":
             month = datetime.now().strftime("%m.%Y")
@@ -1141,11 +1184,11 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
     # export txt (date+type)
     if STATE["mode"] == "work_export_wait_date":
-        d = date_from_keyword(text)
-        if not d or parse_ddmmyyyy(d) is None:
+        text = extract_date_from_btn(text)
+        if parse_ddmmyyyy(text) is None:
             await update.message.reply_text("❌ Дата має бути DD.MM.YYYY або '-'")
             return
-        STATE["tmp"]["date"] = d
+        STATE["tmp"]["date"] = text
         STATE["mode"] = "work_export_wait_type"
         await update.message.reply_text("Тип зміни: day або night", reply_markup=shift_type_kb())
         return
@@ -1158,7 +1201,9 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 
         date_str = STATE["tmp"]["date"]
         shifts_rows2 = read_shifts_db(force=True)
-        content = format_shift(date_str, st, shifts_rows2)
+        perf_rows3 = read_perf_db(force=True)
+        summary_rows3 = read_summary_db(force=True)
+        content = format_shift(date_str, st, shifts_rows2, perf_rows3, summary_rows3)
 
         filename = f"shift_{date_str.replace('.','-')}_{st}.txt"
         path = os.path.join(BACKUP_DIR, filename)
@@ -1244,7 +1289,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         STATE["mode"] = "restore_wait_file"
         STATE["tmp"] = {}
         set_menu("main")
-        await update.message.reply_text("♻️ Надішли CSV файлом (документом) — я відновлю базу працівників (local_data.csv).")
+        await update.message.reply_text("♻️ Надішли CSV (тільки працівники) або ZIP (повний backup) файлом (документом).")
         return
 
     # EMPLOYEE MENU buttons
@@ -1287,12 +1332,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if STATE["menu"] == "work":
         if is_btn(text, "Створити зміну"):
             STATE["mode"] = "work_create_shift_wait_date"; STATE["tmp"] = {}
-            await update.message.reply_text("Обери дату кнопкою (календар) або введи DD.MM.YYYY:", reply_markup=date_kb())
+            await update.message.reply_text("Обери дату (можна минулі) або введи DD.MM.YYYY:", reply_markup=date_kb())
             return
 
         if is_btn(text, "Показати зміну"):
             STATE["mode"] = "work_show_shift_wait_date"; STATE["tmp"] = {}
-            await update.message.reply_text("Обери дату кнопкою (календар) або введи DD.MM.YYYY:", reply_markup=date_kb())
+            await update.message.reply_text("Обери дату (можна минулі) або введи DD.MM.YYYY:", reply_markup=date_kb())
             return
 
         if is_btn(text, "Додати працівників"):
@@ -1303,23 +1348,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Обери зал:", reply_markup=hala_kb())
             return
 
-        if is_btn(text, "Авто-розподіл"):
-            active = STATE.get("active_shift")
-            if not active:
-                await show_work_menu(update, context, "❗ Спочатку створи зміну: ➕ Створити зміну"); return
-            STATE["mode"] = "work_auto_wait_names"
-            STATE["tmp"] = {}
-            await update.message.reply_text(
-                "Встав список працівників (кожен з нового рядка).\n\nПотім я автоматично розкладу по HALA 1–4.",
-                reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
-            )
-            return
         if is_btn(text, "Внести %"):
             active = STATE.get("active_shift")
             if not active:
                 await show_work_menu(update, context, "❗ Спочатку обери зміну: 📋 Показати зміну або ➕ Створити зміну"); return
             STATE["mode"] = "work_set_percent_wait_hala"
             await update.message.reply_text("Обери зал:", reply_markup=hala_kb())
+            return
+
+        if is_btn(text, "📊 % по зміні") or is_btn(text, "% по зміні"):
+            STATE["mode"] = "work_summary_wait_date"; STATE["tmp"] = {}
+            await update.message.reply_text("Обери дату (можна минулі) або введи DD.MM.YYYY:", reply_markup=date_kb())
             return
 
         if is_btn(text, "Сортування"):
@@ -1335,7 +1374,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if is_btn(text, "Експорт"):
             STATE["mode"] = "work_export_wait_date"; STATE["tmp"] = {}
-            await update.message.reply_text("Обери дату кнопкою (календар) або введи DD.MM.YYYY:", reply_markup=date_kb())
+            await update.message.reply_text("Обери дату (можна минулі) або введи DD.MM.YYYY:", reply_markup=date_kb())
             return
 
         if is_btn(text, BTN_BACK):
@@ -1356,8 +1395,10 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     doc: Document = update.message.document
-    if not (doc.file_name or "").lower().endswith(".csv"):
-        await update.message.reply_text("❌ Потрібен CSV файл.")
+    fname = (doc.file_name or "")
+    low = fname.lower()
+    if not (low.endswith(".csv") or low.endswith(".zip")):
+        await update.message.reply_text("❌ Потрібен CSV або ZIP файл.")
         return
 
     if os.path.exists(LOCAL_DB_PATH):
@@ -1365,6 +1406,23 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     file = await doc.get_file()
     content = await file.download_as_bytearray()
+    if low.endswith(".zip"):
+        try:
+            zdata = bytes(content)
+            with zipfile.ZipFile(io.BytesIO(zdata)) as z:
+                names = set(z.namelist())
+                restored = []
+                for target in [os.path.basename(LOCAL_DB_PATH), os.path.basename(SHIFTS_DB_PATH), os.path.basename(PERF_DB_PATH), os.path.basename(SHIFT_SUMMARY_DB_PATH)]:
+                    if target in names:
+                        z.extract(target, path=".")
+                        restored.append(target)
+                _db_cache["mtime"]=None; _shifts_cache["mtime"]=None; _perf_cache["mtime"]=None; _summary_cache["mtime"]=None
+            reset_state(); set_menu("main")
+            await show_main_menu(update, context, f"♻️ Відновлено з ZIP ✅\nФайли: {', '.join(restored)}")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Помилка відновлення ZIP: {e}")
+        return
+
     text = content.decode("utf-8", errors="replace")
 
     reader = csv.DictReader(StringIO(text))
@@ -1388,6 +1446,7 @@ def main():
 
     ensure_shifts_file()
     ensure_perf_file()
+    ensure_summary_file()
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 

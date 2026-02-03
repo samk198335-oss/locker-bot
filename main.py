@@ -116,6 +116,7 @@ BTN_SHIFT_SHOW = "📋 Показати зміну"
 BTN_GROUP_SET_PERCENT = "📈 Внести % групи"
 BTN_SORT_WORKERS = "📌 Сортування працівників"
 BTN_EXPORT_TXT = "📝 Експорт зміни в TXT"
+BTN_SHIFT_BACKUP = "💾 Backup зміни"
 
 WORK_KB = ReplyKeyboardMarkup(
     [
@@ -123,6 +124,7 @@ WORK_KB = ReplyKeyboardMarkup(
         [BTN_GROUP_ADD_WORKERS],
         [BTN_GROUP_SET_PERCENT, BTN_SORT_WORKERS],
         [BTN_EXPORT_TXT],
+        [BTN_SHIFT_BACKUP],
         [BTN_BACK],
     ],
     resize_keyboard=True
@@ -579,7 +581,7 @@ def format_sorted_workers(perf_rows: list, month_mmyyyy: str) -> str:
 # 🧾 STATE
 # ==============================
 
-STATE = {"mode": None, "tmp": {}, "menu": "main"}  # menu: main/employee/work
+STATE = {"mode": None, "tmp": {}, "menu": "main", "active_shift": None}  # menu: main/employee/work
 
 def reset_state():
     STATE["mode"] = None
@@ -760,10 +762,13 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         if not st:
             await update.message.reply_text("Введи day або night (або ❌ Скасувати).")
             return
-        STATE["tmp"]["active_shift"] = {"date": STATE["tmp"]["date"], "shift_type": st}
+
+        date_str = STATE["tmp"].get("date")
+        # активна зміна зберігається поза tmp, щоб не зникала після reset_state()
+        STATE["active_shift"] = {"date": date_str, "shift_type": st}
+
         reset_state()
-        STATE["tmp"]["active_shift"] = {"date": STATE["tmp"]["active_shift"]["date"], "shift_type": st}
-        await show_work_menu(update, context, f"✅ Активна зміна: {STATE['tmp']['active_shift']['date']} ({shift_type_label(st)})")
+        await show_work_menu(update, context, f"✅ Активна зміна: {date_str} ({shift_type_label(st)})")
         return
 
     # show shift
@@ -783,10 +788,12 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         if not st:
             await update.message.reply_text("Введи day або night.")
             return
-        date_str = STATE["tmp"]["date"]
-        reset_state()
-        STATE["tmp"]["active_shift"] = {"date": date_str, "shift_type": st}
+
+        date_str = STATE["tmp"].get("date")
+        STATE["active_shift"] = {"date": date_str, "shift_type": st}
+
         shifts_rows = read_shifts_db(force=True)
+        reset_state()
         await update.message.reply_text(format_shift(date_str, st, shifts_rows), reply_markup=WORK_KB)
         return
 
@@ -815,7 +822,7 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
         return
 
     if STATE["mode"] == "work_add_workers_wait_list":
-        active = STATE["tmp"].get("active_shift")
+        active = STATE.get("active_shift")
         if not active:
             reset_state()
             await show_work_menu(update, context, "❗ Спочатку створи/обери зміну: ➕ Створити зміну або 📋 Показати зміну")
@@ -893,7 +900,7 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
             await update.message.reply_text("❌ Не схоже на число. Приклад: 102 або 99.5")
             return
 
-        active = STATE["tmp"].get("active_shift")
+        active = STATE.get("active_shift")
         if not active:
             reset_state()
             await show_work_menu(update, context, "❗ Спочатку обери зміну: 📋 Показати зміну або ➕ Створити зміну")
@@ -998,6 +1005,9 @@ async def work_flow_handler(update: Update, context: ContextTypes.DEFAULT_TYPE, 
 # ==============================
 
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message or not getattr(update.message, "text", None):
+        return
+
     text = normalize_text(update.message.text)
 
     # Cancel inside flows
@@ -1109,7 +1119,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if is_btn(text, "Додати працівників"):
-            active = STATE["tmp"].get("active_shift")
+            active = STATE.get("active_shift")
             if not active:
                 await show_work_menu(update, context, "❗ Спочатку створи зміну: ➕ Створити зміну"); return
             STATE["mode"] = "work_add_workers_wait_hala"
@@ -1117,7 +1127,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if is_btn(text, "Внести %"):
-            active = STATE["tmp"].get("active_shift")
+            active = STATE.get("active_shift")
             if not active:
                 await show_work_menu(update, context, "❗ Спочатку обери зміну: 📋 Показати зміну або ➕ Створити зміну"); return
             STATE["mode"] = "work_set_percent_wait_hala"
@@ -1127,6 +1137,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_btn(text, "Сортування"):
             STATE["mode"] = "work_sort_wait_month"; STATE["tmp"] = {}
             await update.message.reply_text("Введи місяць MM.YYYY (02.2025) або '-' для поточного:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+            return
+
+        if is_btn(text, "Backup зміни"):
+            paths = await backup_everywhere(context, update.effective_chat.id, reason="manual_shift")
+            names = "\n".join([os.path.basename(p) for p in paths])
+            await update.message.reply_text(f"💾 Backup зміни зроблено:\n{names}", reply_markup=WORK_KB)
             return
 
         if is_btn(text, "Експорт"):

@@ -36,7 +36,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v7_persistent_disk_data_dir
+# VERSION: main_sap_v8_ocr_percent_near_sap_data_dir
 # ==============================
 # CONFIG
 # ==============================
@@ -358,16 +358,62 @@ def parse_sap_percent_line(line: str):
     return m.group(1), str(safe_float(m.group(2)))
 
 
+def _normalize_ocr_text_for_numbers(text: str) -> str:
+    """
+    OCR often returns commas/dots/spaces inconsistently and may read columns separately.
+    Keep useful numeric tokens while preserving order.
+    """
+    t = text or ""
+    replacements = {
+        "％": "%", "﹪": "%", "，": ",", "．": ".", "–": "-", "—": "-",
+        "O": "0", "o": "0",
+    }
+    for a, b in replacements.items():
+        t = t.replace(a, b)
+
+    t = re.sub(r"(\d{2,3})\s*[,\.]\s*(\d{1,2})\s*%", r"\1,\2%", t)
+    t = re.sub(r"(\d{2,3})\s*[,\.]\s*(\d{1,2})", r"\1,\2", t)
+    return t
+
+def _extract_numeric_tokens_with_positions(text: str) -> list:
+    """
+    Ordered OCR tokens:
+    - SAP: 8-12 digit numbers
+    - PERCENT: 2-3 digits + comma/dot + decimals
+    Filters hours like 8,50 / 10,17 by accepting only 50..250.
+    """
+    t = _normalize_ocr_text_for_numbers(text)
+    token_re = re.compile(
+        r"(?P<sap>\b\d{8,12}\b)|(?P<pct>\b\d{2,3}[,.]\d{1,2}\s*%?)",
+        flags=re.IGNORECASE
+    )
+    tokens = []
+    for m in token_re.finditer(t):
+        raw = normalize_text(m.group(0))
+        if m.group("sap"):
+            tokens.append({"type": "sap", "value": raw, "pos": m.start(), "raw": raw})
+        elif m.group("pct"):
+            val = safe_float(raw)
+            if val is None:
+                continue
+            if 50 <= val <= 250:
+                tokens.append({"type": "pct", "value": str(val), "pos": m.start(), "raw": raw})
+    return tokens
+
 def parse_sap_percent_from_text(text: str) -> list:
     """
-    Parse SAP + percent from pasted text or OCR text.
-    Accepts:
+    Strong parser for pasted text or OCR text.
+
+    Supports:
     51009998 - 156,44
     51009998 156,44 10,17 1
+    156,44% 51009998
+    OCR columns where SAP and % are separated: finds nearest % before/after SAP.
     """
     results = []
-    seen = set()
+    seen_sap = set()
 
+    # 1) Clean line-by-line parsing.
     for raw in (text or "").splitlines():
         line = normalize_text(raw)
         if not line:
@@ -376,21 +422,68 @@ def parse_sap_percent_from_text(text: str) -> list:
         direct = parse_sap_percent_line(line)
         if direct:
             sap, percent = direct
-            key = (sap, percent)
-            if key not in seen:
+            if sap not in seen_sap:
                 results.append({"sap": sap, "percent": percent, "raw": line})
-                seen.add(key)
+                seen_sap.add(sap)
             continue
 
-        # OCR/table line: SAP Wydajnosc Godziny Ilosc
-        m = re.search(r"\b(\d{8,12})\b\s+([0-9]{2,3}[,.][0-9]{1,2})\s*%?", line)
+        # SAP before percent on same line.
+        m = re.search(r"\b(\d{8,12})\b.{0,60}?(\d{2,3}[,.]\d{1,2})\s*%?", line)
         if m:
             sap = m.group(1)
-            percent = str(safe_float(m.group(2)))
-            key = (sap, percent)
-            if key not in seen:
-                results.append({"sap": sap, "percent": percent, "raw": line})
-                seen.add(key)
+            pct = str(safe_float(m.group(2)))
+            val = safe_float(pct)
+            if sap not in seen_sap and val is not None and 50 <= val <= 250:
+                results.append({"sap": sap, "percent": pct, "raw": line})
+                seen_sap.add(sap)
+            continue
+
+        # Percent before SAP on same line.
+        m = re.search(r"(\d{2,3}[,.]\d{1,2})\s*%?.{0,60}?\b(\d{8,12})\b", line)
+        if m:
+            sap = m.group(2)
+            pct = str(safe_float(m.group(1)))
+            val = safe_float(pct)
+            if sap not in seen_sap and val is not None and 50 <= val <= 250:
+                results.append({"sap": sap, "percent": pct, "raw": line})
+                seen_sap.add(sap)
+            continue
+
+    # 2) OCR fallback: token stream, pair SAP with nearest % before/after.
+    tokens = _extract_numeric_tokens_with_positions(text)
+    sap_tokens = [t for t in tokens if t["type"] == "sap"]
+    pct_tokens = [t for t in tokens if t["type"] == "pct"]
+
+    for sap_t in sap_tokens:
+        sap = sap_t["value"]
+        if sap in seen_sap:
+            continue
+
+        before = [p for p in pct_tokens if p["pos"] < sap_t["pos"]]
+        after = [p for p in pct_tokens if p["pos"] > sap_t["pos"]]
+
+        candidates = []
+        if before:
+            p_before = min(before, key=lambda x: sap_t["pos"] - x["pos"])
+            candidates.append((sap_t["pos"] - p_before["pos"], p_before, "before"))
+        if after:
+            p_after = min(after, key=lambda x: x["pos"] - sap_t["pos"])
+            candidates.append((p_after["pos"] - sap_t["pos"], p_after, "after"))
+
+        if not candidates:
+            continue
+
+        candidates.sort(key=lambda x: x[0])
+        pct = candidates[0][1]["value"]
+        val = safe_float(pct)
+
+        if val is not None and 50 <= val <= 250:
+            results.append({
+                "sap": sap,
+                "percent": pct,
+                "raw": f"near-token: {sap} -> {fmt_percent(pct)}%"
+            })
+            seen_sap.add(sap)
 
     return results
 
@@ -510,10 +603,12 @@ def ocr_space_image_bytes(image_bytes: bytes, filename: str = "photo.jpg") -> st
         files={"file": (filename, image_bytes)},
         data={
             "apikey": OCR_SPACE_API_KEY,
-            "language": "pol",
+            "language": "eng",
             "isOverlayRequired": "false",
             "OCREngine": "2",
             "scale": "true",
+            "detectOrientation": "true",
+            "isTable": "true",
         },
         timeout=60,
     )
@@ -1249,6 +1344,22 @@ async def cmd_paths(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"backups: {BACKUP_DIR}"
     )
     await update.message.reply_text(msg)
+
+async def cmd_ocrtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sample = " ".join(context.args) if context.args else ""
+    if not sample:
+        await update.message.reply_text(
+            "Встав після команди текст для тесту. Наприклад:\n"
+            "/ocrtest 156,44% 51009998 135,68% 51010667"
+        )
+        return
+    parsed = parse_sap_percent_from_text(sample)
+    if not parsed:
+        await update.message.reply_text("Нічого не розпізнано.")
+        return
+    lines = [f"{x['sap']} - {fmt_percent(x['percent'])}%" for x in parsed]
+    await update.message.reply_text("Розпізнано:\n" + "\n".join(lines[:50]))
+
 
 # ==============================
 # EMPLOYEE FLOW
@@ -2050,8 +2161,14 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parsed = parse_sap_percent_from_text(ocr_text)
 
         if not parsed:
+            preview = (ocr_text or "").strip()
+            if len(preview) > 700:
+                preview = preview[:700] + "\n..."
             await update.message.reply_text(
-                "❌ OCR не знайшов SAP і %. Спробуй чіткіше фото або встав текстом через 📥 Імпорт % за датою."
+                "❌ OCR не знайшов SAP і %.\n\n"
+                "Фрагмент OCR-тексту:\n"
+                f"{preview or '(порожньо)'}\n\n"
+                "Спробуй ще раз або встав текстом через 📥 Імпорт % за датою."
             )
             return
 
@@ -2085,6 +2202,7 @@ def main():
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("chatid", cmd_chatid))
     app.add_handler(CommandHandler("paths", cmd_paths))
+    app.add_handler(CommandHandler("ocrtest", cmd_ocrtest))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))

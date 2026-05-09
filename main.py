@@ -36,7 +36,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v9_ocr_preview_confirm_clear_date_data_dir
+# VERSION: main_sap_v10_shift_dispatch_groups_data_dir
 # ==============================
 # CONFIG
 # ==============================
@@ -185,6 +185,10 @@ EMPLOYEE_KB = ReplyKeyboardMarkup(
 
 BTN_SHIFT_CREATE = "➕ Створити зміну"
 BTN_SHIFT_SHOW = "📋 Показати зміну"
+BTN_SHIFT_ADD_LIST = "➕ Додати список у зміну"
+BTN_SHIFT_WORKERS = "👷 Список зміни"
+BTN_DISTRIBUTE_WORKERS = "🧩 Розподіл по групах"
+BTN_GROUPS_OVERVIEW = "📦 Групи зміни"
 BTN_GROUP_ADD_WORKERS = "👥 Додати працівників у групу"
 BTN_IMPORT_PERCENT = "📥 Імпорт % за датою"
 BTN_IMPORT_PHOTO = "📸 Фото % за датою"
@@ -200,6 +204,8 @@ BTN_SHIFT_BACKUP = "💾 Backup зміни"
 WORK_KB = ReplyKeyboardMarkup(
     [
         [BTN_SHIFT_CREATE, BTN_SHIFT_SHOW],
+        [BTN_SHIFT_ADD_LIST, BTN_SHIFT_WORKERS],
+        [BTN_DISTRIBUTE_WORKERS, BTN_GROUPS_OVERVIEW],
         [BTN_GROUP_ADD_WORKERS],
         [BTN_IMPORT_PERCENT, BTN_IMPORT_PHOTO],
         [BTN_GROUP_SET_PERCENT],
@@ -911,6 +917,200 @@ def find_employees(rows, q: str):
     if exact_name:
         return exact_name
     return [r for r in rows if q in safe_lower(r.get("sap", "")) or q in safe_lower(r.get("surname", ""))]
+
+
+def parse_worker_line_to_employee(line: str, employees: list):
+    """
+    Accept SAP, SAP - NAME, or surname/name.
+    Returns (employee_or_none, error_reason).
+    """
+    line = normalize_text(line)
+    if not line:
+        return None, "empty"
+
+    emp_by_sap, emp_by_name = build_employee_lookup(employees)
+
+    parsed = parse_sap_name_line(line)
+    if parsed:
+        sap = parsed[0]
+        emp = emp_by_sap.get(sap)
+        return (emp, None) if emp else (None, "not_found")
+
+    if re.fullmatch(r"\d{6,12}", line):
+        emp = emp_by_sap.get(line)
+        return (emp, None) if emp else (None, "not_found")
+
+    key = canonical_name_key(line.upper())
+    emp = emp_by_name.get(key)
+    if emp:
+        return emp, None
+
+    candidates = [e for e in employees if key and key in canonical_name_key(e.get("surname", ""))]
+    if len(candidates) == 1:
+        return candidates[0], None
+    if len(candidates) > 1:
+        return None, "ambiguous"
+
+    return None, "not_found"
+
+def parse_number_selection(text: str, max_n: int) -> list:
+    """
+    Parse '1,2,5-9' into zero-based indexes.
+    """
+    t = normalize_text(text).replace(" ", "")
+    if not t:
+        return []
+
+    selected = set()
+    parts = re.split(r"[,;]+", t)
+
+    for part in parts:
+        if not part:
+            continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            if not a.isdigit() or not b.isdigit():
+                continue
+            start, end = int(a), int(b)
+            if start > end:
+                start, end = end, start
+            for n in range(start, end + 1):
+                if 1 <= n <= max_n:
+                    selected.add(n - 1)
+        else:
+            if part.isdigit():
+                n = int(part)
+                if 1 <= n <= max_n:
+                    selected.add(n - 1)
+
+    return sorted(selected)
+
+def get_active_shift_or_none(context):
+    return st(context).get("active_shift")
+
+def shift_rows_for_active(active: dict, force=True):
+    if not active:
+        return []
+    return [
+        r for r in read_shifts(force)
+        if r["date"] == active["date"] and safe_lower(r["shift_type"]) == safe_lower(active["shift_type"])
+    ]
+
+def format_shift_workers_numbered(active: dict) -> str:
+    rows = shift_rows_for_active(active, force=True)
+    if not rows:
+        return "У цій зміні ще немає працівників."
+
+    rows = sorted(rows, key=lambda r: (
+        0 if not r.get("hala") and not r.get("group") else 1,
+        safe_lower(r.get("hala", "")),
+        safe_lower(r.get("group", "")),
+        safe_lower(r.get("surname", "")),
+    ))
+
+    lines = [f"👷 Список зміни {active['date']} ({shift_type_label(active['shift_type'])})\n"]
+    for i, r in enumerate(rows, start=1):
+        grp = f"{r['hala']}/{r['group']}".strip("/") if r.get("hala") or r.get("group") else "⬜ без групи"
+        lines.append(f"{i}. {r['sap']} — {r['surname']} — {grp}")
+
+    return "\n".join(lines)
+
+def format_groups_overview(active: dict) -> str:
+    rows = shift_rows_for_active(active, force=True)
+    if not rows:
+        return "У цій зміні ще немає працівників."
+
+    groups = {}
+    for r in rows:
+        key = (r.get("hala", ""), r.get("group", ""))
+        groups.setdefault(key, []).append(r)
+
+    ordered_keys = sorted(groups.keys(), key=lambda k: (
+        0 if not k[0] and not k[1] else 1,
+        safe_lower(k[0]),
+        safe_lower(k[1])
+    ))
+
+    out = [f"📦 Групи зміни {active['date']} ({shift_type_label(active['shift_type'])})"]
+    total = 0
+    for hala, group in ordered_keys:
+        members = sorted(groups[(hala, group)], key=lambda r: safe_lower(r["surname"]))
+        total += len(members)
+        title = f"{hala}/{group}".strip("/") if hala or group else "⬜ Без групи"
+        out.append(f"\n{title} ({len(members)})")
+        for r in members:
+            out.append(f"• {r['sap']} — {r['surname']}")
+    out.append(f"\nВсього: {total}")
+    return "\n".join(out)
+
+def add_workers_to_shift_unassigned(active: dict, lines: list, employees: list) -> dict:
+    all_rows = read_shifts(force=True)
+    existing_saps = {
+        r["sap"] for r in all_rows
+        if r["date"] == active["date"] and r["shift_type"] == active["shift_type"] and r.get("sap")
+    }
+
+    added = 0
+    already = []
+    missing = []
+    ambiguous = []
+
+    for line in lines:
+        emp, err = parse_worker_line_to_employee(line, employees)
+        if not emp:
+            if err == "ambiguous":
+                ambiguous.append(line)
+            else:
+                missing.append(line)
+            continue
+
+        sap = emp["sap"]
+        if sap in existing_saps:
+            already.append(f"{sap} — {emp['surname']}")
+            continue
+
+        all_rows.append(ensure_shift_columns({
+            "date": active["date"],
+            "shift_type": active["shift_type"],
+            "hala": "",
+            "group": "",
+            "sap": sap,
+            "surname": emp["surname"],
+        }))
+        existing_saps.add(sap)
+        added += 1
+
+    write_shifts(all_rows)
+    return {"added": added, "already": already, "missing": missing, "ambiguous": ambiguous}
+
+def move_selected_workers_to_group(active: dict, selected_indexes: list, hala: str, group: str) -> int:
+    all_rows = read_shifts(force=True)
+
+    shift_indexes = []
+    for idx, r in enumerate(all_rows):
+        if r["date"] == active["date"] and r["shift_type"] == active["shift_type"]:
+            shift_indexes.append(idx)
+
+    # Same sorting as display.
+    display_rows = [(i, all_rows[i]) for i in shift_indexes]
+    display_rows.sort(key=lambda pair: (
+        0 if not pair[1].get("hala") and not pair[1].get("group") else 1,
+        safe_lower(pair[1].get("hala", "")),
+        safe_lower(pair[1].get("group", "")),
+        safe_lower(pair[1].get("surname", "")),
+    ))
+
+    moved = 0
+    for sel in selected_indexes:
+        if sel < 0 or sel >= len(display_rows):
+            continue
+        original_idx = display_rows[sel][0]
+        all_rows[original_idx]["hala"] = hala
+        all_rows[original_idx]["group"] = group
+        moved += 1
+
+    write_shifts(all_rows)
+    return moved
 
 def upsert_employee(rows, emp):
     emp = ensure_employee_columns(emp)
@@ -1704,6 +1904,104 @@ async def work_flow(update, context, text):
         await update.message.reply_text(format_shift(date, typ, read_shifts(True), read_perf(True), read_summary(True)), reply_markup=WORK_KB)
         return
 
+    if ud["mode"] == "shift_add_list_wait_text":
+        active = ud.get("active_shift")
+        if not active:
+            reset_state(context)
+            await show_work_menu(update, context, "Спочатку створи/обери зміну.")
+            return
+
+        lines = [normalize_text(x) for x in (update.message.text or "").splitlines() if normalize_text(x)]
+        if not lines:
+            await update.message.reply_text("Встав список працівників, кожен з нового рядка.")
+            return
+
+        result = add_workers_to_shift_unassigned(active, lines, employees)
+        await backup_everywhere(context, update.effective_chat.id, "shift_add_list", f"{active['date']} {active['shift_type']} +{result['added']}")
+        reset_state(context)
+
+        msg = f"✅ Додано у зміну без групи: {result['added']}"
+        if result["already"]:
+            msg += f"\n\nℹ️ Вже були у зміні: {len(result['already'])}"
+        if result["missing"]:
+            msg += "\n\n⚠️ Не знайдено:\n" + "\n".join(result["missing"][:25])
+        if result["ambiguous"]:
+            msg += "\n\n⚠️ Знайдено кілька варіантів, уточни SAP:\n" + "\n".join(result["ambiguous"][:15])
+
+        msg += "\n\nТепер натисни 🧩 Розподіл по групах."
+        await show_work_menu(update, context, msg)
+        return
+
+    if ud["mode"] == "dispatch_wait_group":
+        active = ud.get("active_shift")
+        if not active:
+            reset_state(context)
+            await show_work_menu(update, context, "Спочатку створи/обери зміну.")
+            return
+
+        group_text = normalize_text(text).upper()
+        if not group_text:
+            await update.message.reply_text("Введи групу, наприклад HALA 2/G1 або G1.")
+            return
+
+        hala = ""
+        group = group_text
+
+        m = re.match(r"^(HALA\s*[1-4])\s*/\s*(.+)$", group_text)
+        if m:
+            hala = normalize_text(m.group(1)).replace("HALA", "HALA ")
+            hala = re.sub(r"\s+", " ", hala)
+            group = normalize_text(m.group(2)).upper()
+        elif group_text in {"HALA 1", "HALA 2", "HALA 3", "HALA 4"}:
+            hala = group_text
+            group = "G1"
+
+        ud["tmp"]["dispatch_hala"] = hala
+        ud["tmp"]["dispatch_group"] = group
+        ud["mode"] = "dispatch_wait_numbers"
+
+        await update.message.reply_text(
+            format_shift_workers_numbered(active)
+            + "\n\nВведи номери для групи "
+            + f"{(hala + '/' if hala else '')}{group}\n"
+            + "Приклад: 1,2,5-9",
+            reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+        )
+        return
+
+    if ud["mode"] == "dispatch_wait_numbers":
+        active = ud.get("active_shift")
+        if not active:
+            reset_state(context)
+            await show_work_menu(update, context, "Спочатку створи/обери зміну.")
+            return
+
+        rows = shift_rows_for_active(active, force=True)
+        if not rows:
+            reset_state(context)
+            await show_work_menu(update, context, "У зміні немає працівників.")
+            return
+
+        selected = parse_number_selection(text, len(rows))
+        if not selected:
+            await update.message.reply_text("Не бачу номерів. Приклад: 1,2,5-9")
+            return
+
+        hala = ud["tmp"].get("dispatch_hala", "")
+        group = ud["tmp"].get("dispatch_group", "")
+        moved = move_selected_workers_to_group(active, selected, hala, group)
+
+        await backup_everywhere(context, update.effective_chat.id, "dispatch_group", f"{active['date']} {active['shift_type']} {hala}/{group} moved {moved}")
+        reset_state(context)
+
+        await show_work_menu(
+            update,
+            context,
+            f"✅ Перенесено в {(hala + '/' if hala else '')}{group}: {moved}\n\n"
+            + format_groups_overview(active)
+        )
+        return
+
     if ud["mode"] == "work_add_hala":
         hala = normalize_text(text)
         if hala not in {"HALA 1", "HALA 2", "HALA 3", "HALA 4"}:
@@ -2165,6 +2463,42 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_btn(text, "Показати зміну"):
             ud["mode"] = "work_show_date"; ud["tmp"] = {}
             await update.message.reply_text("Обери дату:", reply_markup=date_kb()); return
+        if is_btn(text, "Додати список"):
+            if not ud.get("active_shift"):
+                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+            ud["mode"] = "shift_add_list_wait_text"; ud["tmp"] = {}
+            await update.message.reply_text(
+                "Встав список працівників у цю зміну без групи.\\n"
+                "Можна SAP, SAP - імʼя, або тільки прізвище.\\n"
+                "Кожен з нового рядка.",
+                reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+            ); return
+
+        if is_btn(text, "Список зміни"):
+            active = ud.get("active_shift")
+            if not active:
+                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+            await update.message.reply_text(format_shift_workers_numbered(active), reply_markup=WORK_KB); return
+
+        if is_btn(text, "Розподіл"):
+            active = ud.get("active_shift")
+            if not active:
+                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+            if not shift_rows_for_active(active, force=True):
+                await show_work_menu(update, context, "У зміні немає працівників. Спочатку додай список у зміну."); return
+            ud["mode"] = "dispatch_wait_group"; ud["tmp"] = {}
+            await update.message.reply_text(
+                "Введи групу/робоче місце, куди переносити людей.\\n"
+                "Приклади:\\nHALA 2/G1\\nHALA 3/PACK\\nG1",
+                reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+            ); return
+
+        if is_btn(text, "Групи зміни"):
+            active = ud.get("active_shift")
+            if not active:
+                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+            await update.message.reply_text(format_groups_overview(active), reply_markup=WORK_KB); return
+
         if is_btn(text, "Додати працівників"):
             if not ud.get("active_shift"):
                 await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
@@ -2390,5 +2724,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 

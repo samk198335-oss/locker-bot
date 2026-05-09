@@ -37,7 +37,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v12_inline_day_night_picker_data_dir
+# VERSION: main_sap_v13_inline_workplace_picker_data_dir
 # ==============================
 # CONFIG
 # ==============================
@@ -1913,6 +1913,237 @@ async def roster_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
+
+# ==============================
+# INLINE WORKPLACE / GROUP PICKER
+# ==============================
+
+WORKPLACE_PAGE_SIZE = 8
+
+DEFAULT_WORKPLACES = [
+    ("HALA 1", "G1"), ("HALA 1", "G2"), ("HALA 1", "G3"),
+    ("HALA 2", "G1"), ("HALA 2", "G2"), ("HALA 2", "G3"),
+    ("HALA 3", "G1"), ("HALA 3", "G2"), ("HALA 3", "G3"),
+    ("HALA 4", "G1"), ("HALA 4", "G2"), ("HALA 4", "G3"),
+]
+
+def init_workplace_picker(context, active: dict):
+    rows = shift_rows_for_active(active, force=True)
+    rows = sorted(rows, key=lambda r: safe_lower(r.get("surname", "")))
+    wp = {
+        "date": active["date"],
+        "shift_type": active["shift_type"],
+        "page": 0,
+        "items": [
+            {
+                "sap": r["sap"],
+                "surname": r["surname"],
+                "hala": r.get("hala", ""),
+                "group": r.get("group", ""),
+            }
+            for r in rows
+        ],
+        "selected_idx": None,
+    }
+    st(context)["workplace_picker"] = wp
+    return wp
+
+def workplace_label(item: dict) -> str:
+    if item.get("hala") or item.get("group"):
+        return f"{item.get('hala','')}/{item.get('group','')}".strip("/")
+    return "⬜ без групи"
+
+def workplace_counts(wp: dict):
+    grouped = len([x for x in wp.get("items", []) if x.get("hala") or x.get("group")])
+    total = len(wp.get("items", []))
+    return grouped, total - grouped, total
+
+def workplace_page_text(wp: dict) -> str:
+    items = wp.get("items", [])
+    page = int(wp.get("page", 0))
+    total_pages = max(1, (len(items) + WORKPLACE_PAGE_SIZE - 1) // WORKPLACE_PAGE_SIZE)
+    grouped, no_group, total = workplace_counts(wp)
+
+    lines = [
+        f"🧩 Робочі місця {wp.get('date')} ({shift_type_label(wp.get('shift_type'))})",
+        f"Сторінка {page + 1}/{total_pages}",
+        f"👥 Всього: {total} | ✅ В групах: {grouped} | ⬜ Без групи: {no_group}",
+        "",
+        "Натисни працівника, потім обери HALA/G:",
+        "",
+    ]
+
+    start_i = page * WORKPLACE_PAGE_SIZE
+    end_i = min(start_i + WORKPLACE_PAGE_SIZE, len(items))
+    for i in range(start_i, end_i):
+        item = items[i]
+        lines.append(f"{i + 1}. {item['sap']} — {item['surname']} — {workplace_label(item)}")
+
+    return "\n".join(lines)
+
+def workplace_keyboard(wp: dict) -> InlineKeyboardMarkup:
+    items = wp.get("items", [])
+    page = int(wp.get("page", 0))
+    total_pages = max(1, (len(items) + WORKPLACE_PAGE_SIZE - 1) // WORKPLACE_PAGE_SIZE)
+
+    rows = []
+    start_i = page * WORKPLACE_PAGE_SIZE
+    end_i = min(start_i + WORKPLACE_PAGE_SIZE, len(items))
+
+    for i in range(start_i, end_i):
+        item = items[i]
+        grp = workplace_label(item)
+        label = f"{i + 1}. {item['surname'][:18]} — {grp}"
+        rows.append([InlineKeyboardButton(label, callback_data=f"wp:choose:{i}")])
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️ Назад", callback_data="wp:page:prev"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("➡️ Далі", callback_data="wp:page:next"))
+    if nav:
+        rows.append(nav)
+
+    rows.append([
+        InlineKeyboardButton("📦 Огляд груп", callback_data="wp:overview"),
+        InlineKeyboardButton("✅ Готово", callback_data="wp:done"),
+    ])
+
+    return InlineKeyboardMarkup(rows)
+
+def workplace_select_text(wp: dict, idx: int) -> str:
+    item = wp["items"][idx]
+    return (
+        f"👤 {item['sap']} — {item['surname']}\n"
+        f"Поточне місце: {workplace_label(item)}\n\n"
+        "Куди відправити?"
+    )
+
+def workplace_select_keyboard(idx: int) -> InlineKeyboardMarkup:
+    rows = []
+    for hala_num in range(1, 5):
+        row = []
+        for group_num in range(1, 4):
+            row.append(InlineKeyboardButton(
+                f"H{hala_num}/G{group_num}",
+                callback_data=f"wp:set:{idx}:HALA {hala_num}:G{group_num}"
+            ))
+        rows.append(row)
+
+    rows.append([
+        InlineKeyboardButton("⬜ Без групи", callback_data=f"wp:set:{idx}::"),
+        InlineKeyboardButton("⬅️ До списку", callback_data="wp:back:list"),
+    ])
+    return InlineKeyboardMarkup(rows)
+
+def apply_workplace_to_shift(wp: dict, idx: int, hala: str, group: str):
+    if idx < 0 or idx >= len(wp.get("items", [])):
+        return False
+
+    item = wp["items"][idx]
+    item["hala"] = hala
+    item["group"] = group
+
+    all_rows = read_shifts(force=True)
+    changed = False
+
+    for r in all_rows:
+        if (
+            r["date"] == wp["date"]
+            and r["shift_type"] == wp["shift_type"]
+            and r.get("sap") == item["sap"]
+        ):
+            r["hala"] = hala
+            r["group"] = group
+            r["surname"] = item["surname"]
+            changed = True
+
+    if changed:
+        write_shifts(all_rows)
+    return changed
+
+async def send_workplace_picker(update: Update, context: ContextTypes.DEFAULT_TYPE, active: dict):
+    wp = init_workplace_picker(context, active)
+    if not wp.get("items"):
+        await update.message.reply_text("У цій зміні ще немає працівників.")
+        return
+    await update.message.reply_text(workplace_page_text(wp), reply_markup=workplace_keyboard(wp))
+
+async def workplace_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    ud = st(context)
+    wp = ud.get("workplace_picker") or {}
+    if not wp:
+        await query.edit_message_text("Сесія робочих місць застаріла. Натисни 🧩 Розподіл по групах ще раз.")
+        return
+
+    data = query.data or ""
+    parts = data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+
+    if action == "choose":
+        idx = int(parts[2])
+        wp["selected_idx"] = idx
+        await query.edit_message_text(
+            workplace_select_text(wp, idx),
+            reply_markup=workplace_select_keyboard(idx)
+        )
+        return
+
+    if action == "set":
+        idx = int(parts[2])
+        hala = parts[3] if len(parts) > 3 else ""
+        group = parts[4] if len(parts) > 4 else ""
+
+        apply_workplace_to_shift(wp, idx, hala, group)
+
+        await query.edit_message_text(
+            workplace_page_text(wp),
+            reply_markup=workplace_keyboard(wp)
+        )
+        return
+
+    if action == "back":
+        await query.edit_message_text(
+            workplace_page_text(wp),
+            reply_markup=workplace_keyboard(wp)
+        )
+        return
+
+    if action == "page":
+        page_action = parts[2] if len(parts) > 2 else ""
+        page = int(wp.get("page", 0))
+        total_pages = max(1, (len(wp.get("items", [])) + WORKPLACE_PAGE_SIZE - 1) // WORKPLACE_PAGE_SIZE)
+        if page_action == "next":
+            wp["page"] = min(total_pages - 1, page + 1)
+        elif page_action == "prev":
+            wp["page"] = max(0, page - 1)
+
+        await query.edit_message_text(
+            workplace_page_text(wp),
+            reply_markup=workplace_keyboard(wp)
+        )
+        return
+
+    if action == "overview":
+        active = {"date": wp["date"], "shift_type": wp["shift_type"]}
+        await query.edit_message_text(
+            format_groups_overview(active),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ До списку", callback_data="wp:back:list")]])
+        )
+        return
+
+    if action == "done":
+        active = {"date": wp["date"], "shift_type": wp["shift_type"]}
+        ud.pop("workplace_picker", None)
+        await query.edit_message_text(
+            "✅ Розподіл по робочих місцях завершено.\n\n" + format_groups_overview(active)
+        )
+        return
+
+
 # ==============================
 # STATE PER USER
 # ==============================
@@ -2870,13 +3101,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not active:
                 await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
             if not shift_rows_for_active(active, force=True):
-                await show_work_menu(update, context, "У зміні немає працівників. Спочатку додай список у зміну."); return
-            ud["mode"] = "dispatch_wait_group"; ud["tmp"] = {}
-            await update.message.reply_text(
-                "Введи групу/робоче місце, куди переносити людей.\\n"
-                "Приклади:\\nHALA 2/G1\\nHALA 3/PACK\\nG1",
-                reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
-            ); return
+                await show_work_menu(update, context, "У зміні немає працівників. Спочатку зроби 🗓 Розподіл day/night або додай список у зміну."); return
+            reset_state(context)
+            await send_workplace_picker(update, context, active); return
 
         if is_btn(text, "Групи зміни"):
             active = ud.get("active_shift")
@@ -3103,6 +3330,7 @@ def main():
     app.add_handler(CommandHandler("paths", cmd_paths))
     app.add_handler(CommandHandler("ocrtest", cmd_ocrtest))
     app.add_handler(CallbackQueryHandler(roster_callback, pattern=r"^roster:"))
+    app.add_handler(CallbackQueryHandler(workplace_callback, pattern=r"^wp:"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
@@ -3110,6 +3338,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-

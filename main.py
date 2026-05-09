@@ -36,28 +36,35 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v4_restore_local_data_priority
+# VERSION: main_sap_v7_persistent_disk_data_dir
 # ==============================
 # CONFIG
 # ==============================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+OCR_SPACE_API_KEY = os.getenv("OCR_SPACE_API_KEY", "").strip()
 CSV_URL = os.getenv(
     "CSV_URL",
     "https://docs.google.com/spreadsheets/d/1blFK5rFOZ2PzYAQldcQd8GkmgKmgqr1G5BkD40wtOMI/export?format=csv"
 ).strip()
 
-EMPLOYEES_DB_PATH = os.getenv("EMPLOYEES_DB_PATH", "employees.csv").strip()
-OLD_LOCAL_DB_PATH = os.getenv("LOCAL_DB_PATH", "local_data.csv").strip()
+# Persistent Render Disk.
+# On Render set Disk Mount Path = /data.
+# All bot databases and backups are stored here, so they survive deploy/restart.
+DATA_DIR = os.getenv("DATA_DIR", "/data").strip()
+os.makedirs(DATA_DIR, exist_ok=True)
 
-SHIFTS_DB_PATH = os.getenv("SHIFTS_DB_PATH", "shifts.csv").strip()
-PERF_DB_PATH = os.getenv("PERF_DB_PATH", "performance.csv").strip()
-SHIFT_SUMMARY_DB_PATH = os.getenv("SHIFT_SUMMARY_DB_PATH", "shift_summary.csv").strip()
+EMPLOYEES_DB_PATH = os.getenv("EMPLOYEES_DB_PATH", os.path.join(DATA_DIR, "employees.csv")).strip()
+OLD_LOCAL_DB_PATH = os.getenv("LOCAL_DB_PATH", os.path.join(DATA_DIR, "local_data.csv")).strip()
+
+SHIFTS_DB_PATH = os.getenv("SHIFTS_DB_PATH", os.path.join(DATA_DIR, "shifts.csv")).strip()
+PERF_DB_PATH = os.getenv("PERF_DB_PATH", os.path.join(DATA_DIR, "performance.csv")).strip()
+SHIFT_SUMMARY_DB_PATH = os.getenv("SHIFT_SUMMARY_DB_PATH", os.path.join(DATA_DIR, "shift_summary.csv")).strip()
 
 BACKUP_CHAT_ID_RAW = os.getenv("BACKUP_CHAT_ID", "").strip()
 BACKUP_CHAT_ID = int(BACKUP_CHAT_ID_RAW) if BACKUP_CHAT_ID_RAW else None
 
-BACKUP_DIR = os.getenv("BACKUP_DIR", "backups").strip()
+BACKUP_DIR = os.getenv("BACKUP_DIR", os.path.join(DATA_DIR, "backups")).strip()
 os.makedirs(BACKUP_DIR, exist_ok=True)
 
 WRITE_LOCK = threading.RLock()
@@ -179,7 +186,8 @@ EMPLOYEE_KB = ReplyKeyboardMarkup(
 BTN_SHIFT_CREATE = "➕ Створити зміну"
 BTN_SHIFT_SHOW = "📋 Показати зміну"
 BTN_GROUP_ADD_WORKERS = "👥 Додати працівників у групу"
-BTN_IMPORT_PERCENT = "📥 Імпорт % SAP"
+BTN_IMPORT_PERCENT = "📥 Імпорт % за датою"
+BTN_IMPORT_PHOTO = "📸 Фото % за датою"
 BTN_GROUP_SET_PERCENT = "📈 Внести % групи"
 BTN_SORT_WORKERS = "📌 Сортування працівників"
 BTN_EXPORT_TXT = "📝 Експорт зміни TXT"
@@ -190,7 +198,8 @@ WORK_KB = ReplyKeyboardMarkup(
     [
         [BTN_SHIFT_CREATE, BTN_SHIFT_SHOW],
         [BTN_GROUP_ADD_WORKERS],
-        [BTN_IMPORT_PERCENT, BTN_GROUP_SET_PERCENT],
+        [BTN_IMPORT_PERCENT, BTN_IMPORT_PHOTO],
+        [BTN_GROUP_SET_PERCENT],
         [BTN_SHIFT_SUMMARY],
         [BTN_SORT_WORKERS],
         [BTN_EXPORT_TXT, BTN_SHIFT_BACKUP],
@@ -348,6 +357,175 @@ def parse_sap_percent_line(line: str):
         return None
     return m.group(1), str(safe_float(m.group(2)))
 
+
+def parse_sap_percent_from_text(text: str) -> list:
+    """
+    Parse SAP + percent from pasted text or OCR text.
+    Accepts:
+    51009998 - 156,44
+    51009998 156,44 10,17 1
+    """
+    results = []
+    seen = set()
+
+    for raw in (text or "").splitlines():
+        line = normalize_text(raw)
+        if not line:
+            continue
+
+        direct = parse_sap_percent_line(line)
+        if direct:
+            sap, percent = direct
+            key = (sap, percent)
+            if key not in seen:
+                results.append({"sap": sap, "percent": percent, "raw": line})
+                seen.add(key)
+            continue
+
+        # OCR/table line: SAP Wydajnosc Godziny Ilosc
+        m = re.search(r"\b(\d{8,12})\b\s+([0-9]{2,3}[,.][0-9]{1,2})\s*%?", line)
+        if m:
+            sap = m.group(1)
+            percent = str(safe_float(m.group(2)))
+            key = (sap, percent)
+            if key not in seen:
+                results.append({"sap": sap, "percent": percent, "raw": line})
+                seen.add(key)
+
+    return results
+
+def import_percent_rows_by_date(date_str: str, parsed_rows: list) -> dict:
+    """
+    Date-based import: find SAP in day/night shifts for this date and write percent to correct shift.
+    If SAP exists in both day and night, mark ambiguous and do not write.
+    If SAP is not in any shift for this date, mark missing and do not write.
+    """
+    employees = read_employees(force=True)
+    emp_by_sap, _ = build_employee_lookup(employees)
+
+    shifts = read_shifts(force=True)
+    shift_matches_by_sap = {}
+    for s in shifts:
+        if s["date"] != date_str or not s.get("sap"):
+            continue
+        shift_matches_by_sap.setdefault(s["sap"], []).append(s)
+
+    old_perf = read_perf(force=True)
+    to_write = []
+    missing = []
+    ambiguous = []
+    unknown_sap = []
+    imported = []
+
+    for item in parsed_rows:
+        sap = item["sap"]
+        percent = item["percent"]
+        emp = emp_by_sap.get(sap)
+        matches = shift_matches_by_sap.get(sap, [])
+
+        if not emp:
+            unknown_sap.append(sap)
+            continue
+
+        # Deduplicate same shift_type if somehow duplicated in same date.
+        unique = {}
+        for m in matches:
+            unique[(m["shift_type"], m["hala"], m["group"])] = m
+        matches = list(unique.values())
+
+        shift_types = sorted(set(m["shift_type"] for m in matches))
+        if len(shift_types) == 0:
+            missing.append(f"{sap} — {emp['surname']} — {fmt_percent(percent)}%")
+            continue
+
+        if len(shift_types) > 1:
+            ambiguous.append(f"{sap} — {emp['surname']} — є day і night")
+            continue
+
+        m = matches[0]
+        row = ensure_perf_columns({
+            "date": date_str,
+            "shift_type": m["shift_type"],
+            "hala": m["hala"],
+            "group": m["group"],
+            "sap": sap,
+            "surname": emp["surname"],
+            "percent": percent,
+        })
+        to_write.append(row)
+        imported.append(row)
+
+    # Replace only rows for same date+shift+sap being imported.
+    keys = {(r["date"], r["shift_type"], r["sap"]) for r in to_write}
+    kept = [r for r in old_perf if (r["date"], r["shift_type"], r["sap"]) not in keys]
+    if to_write:
+        write_perf(kept + to_write)
+
+    return {
+        "imported": imported,
+        "missing": missing,
+        "ambiguous": ambiguous,
+        "unknown_sap": unknown_sap,
+        "parsed_count": len(parsed_rows),
+        "written_count": len(to_write),
+    }
+
+def format_import_by_date_report(date_str: str, result: dict) -> str:
+    imported = result["imported"]
+    msg = [
+        f"✅ Імпорт за дату {date_str}",
+        f"Розпізнано рядків: {result['parsed_count']}",
+        f"Записано: {result['written_count']}",
+    ]
+
+    if imported:
+        msg.append("\n📌 Записано:")
+        for r in imported[:30]:
+            msg.append(f"{r['sap']} — {r['surname']} — {r['shift_type']} — {r['hala']}/{r['group']} — {fmt_percent(r['percent'])}%")
+        if len(imported) > 30:
+            msg.append(f"... ще {len(imported)-30}")
+
+    if result["missing"]:
+        msg.append("\n⚠️ SAP є в базі, але не доданий у day/night на цю дату:")
+        msg.extend(result["missing"][:25])
+        if len(result["missing"]) > 25:
+            msg.append(f"... ще {len(result['missing'])-25}")
+
+    if result["ambiguous"]:
+        msg.append("\n⚠️ SAP знайдений і в day, і в night — треба уточнити вручну:")
+        msg.extend(result["ambiguous"][:25])
+
+    if result["unknown_sap"]:
+        msg.append("\n❌ SAP немає в базі працівників:")
+        msg.extend(result["unknown_sap"][:25])
+
+    return "\n".join(msg)
+
+def ocr_space_image_bytes(image_bytes: bytes, filename: str = "photo.jpg") -> str:
+    if not OCR_SPACE_API_KEY:
+        raise RuntimeError("OCR_SPACE_API_KEY is missing")
+
+    resp = requests.post(
+        "https://api.ocr.space/parse/image",
+        files={"file": (filename, image_bytes)},
+        data={
+            "apikey": OCR_SPACE_API_KEY,
+            "language": "pol",
+            "isOverlayRequired": "false",
+            "OCREngine": "2",
+            "scale": "true",
+        },
+        timeout=60,
+    )
+    data = resp.json()
+    if data.get("IsErroredOnProcessing"):
+        raise RuntimeError(str(data.get("ErrorMessage") or data.get("ErrorDetails") or "OCR error"))
+    texts = []
+    for pr in data.get("ParsedResults", []) or []:
+        if pr.get("ParsedText"):
+            texts.append(pr["ParsedText"])
+    return "\n".join(texts).strip()
+
 # ==============================
 # CSV COLUMNS
 # ==============================
@@ -415,6 +593,46 @@ def ensure_all_files():
     ensure_file(SHIFTS_DB_PATH, SHIFT_FIELDS)
     ensure_file(PERF_DB_PATH, PERF_FIELDS)
     ensure_file(SHIFT_SUMMARY_DB_PATH, SUMMARY_FIELDS)
+
+
+def _csv_has_rows(path: str) -> bool:
+    try:
+        if not os.path.exists(path):
+            return False
+        with open(path, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            return any(True for _ in reader)
+    except Exception:
+        return False
+
+def copy_legacy_root_files_to_data_if_needed():
+    """
+    One-time safety migration:
+    if files existed before persistent disk in the app root, copy them to /data
+    only when the /data version is missing or empty.
+    """
+    legacy_pairs = [
+        ("employees.csv", EMPLOYEES_DB_PATH),
+        ("local_data.csv", OLD_LOCAL_DB_PATH),
+        ("shifts.csv", SHIFTS_DB_PATH),
+        ("performance.csv", PERF_DB_PATH),
+        ("shift_summary.csv", SHIFT_SUMMARY_DB_PATH),
+    ]
+
+    for legacy_name, target_path in legacy_pairs:
+        if os.path.abspath(legacy_name) == os.path.abspath(target_path):
+            continue
+        if not os.path.exists(legacy_name):
+            continue
+        if _csv_has_rows(target_path):
+            continue
+        try:
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            with open(legacy_name, "rb") as src, open(target_path, "wb") as dst:
+                dst.write(src.read())
+            print(f"Copied legacy {legacy_name} -> {target_path}")
+        except Exception as e:
+            print(f"Legacy copy warning for {legacy_name}: {e}")
 
 def read_csv_cached(path, fields, cache, normalizer, force=False):
     ensure_file(path, fields)
@@ -808,6 +1026,20 @@ def make_backup_zip(reason: str) -> str:
                 z.write(p, arcname=os.path.basename(p))
     return path
 
+
+def extract_named_file_from_zip(z: zipfile.ZipFile, target_basename: str, dest_dir: str) -> bool:
+    """
+    Extract a file by basename even if the ZIP stores it with a folder prefix.
+    Writes it to dest_dir/target_basename.
+    """
+    for member in z.namelist():
+        if os.path.basename(member) == target_basename:
+            os.makedirs(dest_dir, exist_ok=True)
+            with z.open(member) as src, open(os.path.join(dest_dir, target_basename), "wb") as dst:
+                dst.write(src.read())
+            return True
+    return False
+
 async def send_backup_to_chat(context, chat_id, file_path, caption):
     with open(file_path, "rb") as f:
         await context.bot.send_document(chat_id=chat_id, document=f, filename=os.path.basename(file_path), caption=caption)
@@ -1003,6 +1235,20 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"chat_id = {update.effective_chat.id}")
+
+
+async def cmd_paths(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = (
+        "📁 Поточні шляхи бази:\n\n"
+        f"DATA_DIR: {DATA_DIR}\n"
+        f"employees: {EMPLOYEES_DB_PATH}\n"
+        f"local_data: {OLD_LOCAL_DB_PATH}\n"
+        f"shifts: {SHIFTS_DB_PATH}\n"
+        f"performance: {PERF_DB_PATH}\n"
+        f"summary: {SHIFT_SUMMARY_DB_PATH}\n"
+        f"backups: {BACKUP_DIR}"
+    )
+    await update.message.reply_text(msg)
 
 # ==============================
 # EMPLOYEE FLOW
@@ -1253,20 +1499,54 @@ async def work_flow(update, context, text):
             reset_state(context)
             await show_work_menu(update, context, "Спочатку створи/обери зміну.")
             return
-        emp_by_sap = {e["sap"]: e for e in employees if e["sap"]}
+        emp_by_sap, emp_by_name = build_employee_lookup(employees)
         lines = [normalize_text(x) for x in (update.message.text or "").splitlines() if normalize_text(x)]
-        added, missing = 0, []
+        added, moved, missing, ambiguous = 0, 0, [], []
         rows = read_shifts(True)
+
         for line in lines:
             parsed = parse_sap_name_line(line)
-            sap = parsed[0] if parsed else normalize_text(line)
-            emp = emp_by_sap.get(sap)
-            if not emp:
+
+            emp = None
+            if parsed:
+                sap = parsed[0]
+                emp = emp_by_sap.get(sap)
+            elif re.fullmatch(r"\d{6,12}", line):
+                sap = line
+                emp = emp_by_sap.get(sap)
+            else:
+                # allow pure surname/name input
+                key = canonical_name_key(line.upper())
+                emp = emp_by_name.get(key)
+                if not emp:
+                    # partial search fallback
+                    candidates = [e for e in employees if key in canonical_name_key(e.get("surname", ""))]
+                    if len(candidates) == 1:
+                        emp = candidates[0]
+                    elif len(candidates) > 1:
+                        ambiguous.append(line + " → " + ", ".join(emp_display(c) for c in candidates[:5]))
+                        continue
+
+            if not emp or not emp.get("sap"):
                 missing.append(line)
                 continue
-            exists = any(r["date"] == active["date"] and r["shift_type"] == active["shift_type"] and r["hala"] == ud["tmp"]["hala"] and r["group"] == ud["tmp"]["group"] and r["sap"] == sap for r in rows)
-            if exists:
+
+            sap = emp["sap"]
+
+            # If this worker already exists in this shift in another group, move them to the new group.
+            found_same_shift = False
+            for r in rows:
+                if r["date"] == active["date"] and r["shift_type"] == active["shift_type"] and r["sap"] == sap:
+                    found_same_shift = True
+                    if r["hala"] != ud["tmp"]["hala"] or r["group"] != ud["tmp"]["group"]:
+                        r["hala"] = ud["tmp"]["hala"]
+                        r["group"] = ud["tmp"]["group"]
+                        r["surname"] = emp["surname"]
+                        moved += 1
+
+            if found_same_shift:
                 continue
+
             rows.append(ensure_shift_columns({
                 "date": active["date"],
                 "shift_type": active["shift_type"],
@@ -1276,13 +1556,61 @@ async def work_flow(update, context, text):
                 "surname": emp["surname"],
             }))
             added += 1
+
         write_shifts(rows)
-        await backup_everywhere(context, update.effective_chat.id, "shift_add_workers", f"+{added}")
+        await backup_everywhere(context, update.effective_chat.id, "shift_add_workers", f"+{added}, moved {moved}")
         reset_state(context)
+
         msg = f"✅ Додано: {added}"
+        if moved:
+            msg += f"\n🔁 Перенесено в цю групу: {moved}"
         if missing:
-            msg += "\n\n⚠️ Не знайдено SAP:\n" + "\n".join(missing[:30])
+            msg += "\n\n⚠️ Не знайдено працівників:\n" + "\n".join(missing[:30])
+        if ambiguous:
+            msg += "\n\n⚠️ Уточни, бо знайдено кілька:\n" + "\n".join(ambiguous[:10])
         await show_work_menu(update, context, msg)
+        return
+
+    if ud["mode"] == "import_by_date_wait_date":
+        date = extract_date_from_btn(text)
+        if not parse_ddmmyyyy(date):
+            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            return
+        ud["tmp"]["date"] = date
+        ud["mode"] = "import_by_date_wait_text"
+        await update.message.reply_text(
+            "Встав список SAP - % для цієї дати.\n"
+            "Бот сам знайде SAP у day/night на цю дату і запише у правильну зміну.\n\n"
+            "Приклад:\n51009998 - 156,44\n51010002 - 156,44",
+            reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+        )
+        return
+
+    if ud["mode"] == "import_by_date_wait_text":
+        date = ud["tmp"]["date"]
+        parsed = parse_sap_percent_from_text(update.message.text or "")
+        if not parsed:
+            await update.message.reply_text("Не знайшов SAP і %. Приклад: 51009998 - 156,44")
+            return
+        result = import_percent_rows_by_date(date, parsed)
+        if result["written_count"]:
+            await backup_everywhere(context, update.effective_chat.id, "import_percent_by_date", f"{date}: {result['written_count']}")
+        reset_state(context)
+        await show_work_menu(update, context, format_import_by_date_report(date, result))
+        return
+
+    if ud["mode"] == "import_photo_wait_date":
+        date = extract_date_from_btn(text)
+        if not parse_ddmmyyyy(date):
+            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            return
+        ud["tmp"]["date"] = date
+        ud["mode"] = "import_photo_wait_photo"
+        await update.message.reply_text(
+            "Надішли фото звіту з SAP і %.\n"
+            "Важливо: люди вже мають бути додані у day/night за цю дату.",
+            reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+        )
         return
 
     if ud["mode"] == "import_percent_wait_text":
@@ -1561,10 +1889,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ud["mode"] = "work_add_hala"; ud["tmp"] = {}
             await update.message.reply_text("Обери зал:", reply_markup=hala_kb()); return
         if is_btn(text, "Імпорт %"):
-            if not ud.get("active_shift"):
-                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
-            ud["mode"] = "import_percent_wait_text"; ud["tmp"] = {}
-            await update.message.reply_text("Встав список:\n51009998 - 156,44\n51010002 - 156,44", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+            ud["mode"] = "import_by_date_wait_date"; ud["tmp"] = {}
+            await update.message.reply_text("Обери дату для імпорту %:", reply_markup=date_kb()); return
+
+        if is_btn(text, "Фото %"):
+            ud["mode"] = "import_photo_wait_date"; ud["tmp"] = {}
+            await update.message.reply_text("Обери дату для фото-імпорту %:", reply_markup=date_kb()); return
         if is_btn(text, "Внести %"):
             if not ud.get("active_shift"):
                 await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
@@ -1621,10 +1951,8 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     os.path.basename(PERF_DB_PATH),
                     os.path.basename(SHIFT_SUMMARY_DB_PATH),
                 ]
-                zip_names = set(z.namelist())
                 for target in wanted:
-                    if target in zip_names:
-                        z.extract(target, path=".")
+                    if extract_named_file_from_zip(z, target, DATA_DIR):
                         restored.append(target)
 
                 converted_count = 0
@@ -1691,10 +2019,51 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==============================
 
 async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "📸 Фото отримав.\n\nУ цій версії OCR ще не підключений. "
-        "Поки використовуй 📥 Імпорт % SAP текстом:\n51009998 - 156,44"
-    )
+    ud = st(context)
+    if ud.get("mode") != "import_photo_wait_photo":
+        await update.message.reply_text(
+            "📸 Фото отримав, але зараз не режим фото-імпорту.\n"
+            "Натисни: 🏭 Організація роботи → 📸 Фото % за датою"
+        )
+        return
+
+    date = ud["tmp"].get("date")
+    if not date:
+        reset_state(context)
+        await show_work_menu(update, context, "❌ Дата не вибрана. Почни фото-імпорт ще раз.")
+        return
+
+    if not OCR_SPACE_API_KEY:
+        await update.message.reply_text(
+            "⚠️ Фото-імпорт потребує OCR_SPACE_API_KEY у Render Environment.\n\n"
+            "Поки зроби так: відкрий фото → скопіюй/набери рядки SAP - % і використай 📥 Імпорт % за датою.\n"
+            "Приклад:\n51009998 - 156,44"
+        )
+        return
+
+    try:
+        await update.message.reply_text("📸 Фото отримав. Розпізнаю OCR...")
+        photo = update.message.photo[-1]
+        tg_file = await photo.get_file()
+        content = await tg_file.download_as_bytearray()
+        ocr_text = ocr_space_image_bytes(bytes(content), "telegram_photo.jpg")
+        parsed = parse_sap_percent_from_text(ocr_text)
+
+        if not parsed:
+            await update.message.reply_text(
+                "❌ OCR не знайшов SAP і %. Спробуй чіткіше фото або встав текстом через 📥 Імпорт % за датою."
+            )
+            return
+
+        result = import_percent_rows_by_date(date, parsed)
+        if result["written_count"]:
+            await backup_everywhere(context, update.effective_chat.id, "photo_import_percent_by_date", f"{date}: {result['written_count']}")
+
+        reset_state(context)
+        await show_work_menu(update, context, format_import_by_date_report(date, result))
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Помилка OCR: {e}\n\nМожеш вставити ці дані текстом через 📥 Імпорт % за датою.")
 
 # ==============================
 # MAIN
@@ -1704,6 +2073,7 @@ def main():
     if not BOT_TOKEN:
         raise RuntimeError("BOT_TOKEN is missing")
 
+    copy_legacy_root_files_to_data_if_needed()
     migrate_old_local_if_needed()
     ensure_all_files()
     try:
@@ -1714,6 +2084,7 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("chatid", cmd_chatid))
+    app.add_handler(CommandHandler("paths", cmd_paths))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))

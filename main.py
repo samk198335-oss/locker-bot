@@ -36,6 +36,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
+# VERSION: main_sap_v2_restore_hotfix
 # ==============================
 # CONFIG
 # ==============================
@@ -511,11 +512,24 @@ def merge_seed_sap():
     return len(rows)
 
 def migrate_old_local_if_needed():
-    if os.path.exists(EMPLOYEES_DB_PATH):
+    """Create/fill employees.csv from old local_data.csv if employees.csv is missing or empty."""
+    employees_exists = os.path.exists(EMPLOYEES_DB_PATH)
+    employees_empty = True
+    if employees_exists:
+        try:
+            with open(EMPLOYEES_DB_PATH, "r", encoding="utf-8", newline="") as f:
+                reader = csv.DictReader(f)
+                employees_empty = not any(True for _ in reader)
+        except Exception:
+            employees_empty = True
+
+    if employees_exists and not employees_empty:
         return
+
     if not os.path.exists(OLD_LOCAL_DB_PATH):
         ensure_file(EMPLOYEES_DB_PATH, EMPLOYEE_FIELDS)
         return
+
     old_rows = []
     with open(OLD_LOCAL_DB_PATH, "r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
@@ -526,9 +540,11 @@ def migrate_old_local_if_needed():
                 "knife": r.get("knife", ""),
                 "address": r.get("Address", ""),
             }))
+
     seed = seed_sap_rows()
     by_name = {safe_lower(e["surname"]): e for e in seed}
     migrated = []
+
     for old in old_rows:
         s = safe_lower(old["surname"])
         if s in by_name:
@@ -536,10 +552,55 @@ def migrate_old_local_if_needed():
             emp["locker"] = old["locker"]
             emp["knife"] = old["knife"]
             emp["address"] = old["address"]
-            migrated.append(emp)
+            migrated.append(ensure_employee_columns(emp))
         else:
-            migrated.append(old)
+            migrated.append(ensure_employee_columns(old))
+
+    # If old local_data.csv exists but has no usable rows, seed SAP names anyway.
+    if not migrated:
+        migrated = seed_sap_rows()
+
     write_employees(migrated)
+
+
+def convert_local_data_to_employees_if_possible() -> int:
+    """After ZIP restore, convert old local_data.csv to employees.csv and keep lockers/knives."""
+    if not os.path.exists(OLD_LOCAL_DB_PATH):
+        return 0
+
+    old_rows = []
+    with open(OLD_LOCAL_DB_PATH, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            name = normalize_text(r.get("surname", "")).upper()
+            if not name:
+                continue
+            old_rows.append(ensure_employee_columns({
+                "surname": name,
+                "locker": r.get("locker", ""),
+                "knife": r.get("knife", ""),
+                "address": r.get("Address", ""),
+            }))
+
+    seed = seed_sap_rows()
+    by_name = {safe_lower(e["surname"]): e for e in seed}
+    converted = []
+
+    for old in old_rows:
+        emp = by_name.get(safe_lower(old["surname"]), {}).copy()
+        if emp:
+            emp["locker"] = old["locker"]
+            emp["knife"] = old["knife"]
+            emp["address"] = old["address"]
+            converted.append(ensure_employee_columns(emp))
+        else:
+            converted.append(ensure_employee_columns(old))
+
+    if not converted:
+        return 0
+
+    write_employees(converted)
+    return len(converted)
 
 def fetch_google_csv_rows():
     resp = requests.get(CSV_URL, timeout=20)
@@ -1353,20 +1414,57 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             with zipfile.ZipFile(io.BytesIO(bytes(content))) as z:
                 restored = []
-                for target in [os.path.basename(EMPLOYEES_DB_PATH), os.path.basename(SHIFTS_DB_PATH), os.path.basename(PERF_DB_PATH), os.path.basename(SHIFT_SUMMARY_DB_PATH)]:
-                    if target in set(z.namelist()):
+                wanted = [
+                    os.path.basename(EMPLOYEES_DB_PATH),
+                    os.path.basename(OLD_LOCAL_DB_PATH),
+                    os.path.basename(SHIFTS_DB_PATH),
+                    os.path.basename(PERF_DB_PATH),
+                    os.path.basename(SHIFT_SUMMARY_DB_PATH),
+                ]
+                zip_names = set(z.namelist())
+                for target in wanted:
+                    if target in zip_names:
                         z.extract(target, path=".")
                         restored.append(target)
+
+                converted_count = 0
+                if os.path.basename(EMPLOYEES_DB_PATH) not in restored:
+                    converted_count = convert_local_data_to_employees_if_possible()
+
+                # If ZIP had neither employees.csv nor local_data.csv, at least seed SAP list.
+                if not os.path.exists(EMPLOYEES_DB_PATH) or len(read_employees(force=True)) == 0:
+                    converted_count = merge_seed_sap()
+
                 _employee_cache["mtime"] = _shift_cache["mtime"] = _perf_cache["mtime"] = _summary_cache["mtime"] = None
+
             reset_state(context); set_menu(context, "main")
-            await show_main_menu(update, context, "♻️ Відновлено з ZIP ✅\n" + ", ".join(restored))
+            msg = "♻️ Відновлено з ZIP ✅\n" + ", ".join(restored)
+            if converted_count:
+                msg += f"\n👤 employees.csv створено/оновлено: {converted_count}"
+            await show_main_menu(update, context, msg)
         except Exception as e:
             await update.message.reply_text(f"❌ Помилка ZIP: {e}")
         return
 
     text = content.decode("utf-8", errors="replace")
     reader = csv.DictReader(StringIO(text))
-    rows = [ensure_employee_columns(r) for r in reader]
+    raw_rows = list(reader)
+    seed = {safe_lower(e["surname"]): e for e in seed_sap_rows()}
+    rows = []
+    for r in raw_rows:
+        emp = ensure_employee_columns(r)
+        if not emp["sap"] and safe_lower(emp["surname"]) in seed:
+            base = seed[safe_lower(emp["surname"])].copy()
+            base.update({
+                "locker": emp["locker"],
+                "knife": emp["knife"],
+                "shoe_size": emp["shoe_size"],
+                "shoe_type": emp["shoe_type"],
+                "address": emp["address"],
+                "status": emp["status"],
+            })
+            emp = ensure_employee_columns(base)
+        rows.append(emp)
     rows = [r for r in rows if r["surname"] or r["sap"]]
     write_employees(rows)
     await backup_everywhere(context, update.effective_chat.id, "after_restore", f"Працівників: {len(rows)}")
@@ -1404,3 +1502,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

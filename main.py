@@ -36,7 +36,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v8_ocr_percent_near_sap_data_dir
+# VERSION: main_sap_v9_ocr_preview_confirm_clear_date_data_dir
 # ==============================
 # CONFIG
 # ==============================
@@ -188,6 +188,9 @@ BTN_SHIFT_SHOW = "📋 Показати зміну"
 BTN_GROUP_ADD_WORKERS = "👥 Додати працівників у групу"
 BTN_IMPORT_PERCENT = "📥 Імпорт % за датою"
 BTN_IMPORT_PHOTO = "📸 Фото % за датою"
+BTN_CLEAR_PERCENT_DATE = "🧹 Очистити % за дату"
+BTN_CONFIRM_SAVE_IMPORT = "✅ Зберегти OCR"
+BTN_CANCEL_IMPORT = "❌ Скасувати OCR"
 BTN_GROUP_SET_PERCENT = "📈 Внести % групи"
 BTN_SORT_WORKERS = "📌 Сортування працівників"
 BTN_EXPORT_TXT = "📝 Експорт зміни TXT"
@@ -200,6 +203,7 @@ WORK_KB = ReplyKeyboardMarkup(
         [BTN_GROUP_ADD_WORKERS],
         [BTN_IMPORT_PERCENT, BTN_IMPORT_PHOTO],
         [BTN_GROUP_SET_PERCENT],
+        [BTN_CLEAR_PERCENT_DATE],
         [BTN_SHIFT_SUMMARY],
         [BTN_SORT_WORKERS],
         [BTN_EXPORT_TXT, BTN_SHIFT_BACKUP],
@@ -593,6 +597,118 @@ def format_import_by_date_report(date_str: str, result: dict) -> str:
         msg.extend(result["unknown_sap"][:25])
 
     return "\n".join(msg)
+
+
+def build_import_preview_by_date(date_str: str, parsed_rows: list) -> dict:
+    """
+    Build preview only. Does not write performance.csv.
+    """
+    employees = read_employees(force=True)
+    emp_by_sap, _ = build_employee_lookup(employees)
+
+    shifts = read_shifts(force=True)
+    shift_matches_by_sap = {}
+    for s in shifts:
+        if s["date"] != date_str or not s.get("sap"):
+            continue
+        shift_matches_by_sap.setdefault(s["sap"], []).append(s)
+
+    preview = []
+    missing = []
+    ambiguous = []
+    unknown_sap = []
+
+    for item in parsed_rows:
+        sap = item["sap"]
+        percent = item["percent"]
+        emp = emp_by_sap.get(sap)
+        matches = shift_matches_by_sap.get(sap, [])
+
+        if not emp:
+            unknown_sap.append(sap)
+            continue
+
+        unique = {}
+        for m in matches:
+            unique[(m["shift_type"], m["hala"], m["group"])] = m
+        matches = list(unique.values())
+
+        shift_types = sorted(set(m["shift_type"] for m in matches))
+        if len(shift_types) == 0:
+            missing.append(f"{sap} — {emp['surname']} — {fmt_percent(percent)}%")
+            continue
+
+        if len(shift_types) > 1:
+            ambiguous.append(f"{sap} — {emp['surname']} — є day і night")
+            continue
+
+        m = matches[0]
+        preview.append(ensure_perf_columns({
+            "date": date_str,
+            "shift_type": m["shift_type"],
+            "hala": m["hala"],
+            "group": m["group"],
+            "sap": sap,
+            "surname": emp["surname"],
+            "percent": percent,
+        }))
+
+    return {
+        "date": date_str,
+        "parsed_count": len(parsed_rows),
+        "preview": preview,
+        "missing": missing,
+        "ambiguous": ambiguous,
+        "unknown_sap": unknown_sap,
+    }
+
+def format_import_preview_report(result: dict) -> str:
+    preview = result["preview"]
+    date_str = result["date"]
+
+    msg = [
+        f"🧪 Попередній перегляд OCR за {date_str}",
+        f"Розпізнано рядків: {result['parsed_count']}",
+        f"Готово до запису: {len(preview)}",
+    ]
+
+    if preview:
+        msg.append("\\n📌 Буде записано:")
+        for r in preview[:35]:
+            msg.append(f"{r['sap']} — {r['surname']} — {r['shift_type']} — {r['hala']}/{r['group']} — {fmt_percent(r['percent'])}%")
+        if len(preview) > 35:
+            msg.append(f"... ще {len(preview)-35}")
+
+    if result["missing"]:
+        msg.append("\\n⚠️ SAP є в базі, але не доданий у day/night на цю дату:")
+        msg.extend(result["missing"][:20])
+
+    if result["ambiguous"]:
+        msg.append("\\n⚠️ SAP знайдений і в day, і в night — не буде записано:")
+        msg.extend(result["ambiguous"][:20])
+
+    if result["unknown_sap"]:
+        msg.append("\\n❌ SAP немає в базі:")
+        msg.extend(result["unknown_sap"][:20])
+
+    msg.append("\\nЯкщо все правильно — натисни ✅ Зберегти OCR.")
+    msg.append("Якщо є помилки — натисни ❌ Скасувати OCR.")
+
+    return "\\n".join(msg)
+
+def save_import_preview_rows(rows: list):
+    old_perf = read_perf(force=True)
+    keys = {(r["date"], r["shift_type"], r["sap"]) for r in rows}
+    kept = [r for r in old_perf if (r["date"], r["shift_type"], r["sap"]) not in keys]
+    write_perf(kept + [ensure_perf_columns(r) for r in rows])
+    return len(rows)
+
+def clear_percent_for_date(date_str: str) -> int:
+    old = read_perf(force=True)
+    kept = [r for r in old if r.get("date") != date_str]
+    removed = len(old) - len(kept)
+    write_perf(kept)
+    return removed
 
 def ocr_space_image_bytes(image_bytes: bytes, filename: str = "photo.jpg") -> str:
     if not OCR_SPACE_API_KEY:
@@ -1804,6 +1920,61 @@ async def work_flow(update, context, text):
         await show_work_menu(update, context, f"✅ Записано {fmt_percent(p)}% для {len(new)} працівників.")
         return
 
+    if ud["mode"] == "ocr_preview_wait_confirm":
+        if is_btn(text, BTN_CONFIRM_SAVE_IMPORT) or safe_lower(text) in {"так", "yes", "save"}:
+            pending = ud.get("pending_ocr_import") or {}
+            rows_to_save = pending.get("preview") or []
+            date = pending.get("date", "")
+            if not rows_to_save:
+                reset_state(context)
+                ud.pop("pending_ocr_import", None)
+                await show_work_menu(update, context, "❌ Немає рядків для збереження.")
+                return
+            await backup_everywhere(context, update.effective_chat.id, "pre_ocr_save", f"{date}: before save")
+            count = save_import_preview_rows(rows_to_save)
+            await backup_everywhere(context, update.effective_chat.id, "after_ocr_save", f"{date}: saved {count}")
+            reset_state(context)
+            ud.pop("pending_ocr_import", None)
+            await show_work_menu(update, context, f"✅ OCR збережено. Записано: {count}")
+            return
+
+        if is_btn(text, BTN_CANCEL_IMPORT) or safe_lower(text) in {"ні", "no", "cancel"}:
+            reset_state(context)
+            ud.pop("pending_ocr_import", None)
+            await show_work_menu(update, context, "❌ OCR-імпорт скасовано. Нічого не записано.")
+            return
+
+        await update.message.reply_text("Натисни ✅ Зберегти OCR або ❌ Скасувати OCR.")
+        return
+
+    if ud["mode"] == "clear_percent_wait_date":
+        date = extract_date_from_btn(text)
+        if not parse_ddmmyyyy(date):
+            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            return
+        ud["tmp"]["date"] = date
+        ud["mode"] = "clear_percent_confirm"
+        kb = ReplyKeyboardMarkup([["ТАК, очистити %"], [BTN_CANCEL]], resize_keyboard=True)
+        await update.message.reply_text(
+            f"⚠️ Очистити ВСЮ продуктивність за {date} для day і night?\\n"
+            "Зміни/групи залишаться, видаляться тільки %.",
+            reply_markup=kb
+        )
+        return
+
+    if ud["mode"] == "clear_percent_confirm":
+        if safe_lower(text) != safe_lower("ТАК, очистити %"):
+            reset_state(context)
+            await show_work_menu(update, context, "Скасовано ✅")
+            return
+        date = ud["tmp"].get("date")
+        await backup_everywhere(context, update.effective_chat.id, "pre_clear_percent", f"{date}")
+        removed = clear_percent_for_date(date)
+        await backup_everywhere(context, update.effective_chat.id, "after_clear_percent", f"{date}: removed {removed}")
+        reset_state(context)
+        await show_work_menu(update, context, f"🧹 Очищено % за {date}. Видалено записів: {removed}")
+        return
+
     if ud["mode"] == "work_sort_month":
         if text == "-":
             month = datetime.now().strftime("%m.%Y")
@@ -2011,6 +2182,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
             ud["mode"] = "work_set_group_hala"; ud["tmp"] = {}
             await update.message.reply_text("Обери зал:", reply_markup=hala_kb()); return
+        if is_btn(text, "Очистити %"):
+            ud["mode"] = "clear_percent_wait_date"; ud["tmp"] = {}
+            await update.message.reply_text("Обери дату, за яку очистити тільки %:", reply_markup=date_kb()); return
+
         if is_btn(text, "% по зміні"):
             ud["mode"] = "summary_date"; ud["tmp"] = {}
             await update.message.reply_text("Обери дату:", reply_markup=date_kb()); return
@@ -2172,12 +2347,17 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        result = import_percent_rows_by_date(date, parsed)
-        if result["written_count"]:
-            await backup_everywhere(context, update.effective_chat.id, "photo_import_percent_by_date", f"{date}: {result['written_count']}")
+        preview_result = build_import_preview_by_date(date, parsed)
 
-        reset_state(context)
-        await show_work_menu(update, context, format_import_by_date_report(date, result))
+        ud["pending_ocr_import"] = preview_result
+        ud["mode"] = "ocr_preview_wait_confirm"
+        ud["menu"] = "work"
+
+        kb = ReplyKeyboardMarkup(
+            [[BTN_CONFIRM_SAVE_IMPORT, BTN_CANCEL_IMPORT], [BTN_BACK]],
+            resize_keyboard=True
+        )
+        await update.message.reply_text(format_import_preview_report(preview_result), reply_markup=kb)
 
     except Exception as e:
         await update.message.reply_text(f"❌ Помилка OCR: {e}\n\nМожеш вставити ці дані текстом через 📥 Імпорт % за датою.")
@@ -2210,4 +2390,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

@@ -9,11 +9,12 @@ import io
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import requests
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Document, InputFile
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Document, InputFile, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     ContextTypes,
     filters,
 )
@@ -36,7 +37,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v10_shift_dispatch_groups_data_dir
+# VERSION: main_sap_v12_inline_day_night_picker_data_dir
 # ==============================
 # CONFIG
 # ==============================
@@ -185,6 +186,7 @@ EMPLOYEE_KB = ReplyKeyboardMarkup(
 
 BTN_SHIFT_CREATE = "➕ Створити зміну"
 BTN_SHIFT_SHOW = "📋 Показати зміну"
+BTN_SPLIT_DAY_NIGHT = "🗓 Розподіл day/night"
 BTN_SHIFT_ADD_LIST = "➕ Додати список у зміну"
 BTN_SHIFT_WORKERS = "👷 Список зміни"
 BTN_DISTRIBUTE_WORKERS = "🧩 Розподіл по групах"
@@ -204,6 +206,7 @@ BTN_SHIFT_BACKUP = "💾 Backup зміни"
 WORK_KB = ReplyKeyboardMarkup(
     [
         [BTN_SHIFT_CREATE, BTN_SHIFT_SHOW],
+        [BTN_SPLIT_DAY_NIGHT],
         [BTN_SHIFT_ADD_LIST, BTN_SHIFT_WORKERS],
         [BTN_DISTRIBUTE_WORKERS, BTN_GROUPS_OVERVIEW],
         [BTN_GROUP_ADD_WORKERS],
@@ -1015,6 +1018,86 @@ def format_shift_workers_numbered(active: dict) -> str:
 
     return "\n".join(lines)
 
+
+def sorted_active_employees_for_roster() -> list:
+    rows = [e for e in read_employees(force=True) if e.get("sap") and e.get("surname") and safe_lower(e.get("status", "active")) == "active"]
+    return sorted(rows, key=lambda e: safe_lower(e["surname"]))
+
+def format_all_employees_numbered_for_roster(date_str: str) -> str:
+    employees = sorted_active_employees_for_roster()
+    if not employees:
+        return "У базі немає активних працівників із SAP."
+
+    lines = [f"🗓 Розподіл day/night за {date_str}\n", "Вибирай номери зі списку:", ""]
+    for i, e in enumerate(employees, start=1):
+        lines.append(f"{i}. {e['sap']} — {e['surname']}")
+    lines.append("\nФормат: 1,2,5-9")
+    return "\n".join(lines)
+
+def set_shift_members_for_date(date_str: str, shift_type: str, selected_indexes: list) -> dict:
+    """
+    Creates/updates day/night shift membership from selected employee indexes.
+    Employees are unique for the date: selected day workers are removed from night and vice versa.
+    Existing HALA/group is preserved if the worker already existed in that exact shift.
+    """
+    employees = sorted_active_employees_for_roster()
+    selected_saps = set()
+    selected_map = {}
+
+    for idx in selected_indexes:
+        if 0 <= idx < len(employees):
+            e = employees[idx]
+            selected_saps.add(e["sap"])
+            selected_map[e["sap"]] = e
+
+    opposite = "night" if shift_type == "day" else "day"
+    all_rows = read_shifts(force=True)
+
+    # Preserve existing group info for selected workers already in this shift.
+    existing_group = {}
+    for r in all_rows:
+        if r["date"] == date_str and r["shift_type"] == shift_type and r.get("sap") in selected_saps:
+            existing_group[r["sap"]] = (r.get("hala", ""), r.get("group", ""))
+
+    # Remove:
+    # 1) all rows of this shift for the date — then recreate selected cleanly
+    # 2) selected workers from the opposite shift — no double day/night assignment
+    kept = []
+    removed_from_same = 0
+    removed_from_opposite = 0
+
+    for r in all_rows:
+        if r["date"] == date_str and r["shift_type"] == shift_type:
+            removed_from_same += 1
+            continue
+        if r["date"] == date_str and r["shift_type"] == opposite and r.get("sap") in selected_saps:
+            removed_from_opposite += 1
+            continue
+        kept.append(r)
+
+    new_rows = []
+    for sap in sorted(selected_saps, key=lambda s: safe_lower(selected_map[s]["surname"])):
+        emp = selected_map[sap]
+        hala, group = existing_group.get(sap, ("", ""))
+        new_rows.append(ensure_shift_columns({
+            "date": date_str,
+            "shift_type": shift_type,
+            "hala": hala,
+            "group": group,
+            "sap": sap,
+            "surname": emp["surname"],
+        }))
+
+    write_shifts(kept + new_rows)
+    return {
+        "selected": len(new_rows),
+        "removed_from_same": removed_from_same,
+        "removed_from_opposite": removed_from_opposite,
+    }
+
+def count_shift_members(date_str: str, shift_type: str) -> int:
+    return len([r for r in read_shifts(force=True) if r["date"] == date_str and r["shift_type"] == shift_type])
+
 def format_groups_overview(active: dict) -> str:
     rows = shift_rows_for_active(active, force=True)
     if not rows:
@@ -1603,6 +1686,233 @@ def format_sorted_workers(perf_rows, month):
         for avg, cnt, sap, name in rows
     )
 
+
+# ==============================
+# INLINE DAY/NIGHT PICKER
+# ==============================
+
+ROSTER_PAGE_SIZE = 8
+
+def roster_session(context):
+    ud = st(context)
+    ud.setdefault("roster_picker", {})
+    return ud["roster_picker"]
+
+def roster_status_symbol(status: str) -> str:
+    if status == "day":
+        return "☀️"
+    if status == "night":
+        return "🌙"
+    return "⬜"
+
+def init_roster_picker(context, date_str: str):
+    employees = sorted_active_employees_for_roster()
+    rp = {
+        "date": date_str,
+        "page": 0,
+        "items": [
+            {
+                "sap": e["sap"],
+                "surname": e["surname"],
+                "status": "none",
+            }
+            for e in employees
+        ],
+    }
+
+    # Preload existing assignments for this date.
+    shifts = read_shifts(force=True)
+    by_sap = {}
+    for r in shifts:
+        if r["date"] == date_str and r.get("sap") and r["shift_type"] in {"day", "night"}:
+            by_sap[r["sap"]] = r["shift_type"]
+
+    for item in rp["items"]:
+        if item["sap"] in by_sap:
+            item["status"] = by_sap[item["sap"]]
+
+    st(context)["roster_picker"] = rp
+    return rp
+
+def roster_counts(rp: dict):
+    day = len([x for x in rp.get("items", []) if x.get("status") == "day"])
+    night = len([x for x in rp.get("items", []) if x.get("status") == "night"])
+    none = len([x for x in rp.get("items", []) if x.get("status") == "none"])
+    return day, night, none
+
+def roster_page_text(rp: dict) -> str:
+    date = rp.get("date", "")
+    items = rp.get("items", [])
+    page = int(rp.get("page", 0))
+    total_pages = max(1, (len(items) + ROSTER_PAGE_SIZE - 1) // ROSTER_PAGE_SIZE)
+    day, night, none = roster_counts(rp)
+
+    lines = [
+        f"🗓 Розподіл day/night за {date}",
+        f"Сторінка {page + 1}/{total_pages}",
+        f"☀️ Day: {day} | 🌙 Night: {night} | ⬜ Не вибрано: {none}",
+        "",
+        "Натискай працівника, щоб перемикати:",
+        "⬜ → ☀️ → 🌙 → ⬜",
+        "",
+    ]
+
+    start_i = page * ROSTER_PAGE_SIZE
+    end_i = min(start_i + ROSTER_PAGE_SIZE, len(items))
+    for i in range(start_i, end_i):
+        item = items[i]
+        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} — {item['surname']}")
+
+    return "\n".join(lines)
+
+def roster_keyboard(rp: dict) -> InlineKeyboardMarkup:
+    items = rp.get("items", [])
+    page = int(rp.get("page", 0))
+    total_pages = max(1, (len(items) + ROSTER_PAGE_SIZE - 1) // ROSTER_PAGE_SIZE)
+
+    rows = []
+    start_i = page * ROSTER_PAGE_SIZE
+    end_i = min(start_i + ROSTER_PAGE_SIZE, len(items))
+
+    for i in range(start_i, end_i):
+        item = items[i]
+        label = f"{roster_status_symbol(item['status'])} {i + 1}. {item['surname'][:22]}"
+        rows.append([InlineKeyboardButton(label, callback_data=f"roster:toggle:{i}")])
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️ Назад", callback_data="roster:page:prev"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("➡️ Далі", callback_data="roster:page:next"))
+    if nav:
+        rows.append(nav)
+
+    rows.append([
+        InlineKeyboardButton("✅ Зберегти", callback_data="roster:save"),
+        InlineKeyboardButton("❌ Скасувати", callback_data="roster:cancel"),
+    ])
+
+    return InlineKeyboardMarkup(rows)
+
+def apply_roster_picker_to_shifts(rp: dict) -> dict:
+    date = rp.get("date", "")
+    items = rp.get("items", [])
+
+    day_saps = {x["sap"] for x in items if x.get("status") == "day"}
+    night_saps = {x["sap"] for x in items if x.get("status") == "night"}
+    selected_saps = day_saps | night_saps
+
+    employees = {e["sap"]: e for e in read_employees(force=True) if e.get("sap")}
+    old_rows = read_shifts(force=True)
+
+    # Preserve existing HALA/group for same date+shift+sap.
+    old_group = {}
+    for r in old_rows:
+        if r["date"] == date and r["shift_type"] in {"day", "night"} and r.get("sap"):
+            old_group[(r["shift_type"], r["sap"])] = (r.get("hala", ""), r.get("group", ""))
+
+    # Remove all day/night rows for this date. Then recreate from picker.
+    kept = [
+        r for r in old_rows
+        if not (r["date"] == date and r["shift_type"] in {"day", "night"})
+    ]
+
+    new_rows = []
+    for shift_type, saps in [("day", day_saps), ("night", night_saps)]:
+        for sap in sorted(saps, key=lambda s: safe_lower(employees.get(s, {}).get("surname", ""))):
+            emp = employees.get(sap)
+            if not emp:
+                continue
+            hala, group = old_group.get((shift_type, sap), ("", ""))
+            new_rows.append(ensure_shift_columns({
+                "date": date,
+                "shift_type": shift_type,
+                "hala": hala,
+                "group": group,
+                "sap": sap,
+                "surname": emp["surname"],
+            }))
+
+    write_shifts(kept + new_rows)
+    return {"day": len(day_saps), "night": len(night_saps), "total": len(selected_saps)}
+
+async def send_roster_picker(update: Update, context: ContextTypes.DEFAULT_TYPE, date_str: str):
+    rp = init_roster_picker(context, date_str)
+    await update.message.reply_text(
+        roster_page_text(rp),
+        reply_markup=roster_keyboard(rp)
+    )
+
+async def roster_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    data = query.data or ""
+    ud = st(context)
+    rp = ud.get("roster_picker") or {}
+
+    if not rp:
+        await query.edit_message_text("Сесія розподілу застаріла. Почни ще раз: 🗓 Розподіл day/night.")
+        return
+
+    parts = data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+
+    if action == "toggle":
+        try:
+            idx = int(parts[2])
+        except Exception:
+            return
+        items = rp.get("items", [])
+        if 0 <= idx < len(items):
+            cur = items[idx].get("status", "none")
+            items[idx]["status"] = "day" if cur == "none" else "night" if cur == "day" else "none"
+
+        await query.edit_message_text(
+            roster_page_text(rp),
+            reply_markup=roster_keyboard(rp)
+        )
+        return
+
+    if action == "page":
+        page_action = parts[2] if len(parts) > 2 else ""
+        page = int(rp.get("page", 0))
+        total_pages = max(1, (len(rp.get("items", [])) + ROSTER_PAGE_SIZE - 1) // ROSTER_PAGE_SIZE)
+        if page_action == "next":
+            rp["page"] = min(total_pages - 1, page + 1)
+        elif page_action == "prev":
+            rp["page"] = max(0, page - 1)
+
+        await query.edit_message_text(
+            roster_page_text(rp),
+            reply_markup=roster_keyboard(rp)
+        )
+        return
+
+    if action == "cancel":
+        ud.pop("roster_picker", None)
+        await query.edit_message_text("❌ Розподіл day/night скасовано. Нічого не змінено.")
+        return
+
+    if action == "save":
+        date = rp.get("date", "")
+        chat_id = update.effective_chat.id
+        await backup_everywhere(context, chat_id, "pre_inline_roster_save", date)
+        result = apply_roster_picker_to_shifts(rp)
+        await backup_everywhere(context, chat_id, "after_inline_roster_save", f"{date}: day {result['day']} night {result['night']}")
+
+        ud["active_shift"] = {"date": date, "shift_type": "day"}
+        ud.pop("roster_picker", None)
+
+        await query.edit_message_text(
+            f"✅ Розподіл збережено за {date}\n"
+            f"☀️ Day: {result['day']}\n"
+            f"🌙 Night: {result['night']}\n\n"
+            "Активна зміна: day. Далі можеш натиснути 🧩 Розподіл по групах."
+        )
+        return
+
+
 # ==============================
 # STATE PER USER
 # ==============================
@@ -1902,6 +2212,77 @@ async def work_flow(update, context, text):
         ud["active_shift"] = {"date": date, "shift_type": typ}
         reset_state(context)
         await update.message.reply_text(format_shift(date, typ, read_shifts(True), read_perf(True), read_summary(True)), reply_markup=WORK_KB)
+        return
+
+    if ud["mode"] == "split_wait_date":
+        date = extract_date_from_btn(text)
+        if not parse_ddmmyyyy(date):
+            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            return
+
+        reset_state(context)
+        await send_roster_picker(update, context, date)
+        return
+
+    if ud["mode"] == "split_wait_day_numbers":
+        date = ud["tmp"].get("date")
+        employees = sorted_active_employees_for_roster()
+        selected = parse_number_selection(text, len(employees))
+        if not selected:
+            await update.message.reply_text("Не бачу номерів. Приклад: 1,2,5-9")
+            return
+
+        ud["tmp"]["day_indexes"] = selected
+        ud["mode"] = "split_wait_night_numbers"
+
+        await update.message.reply_text(
+            format_all_employees_numbered_for_roster(date)
+            + f"\n\n✅ Day вибрано: {len(selected)}"
+            + "\nТепер введи номери працівників для НІЧНОЇ зміни night:"
+            + "\nЯкщо нічної немає — введи 0.",
+            reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+        )
+        return
+
+    if ud["mode"] == "split_wait_night_numbers":
+        date = ud["tmp"].get("date")
+        employees = sorted_active_employees_for_roster()
+
+        if normalize_text(text) in {"0", "-", "нема", "немає"}:
+            night_selected = []
+        else:
+            night_selected = parse_number_selection(text, len(employees))
+            if not night_selected:
+                await update.message.reply_text("Не бачу номерів. Приклад: 1,2,5-9 або 0 якщо нічної немає.")
+                return
+
+        day_selected = ud["tmp"].get("day_indexes", [])
+
+        # Remove duplicates from night if someone was selected for day.
+        day_set = set(day_selected)
+        night_selected_clean = [i for i in night_selected if i not in day_set]
+        duplicates = len(night_selected) - len(night_selected_clean)
+
+        await backup_everywhere(context, update.effective_chat.id, "pre_split_day_night", f"{date}")
+
+        day_result = set_shift_members_for_date(date, "day", day_selected)
+        night_result = set_shift_members_for_date(date, "night", night_selected_clean)
+
+        await backup_everywhere(context, update.effective_chat.id, "after_split_day_night", f"{date}: day {day_result['selected']} night {night_result['selected']}")
+
+        ud["active_shift"] = {"date": date, "shift_type": "day"}
+        reset_state(context)
+
+        msg = (
+            f"✅ Розподіл day/night створено за {date}\n\n"
+            f"Денна зміна: {day_result['selected']}\n"
+            f"Нічна зміна: {night_result['selected']}\n"
+        )
+        if duplicates:
+            msg += f"\n⚠️ {duplicates} працівників були вибрані і в day, і в night — залишив у day."
+
+        msg += "\n\nАктивна зміна зараз: day.\nДалі можеш натиснути 🧩 Розподіл по групах."
+        await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "shift_add_list_wait_text":
@@ -2457,6 +2838,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # work menu
     if ud["menu"] == "work":
+        if is_btn(text, "Розподіл day/night"):
+            ud["mode"] = "split_wait_date"; ud["tmp"] = {}
+            await update.message.reply_text("Обери дату для розподілу працівників на day/night:", reply_markup=date_kb()); return
+
         if is_btn(text, "Створити зміну"):
             ud["mode"] = "work_create_date"; ud["tmp"] = {}
             await update.message.reply_text("Обери дату:", reply_markup=date_kb()); return
@@ -2717,6 +3102,7 @@ def main():
     app.add_handler(CommandHandler("chatid", cmd_chatid))
     app.add_handler(CommandHandler("paths", cmd_paths))
     app.add_handler(CommandHandler("ocrtest", cmd_ocrtest))
+    app.add_handler(CallbackQueryHandler(roster_callback, pattern=r"^roster:"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))

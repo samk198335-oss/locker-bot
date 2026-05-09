@@ -36,7 +36,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v3_migrate_history_edit_sap
+# VERSION: main_sap_v4_restore_local_data_priority
 # ==============================
 # CONFIG
 # ==============================
@@ -684,6 +684,96 @@ def convert_local_data_to_employees_if_possible() -> int:
 
     write_employees(converted)
     return len(converted)
+
+
+def merge_local_data_into_employees_if_possible() -> dict:
+    """
+    Merge old local_data.csv into current employees.csv without losing SAP.
+    This is needed when ZIP contains both new employees.csv and old local_data.csv,
+    or when employees.csv was already created with only SAP+surname.
+    """
+    result = {"rows": 0, "locker": 0, "knife": 0, "matched": 0, "added_no_sap": 0}
+
+    if not os.path.exists(OLD_LOCAL_DB_PATH):
+        return result
+
+    current = read_employees(force=True)
+    seed = seed_sap_rows()
+
+    by_name = {canonical_name_key(e["surname"]): e for e in current if e.get("surname")}
+    seed_by_name = {canonical_name_key(e["surname"]): e for e in seed if e.get("surname")}
+
+    old_rows = []
+    with open(OLD_LOCAL_DB_PATH, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for r in reader:
+            name = normalize_text(r.get("surname", "")).upper()
+            if not name:
+                continue
+            old_emp = ensure_employee_columns({
+                "surname": name,
+                "locker": r.get("locker", ""),
+                "knife": r.get("knife", ""),
+                "address": r.get("Address", ""),
+            })
+            old_rows.append(old_emp)
+
+    for old in old_rows:
+        key = canonical_name_key(old["surname"])
+        target = by_name.get(key)
+
+        if not target:
+            # Try seed spelling, then add as no-SAP if unknown.
+            seed_emp = seed_by_name.get(key)
+            if seed_emp:
+                target = seed_emp.copy()
+                current.append(target)
+                by_name[key] = target
+            else:
+                current.append(old)
+                by_name[key] = old
+                result["added_no_sap"] += 1
+                continue
+
+        if not target.get("sap"):
+            seed_emp = seed_by_name.get(key)
+            if seed_emp and seed_emp.get("sap"):
+                target["sap"] = seed_emp["sap"]
+
+        # Always restore locker/knife/address from old DB if present.
+        target["locker"] = old.get("locker", "")
+        target["knife"] = old.get("knife", "")
+        if old.get("address"):
+            target["address"] = old["address"]
+
+        result["matched"] += 1
+        if locker_has_value(target.get("locker", "")):
+            result["locker"] += 1
+        if knife_has(target.get("knife", "")):
+            result["knife"] += 1
+
+    # Deduplicate by SAP first, then name for no-SAP.
+    dedup = {}
+    for e in current:
+        e = ensure_employee_columns(e)
+        key = ("sap", e["sap"]) if e.get("sap") else ("name", canonical_name_key(e.get("surname", "")))
+        if key in dedup:
+            old = dedup[key]
+            for field in EMPLOYEE_FIELDS:
+                if e.get(field) and not old.get(field):
+                    old[field] = e[field]
+            # prefer restored locker/knife if present
+            if e.get("locker"):
+                old["locker"] = e["locker"]
+            if e.get("knife"):
+                old["knife"] = e["knife"]
+        else:
+            dedup[key] = e
+
+    final_rows = list(dedup.values())
+    write_employees(final_rows)
+    result["rows"] = len(final_rows)
+    return result
 
 def fetch_google_csv_rows():
     resp = requests.get(CSV_URL, timeout=20)
@@ -1538,10 +1628,17 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         restored.append(target)
 
                 converted_count = 0
-                if os.path.basename(EMPLOYEES_DB_PATH) not in restored:
+                merge_info = None
+
+                # If local_data.csv exists in ZIP, it is the source of truth for locker/knife.
+                if os.path.basename(OLD_LOCAL_DB_PATH) in restored:
+                    if os.path.basename(EMPLOYEES_DB_PATH) not in restored:
+                        converted_count = convert_local_data_to_employees_if_possible()
+                    merge_info = merge_local_data_into_employees_if_possible()
+                elif os.path.basename(EMPLOYEES_DB_PATH) not in restored:
                     converted_count = convert_local_data_to_employees_if_possible()
 
-                # If ZIP had neither employees.csv nor local_data.csv, at least seed SAP list.
+                # If ZIP had neither useful employees.csv nor local_data.csv, at least seed SAP list.
                 if not os.path.exists(EMPLOYEES_DB_PATH) or len(read_employees(force=True)) == 0:
                     converted_count = merge_seed_sap()
 
@@ -1552,8 +1649,13 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             shift_m, perf_m = migrate_rows_surname_to_sap()
             if converted_count:
                 msg += f"\n👤 employees.csv створено/оновлено: {converted_count}"
+            if merge_info:
+                msg += f"\n🔁 local_data.csv підтягнуто: {merge_info['matched']} працівників"
+                msg += f"\n🗄️ Шафки: {merge_info['locker']} | 🔪 Ножі: {merge_info['knife']}"
             if shift_m or perf_m:
                 msg += f"\n🔗 SAP підтягнуто: зміни {shift_m}, продуктивність {perf_m}"
+            if os.path.basename(OLD_LOCAL_DB_PATH) not in restored:
+                msg += "\n⚠️ У цьому ZIP немає local_data.csv — шафки/ножі з нього відновити неможливо."
             await show_main_menu(update, context, msg)
         except Exception as e:
             await update.message.reply_text(f"❌ Помилка ZIP: {e}")

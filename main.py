@@ -36,7 +36,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v2_restore_hotfix
+# VERSION: main_sap_v3_migrate_history_edit_sap
 # ==============================
 # CONFIG
 # ==============================
@@ -154,6 +154,7 @@ MAIN_KB = ReplyKeyboardMarkup(
 BTN_STATS = "📊 Статистика"
 BTN_ALL = "👥 Всі"
 BTN_CARD = "🔎 Картка працівника"
+BTN_NO_SAP = "⚠️ Без SAP"
 BTN_WITH_LOCKER = "🗄️ З шафкою"
 BTN_NO_LOCKER = "⛔ Без шафки"
 BTN_WITH_KNIFE = "🔪 З ножем"
@@ -165,7 +166,7 @@ BTN_DELETE = "🗑️ Видалити працівника"
 EMPLOYEE_KB = ReplyKeyboardMarkup(
     [
         [BTN_STATS, BTN_ALL],
-        [BTN_CARD],
+        [BTN_CARD, BTN_NO_SAP],
         [BTN_WITH_LOCKER, BTN_NO_LOCKER],
         [BTN_WITH_KNIFE, BTN_NO_KNIFE],
         [BTN_ADD, BTN_EDIT],
@@ -468,27 +469,46 @@ def employee_by_sap(rows, sap: str):
     return None
 
 def find_employees(rows, q: str):
-    q = safe_lower(q)
+    q_raw = normalize_text(q)
+    q = safe_lower(q_raw)
     if not q:
         return []
-    return [r for r in rows if q in safe_lower(r["sap"]) or q in safe_lower(r["surname"])]
+    # Exact SAP first
+    exact_sap = [r for r in rows if r.get("sap") and r["sap"] == q_raw]
+    if exact_sap:
+        return exact_sap
+    # Exact name next, important for workers without SAP
+    exact_name = [r for r in rows if safe_lower(r.get("surname", "")) == q]
+    if exact_name:
+        return exact_name
+    return [r for r in rows if q in safe_lower(r.get("sap", "")) or q in safe_lower(r.get("surname", ""))]
 
 def upsert_employee(rows, emp):
     emp = ensure_employee_columns(emp)
     out = []
     found = False
+
+    old_surname_key = canonical_name_key(emp.get("_old_surname", "") or emp.get("surname", ""))
+
     for r in rows:
-        if r["sap"] and emp["sap"] and r["sap"] == emp["sap"]:
+        same_by_sap = bool(r.get("sap") and emp.get("sap") and r["sap"] == emp["sap"])
+        same_no_sap_by_old_name = bool((not r.get("sap")) and old_surname_key and canonical_name_key(r.get("surname", "")) == old_surname_key)
+
+        if same_by_sap or same_no_sap_by_old_name:
             merged = r.copy()
             for k, v in emp.items():
+                if k.startswith("_"):
+                    continue
                 if v != "":
                     merged[k] = v
             out.append(ensure_employee_columns(merged))
             found = True
         else:
             out.append(r)
+
     if not found:
-        out.append(emp)
+        clean = {k: v for k, v in emp.items() if not k.startswith("_")}
+        out.append(ensure_employee_columns(clean))
     return out
 
 # ==============================
@@ -503,6 +523,69 @@ def seed_sap_rows():
             sap, name = parsed
             rows.append(ensure_employee_columns({"sap": sap, "surname": name}))
     return rows
+
+
+def canonical_name_key(name: str) -> str:
+    n = safe_lower(name)
+    n = n.replace("kononovich sniezhana", "kononovych snizhana")
+    n = n.replace("kononovych sniezhana", "kononovych snizhana")
+    n = n.replace("honcharyk tatsiana", "hancharyk tatsiana")
+    n = n.replace("yurashkevyvh yurii", "yurashkevych yurii")
+    n = n.replace("tomashewych stanislav", "tomashevych stanislav")
+    return n
+
+def build_employee_lookup(rows=None):
+    rows = rows or read_employees(force=True)
+    by_sap = {}
+    by_name = {}
+    for e in rows:
+        if e.get("sap"):
+            by_sap[e["sap"]] = e
+        if e.get("surname"):
+            by_name[canonical_name_key(e["surname"])] = e
+    return by_sap, by_name
+
+def migrate_rows_surname_to_sap() -> tuple:
+    """Fill missing SAP in old shifts/performance by matching surname to employees."""
+    employees = read_employees(force=True)
+    _, by_name = build_employee_lookup(employees)
+
+    shifts = read_shifts(force=True)
+    shift_changed = 0
+    new_shifts = []
+    for r in shifts:
+        rr = ensure_shift_columns(r)
+        if not rr["sap"] and rr["surname"]:
+            emp = by_name.get(canonical_name_key(rr["surname"]))
+            if emp and emp.get("sap"):
+                rr["sap"] = emp["sap"]
+                rr["surname"] = emp["surname"]
+                shift_changed += 1
+        new_shifts.append(rr)
+    if shift_changed:
+        write_shifts(new_shifts)
+
+    perf = read_perf(force=True)
+    perf_changed = 0
+    new_perf = []
+    for r in perf:
+        rr = ensure_perf_columns(r)
+        if not rr["sap"] and rr["surname"]:
+            emp = by_name.get(canonical_name_key(rr["surname"]))
+            if emp and emp.get("sap"):
+                rr["sap"] = emp["sap"]
+                rr["surname"] = emp["surname"]
+                perf_changed += 1
+        new_perf.append(rr)
+    if perf_changed:
+        write_perf(new_perf)
+
+    return shift_changed, perf_changed
+
+def format_no_sap(rows):
+    items = [r["surname"] for r in rows if r.get("surname") and not r.get("sap")]
+    items = sorted(items, key=safe_lower)
+    return "⚠️ Без SAP:\n\n" + ("\n".join(items) if items else "Усі працівники мають SAP ✅")
 
 def merge_seed_sap():
     rows = read_employees(force=True)
@@ -656,7 +739,7 @@ async def backup_everywhere(context, trigger_chat_id: int, reason: str, caption_
 # ==============================
 
 def emp_display(e):
-    return f"{e['sap'] or 'NO SAP'} — {e['surname']}"
+    return f"{e['sap'] if e['sap'] else '⚠️ NO SAP'} — {e['surname']}"
 
 def shoe_display(e):
     st = safe_lower(e.get("shoe_type", "unknown"))
@@ -913,13 +996,31 @@ async def employee_flow(update, context, text):
         if len(matches) > 1:
             await update.message.reply_text("Знайдено кілька. Введи точніше або SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
             return
-        ud["tmp"]["sap"] = matches[0]["sap"]
+        emp = matches[0]
+        ud["tmp"]["old_sap"] = emp.get("sap", "")
+        ud["tmp"]["old_surname"] = emp.get("surname", "")
+        ud["tmp"]["sap"] = emp.get("sap", "")
+        ud["mode"] = "edit_wait_sap"
+        await update.message.reply_text("Новий SAP або '-' без змін / якщо немає SAP — введи номер:")
+        return
+
+    if ud["mode"] == "edit_wait_sap":
+        if text != "-":
+            if not re.fullmatch(r"\d{6,12}", text):
+                await update.message.reply_text("SAP має бути тільки цифри, наприклад 51011071.")
+                return
+            # prevent duplicate SAP on another worker
+            for e in rows:
+                if e.get("sap") == text and canonical_name_key(e.get("surname","")) != canonical_name_key(ud["tmp"].get("old_surname","")):
+                    await update.message.reply_text("❌ Такий SAP вже є в іншого працівника.")
+                    return
+            ud["tmp"]["sap"] = text
         ud["mode"] = "edit_wait_surname"
         await update.message.reply_text("Нове прізвище або '-' без змін:")
         return
 
     if ud["mode"] == "edit_wait_surname":
-        ud["tmp"]["surname"] = "" if text == "-" else text.upper()
+        ud["tmp"]["surname"] = ud["tmp"].get("old_surname", "") if text == "-" else text.upper()
         ud["mode"] = "edit_wait_locker"
         await update.message.reply_text("Нова шафка або '-' без змін:")
         return
@@ -951,7 +1052,7 @@ async def employee_flow(update, context, text):
         if safe_lower(text) not in {"own", "agency", "unknown", "-"}:
             await update.message.reply_text("Обери own / agency / unknown або '-'.")
             return
-        emp = {"sap": ud["tmp"]["sap"]}
+        emp = {"sap": ud["tmp"].get("sap", ""), "_old_surname": ud["tmp"].get("old_surname", "")}
         for k in ["surname", "knife", "shoe_size"]:
             if ud["tmp"].get(k):
                 emp[k] = ud["tmp"][k]
@@ -959,11 +1060,15 @@ async def employee_flow(update, context, text):
             emp["locker"] = ud["tmp"]["locker"]
         if text != "-":
             emp["shoe_type"] = safe_lower(text)
+
         rows2 = upsert_employee(rows, emp)
         write_employees(rows2)
-        await backup_everywhere(context, update.effective_chat.id, "edit_employee", f"SAP {emp['sap']}")
+
+        shift_m, perf_m = migrate_rows_surname_to_sap()
+
+        await backup_everywhere(context, update.effective_chat.id, "edit_employee", f"SAP {emp.get('sap','')}")
         reset_state(context)
-        await show_employee_menu(update, context, "✅ Зміни збережено.")
+        await show_employee_menu(update, context, f"✅ Зміни збережено.\nОновлено старі записи: зміни {shift_m}, продуктивність {perf_m}")
         return
 
     if ud["mode"] == "delete_wait_query":
@@ -976,7 +1081,10 @@ async def employee_flow(update, context, text):
             await update.message.reply_text("Знайдено кілька. Введи точніше або SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
             return
         deleted = matches[0]
-        write_employees([r for r in rows if r["sap"] != deleted["sap"]])
+        if deleted.get("sap"):
+            write_employees([r for r in rows if r.get("sap") != deleted["sap"]])
+        else:
+            write_employees([r for r in rows if canonical_name_key(r.get("surname","")) != canonical_name_key(deleted.get("surname",""))])
         await backup_everywhere(context, update.effective_chat.id, "delete_employee", emp_display(deleted))
         reset_state(context)
         await show_employee_menu(update, context, f"🗑️ Видалено:\n{emp_display(deleted)}")
@@ -1325,6 +1433,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_btn(text, "Картка"):
             ud["mode"] = "card_wait_query"; ud["tmp"] = {}
             await update.message.reply_text("Введи SAP або частину прізвища:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+        if is_btn(text, "Без SAP"):
+            await update.message.reply_text(format_no_sap(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "З шафкою"):
             await update.message.reply_text(format_with_locker(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "Без шафки"):
@@ -1439,8 +1549,11 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             reset_state(context); set_menu(context, "main")
             msg = "♻️ Відновлено з ZIP ✅\n" + ", ".join(restored)
+            shift_m, perf_m = migrate_rows_surname_to_sap()
             if converted_count:
                 msg += f"\n👤 employees.csv створено/оновлено: {converted_count}"
+            if shift_m or perf_m:
+                msg += f"\n🔗 SAP підтягнуто: зміни {shift_m}, продуктивність {perf_m}"
             await show_main_menu(update, context, msg)
         except Exception as e:
             await update.message.reply_text(f"❌ Помилка ZIP: {e}")
@@ -1491,6 +1604,10 @@ def main():
 
     migrate_old_local_if_needed()
     ensure_all_files()
+    try:
+        migrate_rows_surname_to_sap()
+    except Exception as e:
+        print(f"Migration warning: {e}")
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))

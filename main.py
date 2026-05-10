@@ -37,7 +37,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v13_inline_workplace_picker_data_dir
+# VERSION: main_sap_v14_cards_weekly_shift_defaults
 # ==============================
 # CONFIG
 # ==============================
@@ -61,6 +61,7 @@ OLD_LOCAL_DB_PATH = os.getenv("LOCAL_DB_PATH", os.path.join(DATA_DIR, "local_dat
 SHIFTS_DB_PATH = os.getenv("SHIFTS_DB_PATH", os.path.join(DATA_DIR, "shifts.csv")).strip()
 PERF_DB_PATH = os.getenv("PERF_DB_PATH", os.path.join(DATA_DIR, "performance.csv")).strip()
 SHIFT_SUMMARY_DB_PATH = os.getenv("SHIFT_SUMMARY_DB_PATH", os.path.join(DATA_DIR, "shift_summary.csv")).strip()
+WEEKLY_SHIFT_DB_PATH = os.getenv("WEEKLY_SHIFT_DB_PATH", os.path.join(DATA_DIR, "weekly_shifts.csv")).strip()
 
 BACKUP_CHAT_ID_RAW = os.getenv("BACKUP_CHAT_ID", "").strip()
 BACKUP_CHAT_ID = int(BACKUP_CHAT_ID_RAW) if BACKUP_CHAT_ID_RAW else None
@@ -74,6 +75,7 @@ _employee_cache = {"mtime": None, "rows": []}
 _shift_cache = {"mtime": None, "rows": []}
 _perf_cache = {"mtime": None, "rows": []}
 _summary_cache = {"mtime": None, "rows": []}
+_weekly_cache = {"mtime": None, "rows": []}
 
 # ==============================
 # FIXED SAP LIST
@@ -202,11 +204,12 @@ BTN_SORT_WORKERS = "📌 Сортування працівників"
 BTN_EXPORT_TXT = "📝 Експорт зміни TXT"
 BTN_SHIFT_SUMMARY = "📊 % по зміні"
 BTN_SHIFT_BACKUP = "💾 Backup зміни"
+BTN_WEEKLY_SHIFTS = "📅 Сталі зміни"
 
 WORK_KB = ReplyKeyboardMarkup(
     [
         [BTN_SHIFT_CREATE, BTN_SHIFT_SHOW],
-        [BTN_SPLIT_DAY_NIGHT],
+        [BTN_SPLIT_DAY_NIGHT, BTN_WEEKLY_SHIFTS],
         [BTN_SHIFT_ADD_LIST, BTN_SHIFT_WORKERS],
         [BTN_DISTRIBUTE_WORKERS, BTN_GROUPS_OVERVIEW],
         [BTN_GROUP_ADD_WORKERS],
@@ -754,6 +757,7 @@ EMPLOYEE_FIELDS = ["sap", "surname", "locker", "knife", "shoe_size", "shoe_type"
 SHIFT_FIELDS = ["date", "shift_type", "hala", "group", "sap", "surname"]
 PERF_FIELDS = ["date", "shift_type", "hala", "group", "sap", "surname", "percent"]
 SUMMARY_FIELDS = ["date", "shift_type", "total_percent", "agency_percent"]
+WEEKLY_FIELDS = ["weekday", "sap", "surname", "default_shift"]
 
 def ensure_employee_columns(r: dict) -> dict:
     sap = normalize_text(r.get("sap", "") or r.get("SAP", ""))
@@ -797,6 +801,15 @@ def ensure_summary_columns(r: dict) -> dict:
         "agency_percent": normalize_text(r.get("agency_percent", "")),
     }
 
+
+def ensure_weekly_columns(r: dict) -> dict:
+    return {
+        "weekday": normalize_text(r.get("weekday", "")),
+        "sap": normalize_text(r.get("sap", "")),
+        "surname": normalize_text(r.get("surname", "")).upper(),
+        "default_shift": normalize_shift_type(r.get("default_shift", "")) or "none",
+    }
+
 # ==============================
 # DB
 # ==============================
@@ -813,6 +826,7 @@ def ensure_all_files():
     ensure_file(SHIFTS_DB_PATH, SHIFT_FIELDS)
     ensure_file(PERF_DB_PATH, PERF_FIELDS)
     ensure_file(SHIFT_SUMMARY_DB_PATH, SUMMARY_FIELDS)
+    ensure_file(WEEKLY_SHIFT_DB_PATH, WEEKLY_FIELDS)
 
 
 def _csv_has_rows(path: str) -> bool:
@@ -837,6 +851,7 @@ def copy_legacy_root_files_to_data_if_needed():
         ("shifts.csv", SHIFTS_DB_PATH),
         ("performance.csv", PERF_DB_PATH),
         ("shift_summary.csv", SHIFT_SUMMARY_DB_PATH),
+        ("weekly_shifts.csv", WEEKLY_SHIFT_DB_PATH),
     ]
 
     for legacy_name, target_path in legacy_pairs:
@@ -898,6 +913,12 @@ def read_summary(force=False):
 
 def write_summary(rows):
     write_csv_db(SHIFT_SUMMARY_DB_PATH, SUMMARY_FIELDS, rows, _summary_cache, ensure_summary_columns)
+
+def read_weekly(force=False):
+    return read_csv_cached(WEEKLY_SHIFT_DB_PATH, WEEKLY_FIELDS, _weekly_cache, ensure_weekly_columns, force)
+
+def write_weekly(rows):
+    write_csv_db(WEEKLY_SHIFT_DB_PATH, WEEKLY_FIELDS, rows, _weekly_cache, ensure_weekly_columns)
 
 def employee_by_sap(rows, sap: str):
     sap = normalize_text(sap)
@@ -1515,7 +1536,7 @@ def make_backup_zip(reason: str) -> str:
     ensure_all_files()
     path = os.path.join(BACKUP_DIR, f"backup_{now_ts()}_{reason}.zip")
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        for p in [EMPLOYEES_DB_PATH, SHIFTS_DB_PATH, PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH]:
+        for p in [EMPLOYEES_DB_PATH, SHIFTS_DB_PATH, PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH, WEEKLY_SHIFT_DB_PATH]:
             if os.path.exists(p):
                 z.write(p, arcname=os.path.basename(p))
     return path
@@ -1686,6 +1707,249 @@ def format_sorted_workers(perf_rows, month):
         for avg, cnt, sap, name in rows
     )
 
+
+
+# ==============================
+# INLINE EMPLOYEE LIST / CARD
+# ==============================
+
+EMP_PAGE_SIZE = 8
+
+def employee_list_page(rows: list, page: int = 0):
+    items = sorted([r for r in rows if r.get("surname")], key=lambda e: safe_lower(e.get("surname", "")))
+    total_pages = max(1, (len(items) + EMP_PAGE_SIZE - 1) // EMP_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * EMP_PAGE_SIZE
+    end = min(start + EMP_PAGE_SIZE, len(items))
+
+    lines = [f"👥 Всі працівники", f"Сторінка {page + 1}/{total_pages}", "", "Натисни працівника — відкриється картка:", ""]
+    for i in range(start, end):
+        lines.append(f"{i + 1}. {emp_display(items[i])}")
+    return "\n".join(lines), employee_list_keyboard(items, page)
+
+def employee_list_keyboard(items: list, page: int = 0) -> InlineKeyboardMarkup:
+    total_pages = max(1, (len(items) + EMP_PAGE_SIZE - 1) // EMP_PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    rows = []
+    start = page * EMP_PAGE_SIZE
+    end = min(start + EMP_PAGE_SIZE, len(items))
+    for i in range(start, end):
+        e = items[i]
+        key = e.get("sap") or ("name_" + canonical_name_key(e.get("surname", ""))[:32])
+        rows.append([InlineKeyboardButton(f"👤 {e.get('surname','')[:28]}", callback_data=f"emp:card:{key}:{page}")])
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️ Назад", callback_data=f"emp:page:{page-1}"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("➡️ Далі", callback_data=f"emp:page:{page+1}"))
+    if nav:
+        rows.append(nav)
+    return InlineKeyboardMarkup(rows)
+
+def employee_find_by_callback_key(key: str):
+    rows = read_employees(force=True)
+    if key.startswith("name_"):
+        nk = key[5:]
+        for e in rows:
+            if canonical_name_key(e.get("surname", "")).startswith(nk):
+                return e
+        return None
+    return employee_by_sap(rows, key)
+
+async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    parts = data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+
+    if action == "page":
+        page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
+        text, kb = employee_list_page(read_employees(force=True), page)
+        await query.edit_message_text(text, reply_markup=kb)
+        return
+
+    if action == "card":
+        key = parts[2] if len(parts) > 2 else ""
+        page = parts[3] if len(parts) > 3 else "0"
+        emp = employee_find_by_callback_key(key)
+        if not emp:
+            await query.edit_message_text("❌ Працівника не знайдено. Онови список 👥 Всі.")
+            return
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ До списку", callback_data=f"emp:page:{page}")]])
+        await query.edit_message_text(format_employee_card(emp, read_perf(force=True)), reply_markup=kb)
+        return
+
+# ==============================
+# WEEKLY DEFAULT DAY/NIGHT
+# ==============================
+
+WEEKLY_PAGE_SIZE = 8
+WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"]
+
+def weekday_from_date(date_str: str) -> str:
+    dt = parse_ddmmyyyy(date_str)
+    return str(dt.weekday()) if dt else ""
+
+def weekly_session(context):
+    ud = st(context)
+    ud.setdefault("weekly_picker", {})
+    return ud["weekly_picker"]
+
+def init_weekly_picker(context, weekday: str):
+    employees = sorted_active_employees_for_roster()
+    existing = {(r.get("weekday"), r.get("sap")): r.get("default_shift", "none") for r in read_weekly(force=True)}
+    wp = {
+        "weekday": weekday,
+        "page": 0,
+        "items": [
+            {"sap": e["sap"], "surname": e["surname"], "status": existing.get((weekday, e["sap"]), "none")}
+            for e in employees
+        ],
+    }
+    st(context)["weekly_picker"] = wp
+    return wp
+
+def weekly_counts(wp: dict):
+    day = len([x for x in wp.get("items", []) if x.get("status") == "day"])
+    night = len([x for x in wp.get("items", []) if x.get("status") == "night"])
+    none = len([x for x in wp.get("items", []) if x.get("status") == "none"])
+    return day, night, none
+
+def weekly_page_text(wp: dict) -> str:
+    items = wp.get("items", [])
+    page = int(wp.get("page", 0))
+    total_pages = max(1, (len(items) + WEEKLY_PAGE_SIZE - 1) // WEEKLY_PAGE_SIZE)
+    day, night, none = weekly_counts(wp)
+    weekday = wp.get("weekday", "0")
+    label = WEEKDAY_LABELS[int(weekday)] if weekday.isdigit() and 0 <= int(weekday) <= 6 else weekday
+    lines = [
+        f"📅 Сталі зміни на {label}",
+        f"Сторінка {page + 1}/{total_pages}",
+        f"☀️ Day: {day} | 🌙 Night: {night} | ⬜ Не задано: {none}",
+        "",
+        "Натискай працівника: ⬜ → ☀️ → 🌙 → ⬜",
+        "Це шаблон тижня. На конкретну дату працівника можна перекинути через 🗓 Розподіл day/night.",
+        "",
+    ]
+    start = page * WEEKLY_PAGE_SIZE
+    end = min(start + WEEKLY_PAGE_SIZE, len(items))
+    for i in range(start, end):
+        item = items[i]
+        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} — {item['surname']}")
+    return "\n".join(lines)
+
+def weekly_keyboard(wp: dict) -> InlineKeyboardMarkup:
+    items = wp.get("items", [])
+    page = int(wp.get("page", 0))
+    total_pages = max(1, (len(items) + WEEKLY_PAGE_SIZE - 1) // WEEKLY_PAGE_SIZE)
+    rows = []
+    start = page * WEEKLY_PAGE_SIZE
+    end = min(start + WEEKLY_PAGE_SIZE, len(items))
+    for i in range(start, end):
+        item = items[i]
+        rows.append([InlineKeyboardButton(f"{roster_status_symbol(item['status'])} {i+1}. {item['surname'][:22]}", callback_data=f"weekly:toggle:{i}")])
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅️ Назад", callback_data="weekly:page:prev"))
+    if page < total_pages - 1:
+        nav.append(InlineKeyboardButton("➡️ Далі", callback_data="weekly:page:next"))
+    if nav:
+        rows.append(nav)
+    rows.append([InlineKeyboardButton("✅ Зберегти", callback_data="weekly:save"), InlineKeyboardButton("❌ Скасувати", callback_data="weekly:cancel")])
+    return InlineKeyboardMarkup(rows)
+
+def apply_weekly_picker(wp: dict) -> dict:
+    weekday = wp.get("weekday", "")
+    old = [r for r in read_weekly(force=True) if r.get("weekday") != weekday]
+    new = []
+    for item in wp.get("items", []):
+        if item.get("status") in {"day", "night"}:
+            new.append(ensure_weekly_columns({
+                "weekday": weekday,
+                "sap": item["sap"],
+                "surname": item["surname"],
+                "default_shift": item["status"],
+            }))
+    write_weekly(old + new)
+    day, night, none = weekly_counts(wp)
+    return {"day": day, "night": night, "none": none}
+
+def create_shift_from_weekly(date_str: str, shift_type: str) -> dict:
+    weekday = weekday_from_date(date_str)
+    if weekday == "":
+        return {"added": 0, "already": 0}
+    employees = {e["sap"]: e for e in read_employees(force=True) if e.get("sap")}
+    weekly = [r for r in read_weekly(force=True) if r.get("weekday") == weekday and r.get("default_shift") == shift_type]
+    rows = read_shifts(force=True)
+    existing = {r.get("sap") for r in rows if r.get("date") == date_str and r.get("shift_type") == shift_type and r.get("sap")}
+    opposite = "night" if shift_type == "day" else "day"
+    weekly_saps = {r.get("sap") for r in weekly if r.get("sap")}
+
+    # If worker is in opposite shift this exact date, do not duplicate. Manual date assignment wins.
+    opposite_saps = {r.get("sap") for r in rows if r.get("date") == date_str and r.get("shift_type") == opposite and r.get("sap")}
+    added = 0
+    already = 0
+    for r in weekly:
+        sap = r.get("sap")
+        emp = employees.get(sap)
+        if not sap or not emp or sap in opposite_saps:
+            continue
+        if sap in existing:
+            already += 1
+            continue
+        rows.append(ensure_shift_columns({
+            "date": date_str,
+            "shift_type": shift_type,
+            "hala": "",
+            "group": "",
+            "sap": sap,
+            "surname": emp["surname"],
+        }))
+        existing.add(sap)
+        added += 1
+    if added:
+        write_shifts(rows)
+    return {"added": added, "already": already}
+
+async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    ud = st(context)
+    wp = ud.get("weekly_picker") or {}
+    if not wp:
+        await query.edit_message_text("Сесія сталих змін застаріла. Натисни 📅 Сталі зміни ще раз.")
+        return
+    data = query.data or ""
+    parts = data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    if action == "toggle":
+        idx = int(parts[2])
+        items = wp.get("items", [])
+        if 0 <= idx < len(items):
+            cur = items[idx].get("status", "none")
+            items[idx]["status"] = "day" if cur == "none" else "night" if cur == "day" else "none"
+        await query.edit_message_text(weekly_page_text(wp), reply_markup=weekly_keyboard(wp))
+        return
+    if action == "page":
+        page_action = parts[2] if len(parts) > 2 else ""
+        page = int(wp.get("page", 0))
+        total_pages = max(1, (len(wp.get("items", [])) + WEEKLY_PAGE_SIZE - 1) // WEEKLY_PAGE_SIZE)
+        if page_action == "next": wp["page"] = min(total_pages - 1, page + 1)
+        if page_action == "prev": wp["page"] = max(0, page - 1)
+        await query.edit_message_text(weekly_page_text(wp), reply_markup=weekly_keyboard(wp))
+        return
+    if action == "cancel":
+        ud.pop("weekly_picker", None)
+        await query.edit_message_text("❌ Сталі зміни скасовано. Нічого не змінено.")
+        return
+    if action == "save":
+        await backup_everywhere(context, update.effective_chat.id, "pre_weekly_save")
+        result = apply_weekly_picker(wp)
+        await backup_everywhere(context, update.effective_chat.id, "after_weekly_save")
+        ud.pop("weekly_picker", None)
+        await query.edit_message_text(f"✅ Сталі зміни збережено\n☀️ Day: {result['day']}\n🌙 Night: {result['night']}")
+        return
 
 # ==============================
 # INLINE DAY/NIGHT PICKER
@@ -2176,6 +2440,9 @@ async def show_employee_menu(update, context, text="Меню: Працівник
 async def show_work_menu(update, context, text="Меню: Організація роботи 👇"):
     await update.message.reply_text(text, reply_markup=WORK_KB)
 
+def weekly_weekday_kb():
+    return ReplyKeyboardMarkup([["📅 Пн", "📅 Вт", "📅 Ср"], ["📅 Чт", "📅 Пт", "📅 Сб"], ["📅 Нд"], [BTN_CANCEL]], resize_keyboard=True)
+
 # ==============================
 # COMMANDS
 # ==============================
@@ -2419,9 +2686,16 @@ async def work_flow(update, context, text):
         if not typ:
             await update.message.reply_text("Обери day або night.", reply_markup=shift_type_kb())
             return
-        ud["active_shift"] = {"date": ud["tmp"]["date"], "shift_type": typ}
+        date = ud["tmp"]["date"]
+        ud["active_shift"] = {"date": date, "shift_type": typ}
+        result = create_shift_from_weekly(date, typ)
+        if result.get("added"):
+            await backup_everywhere(context, update.effective_chat.id, "create_shift_from_weekly", f"{date} {typ}: +{result['added']}")
         reset_state(context)
-        await show_work_menu(update, context, f"✅ Активна зміна: {ud['active_shift']['date']} ({shift_type_label(typ)})")
+        msg = f"✅ Активна зміна: {date} ({shift_type_label(typ)})"
+        msg += f"\n👥 Додано зі сталого тижневого шаблону: {result.get('added', 0)}"
+        msg += "\n\nЩоб перекинути когось у іншу зміну на цю дату — натисни 🗓 Розподіл day/night."
+        await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "work_show_date":
@@ -2514,6 +2788,26 @@ async def work_flow(update, context, text):
 
         msg += "\n\nАктивна зміна зараз: day.\nДалі можеш натиснути 🧩 Розподіл по групах."
         await show_work_menu(update, context, msg)
+        return
+
+    if ud["mode"] == "weekly_wait_weekday":
+        weekday_text = safe_lower(text.replace("📅", ""))
+        mapping = {
+            "пн": "0", "понеділок": "0", "monday": "0", "0": "0",
+            "вт": "1", "вівторок": "1", "tuesday": "1", "1": "1",
+            "ср": "2", "середа": "2", "wednesday": "2", "2": "2",
+            "чт": "3", "четвер": "3", "thursday": "3", "3": "3",
+            "пт": "4", "пʼятниця": "4", "пятниця": "4", "friday": "4", "4": "4",
+            "сб": "5", "субота": "5", "saturday": "5", "5": "5",
+            "нд": "6", "неділя": "6", "sunday": "6", "6": "6",
+        }
+        weekday = mapping.get(weekday_text)
+        if weekday is None:
+            await update.message.reply_text("Обери день тижня кнопкою.", reply_markup=weekly_weekday_kb())
+            return
+        reset_state(context)
+        wp = init_weekly_picker(context, weekday)
+        await update.message.reply_text(weekly_page_text(wp), reply_markup=weekly_keyboard(wp))
         return
 
     if ud["mode"] == "shift_add_list_wait_text":
@@ -3039,7 +3333,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_btn(text, "Статистика"):
             await update.message.reply_text(format_stats(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "Всі"):
-            await update.message.reply_text(format_all(rows), reply_markup=EMPLOYEE_KB); return
+            msg, kb = employee_list_page(rows, 0)
+            await update.message.reply_text(msg, reply_markup=kb); return
         if is_btn(text, "Картка"):
             ud["mode"] = "card_wait_query"; ud["tmp"] = {}
             await update.message.reply_text("Введи SAP або частину прізвища:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
@@ -3072,6 +3367,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_btn(text, "Розподіл day/night"):
             ud["mode"] = "split_wait_date"; ud["tmp"] = {}
             await update.message.reply_text("Обери дату для розподілу працівників на day/night:", reply_markup=date_kb()); return
+
+        if is_btn(text, "Сталі зміни"):
+            ud["mode"] = "weekly_wait_weekday"; ud["tmp"] = {}
+            await update.message.reply_text("Обери день тижня для сталого шаблону day/night:", reply_markup=weekly_weekday_kb()); return
 
         if is_btn(text, "Створити зміну"):
             ud["mode"] = "work_create_date"; ud["tmp"] = {}
@@ -3182,6 +3481,7 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     os.path.basename(SHIFTS_DB_PATH),
                     os.path.basename(PERF_DB_PATH),
                     os.path.basename(SHIFT_SUMMARY_DB_PATH),
+                    os.path.basename(WEEKLY_SHIFT_DB_PATH),
                 ]
                 for target in wanted:
                     if extract_named_file_from_zip(z, target, DATA_DIR):
@@ -3329,6 +3629,8 @@ def main():
     app.add_handler(CommandHandler("chatid", cmd_chatid))
     app.add_handler(CommandHandler("paths", cmd_paths))
     app.add_handler(CommandHandler("ocrtest", cmd_ocrtest))
+    app.add_handler(CallbackQueryHandler(employee_callback, pattern=r"^emp:"))
+    app.add_handler(CallbackQueryHandler(weekly_callback, pattern=r"^weekly:"))
     app.add_handler(CallbackQueryHandler(roster_callback, pattern=r"^roster:"))
     app.add_handler(CallbackQueryHandler(workplace_callback, pattern=r"^wp:"))
     app.add_handler(MessageHandler(filters.Document.ALL, on_document))
@@ -3338,3 +3640,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

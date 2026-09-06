@@ -210,7 +210,7 @@ BTN_EXPORT_TXT = "\U0001f4dd \u0415\u043a\u0441\u043f\u043e\u0440\u0442 \u0437\u
 BTN_SHIFT_SUMMARY = "\U0001f4ca % \u043f\u043e \u0437\u043c\u0456\u043d\u0456"
 BTN_SHIFT_BACKUP = "\U0001f4be Backup \u0437\u043c\u0456\u043d\u0438"
 BTN_WEEKLY_SHIFTS = "\U0001f4c5 \u0421\u0442\u0430\u043b\u0456 \u0437\u043c\u0456\u043d\u0438"
-BTN_AGENCY_DYNAMICS = "\U0001f4c8 \u0414\u0438\u043d\u0430\u043c\u0456\u043a\u0430 \u0430\u0433\u0435\u043d\u0446\u0456\u0457"
+BTN_AGENCY_DYNAMICS = "ð ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° Ð²Ð¸Ð´Ð°Ð¹Ð½Ð¾ÑÑÑ"
 
 WORK_KB = ReplyKeyboardMarkup(
     [
@@ -218,8 +218,7 @@ WORK_KB = ReplyKeyboardMarkup(
         [BTN_SHIFT_ADD_LIST, BTN_SHIFT_WORKERS],
         [BTN_IMPORT_PERCENT, BTN_IMPORT_PHOTO],
         [BTN_CLEAR_PERCENT_DATE],
-        [BTN_SHIFT_SUMMARY, BTN_SORT_WORKERS],
-        [BTN_AGENCY_DYNAMICS],
+        [BTN_SORT_WORKERS, BTN_AGENCY_DYNAMICS],
         [BTN_EXPORT_TXT, BTN_SHIFT_BACKUP],
         [BTN_BACK],
     ],
@@ -1805,13 +1804,37 @@ def inactive_employee_candidates(employees, shifts, today=None, days=30):
     return out
 
 
+def inactive_employee_keyboard(employees, shifts, today=None):
+    rows = inactive_employee_candidates(employees, shifts, today=today, days=30)
+    buttons = []
+    for item in rows:
+        e = item["employee"]
+        key = normalize_text(e.get("sap", ""))
+        if not key:
+            continue
+        short_name = normalize_text(e.get("surname", ""))[:18]
+        buttons.append([
+            InlineKeyboardButton(f"ð¦ {short_name}", callback_data=f"inactive:set:{key}"),
+            InlineKeyboardButton("ð ÐÐ¸Ð´Ð°Ð»Ð¸ÑÐ¸", callback_data=f"inactive:delete:{key}"),
+        ])
+    if buttons:
+        buttons.append([InlineKeyboardButton("ð ÐÐ½Ð¾Ð²Ð¸ÑÐ¸ ÑÐ¿Ð¸ÑÐ¾Ðº", callback_data="inactive:refresh")])
+    return InlineKeyboardMarkup(buttons) if buttons else None
+
+
 def format_inactive_30(employees, shifts, today=None):
-    rows=inactive_employee_candidates(employees,shifts,today=today,days=30)
-    if not rows: return "\U0001f552 \u041d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u0456 30+ \u0434\u043d\u0456\u0432\n\n\u2705 \u041d\u0435\u043c\u0430\u0454 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u0438\u0445 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0431\u0435\u0437 \u0437\u043c\u0456\u043d 30+ \u0434\u043d\u0456\u0432."
-    lines=["\U0001f552 \u041d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u0456 30+ \u0434\u043d\u0456\u0432","\u041d\u0435\u043c\u0430\u0454 \u0437\u043c\u0456\u043d\u0438 \u0432 \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u043c\u0443 \u043c\u0456\u0441\u044f\u0446\u0456 + \u043e\u0441\u0442\u0430\u043d\u043d\u044f \u0437\u043c\u0456\u043d\u0430 30+ \u0434\u043d\u0456\u0432 \u0442\u043e\u043c\u0443.",""]
-    for i,item in enumerate(rows,1):
-        e=item["employee"]; lines.append(f"{i}. {e.get('sap','')} \u2014 {e.get('surname','')} \u2014 \u043e\u0441\u0442\u0430\u043d\u043d\u044f {item['last'].strftime('%d.%m.%Y')} ({item['days']} \u0434\u043d.)")
-    lines += ["","\u0412\u0432\u0435\u0434\u0438 \u043d\u043e\u043c\u0435\u0440, SAP \u0430\u0431\u043e \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0435 \u2014 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a \u0441\u0442\u0430\u043d\u0435 inactive. \u0406\u0441\u0442\u043e\u0440\u0456\u044f \u0437\u043c\u0456\u043d \u0456 % \u0437\u0430\u043b\u0438\u0448\u0438\u0442\u044c\u0441\u044f."]
+    rows = inactive_employee_candidates(employees, shifts, today=today, days=30)
+    if not rows:
+        return "ð ÐÐµÐ°ÐºÑÐ¸Ð²Ð½Ñ 30+ Ð´Ð½ÑÐ²\n\nâ ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð±ÐµÐ· Ð·Ð¼ÑÐ½ 30+ Ð´Ð½ÑÐ²."
+    lines = [
+        "ð ÐÐµÐ°ÐºÑÐ¸Ð²Ð½Ñ 30+ Ð´Ð½ÑÐ²",
+        "ÐÐµÐ¼Ð°Ñ Ð·Ð¼ÑÐ½Ð¸ Ð² Ð¿Ð¾ÑÐ¾ÑÐ½Ð¾Ð¼Ñ Ð¼ÑÑÑÑÑ + Ð¾ÑÑÐ°Ð½Ð½Ñ Ð·Ð¼ÑÐ½Ð° 30+ Ð´Ð½ÑÐ² ÑÐ¾Ð¼Ñ.",
+        "",
+    ]
+    for i, item in enumerate(rows, 1):
+        e = item["employee"]
+        lines.append(f"{i}. {e.get('sap','')} â {e.get('surname','')} â Ð¾ÑÑÐ°Ð½Ð½Ñ {item['last'].strftime('%d.%m.%Y')} ({item['days']} Ð´Ð½.)")
+    lines += ["", "ð¦ = Ð¿ÐµÑÐµÐ²ÐµÑÑÐ¸ Ð² inactive   |   ð = Ð²Ð¸Ð´Ð°Ð»Ð¸ÑÐ¸ Ð· Ð±Ð¾ÑÑ", "ÐÑÑÐ»Ñ Ð´ÑÑ ÑÐ¿Ð¸ÑÐ¾Ðº Ð¾Ð½Ð¾Ð²Ð¸ÑÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐ½Ð¾ â Ð² Ð¼ÐµÐ½Ñ Ð·Ð°ÑÐ¾Ð´Ð¸ÑÐ¸ Ð¿Ð¾Ð²ÑÐ¾ÑÐ½Ð¾ Ð½Ðµ Ð¿Ð¾ÑÑÑÐ±Ð½Ð¾."]
     return "\n".join(lines)
 
 
@@ -1832,40 +1855,86 @@ def _shift_back_months(d,n):
     return d.replace(year=y,month=m,day=1)
 
 
-def compute_agency_monthly(summary_rows, perf_rows, shifts_rows):
-    perf_counts={}; shift_counts={}
+def compute_productivity_by_shift(perf_rows):
+    """Automatic agency productivity from imported employee % values; no manual shift summary required."""
+    buckets = {}
     for r in perf_rows:
-        if safe_float(r.get("percent","")) is None: continue
-        k=(r.get("date",""),normalize_shift_type(r.get("shift_type","")) or safe_lower(r.get("shift_type",""))); perf_counts[k]=perf_counts.get(k,0)+1
-    for r in shifts_rows:
-        k=(r.get("date",""),normalize_shift_type(r.get("shift_type","")) or safe_lower(r.get("shift_type",""))); shift_counts[k]=shift_counts.get(k,0)+1
-    months={}
-    for r in summary_rows:
-        agency=safe_float(r.get("agency_percent","")); dt=parse_ddmmyyyy(r.get("date",""))
-        if agency is None or not dt: continue
-        st=normalize_shift_type(r.get("shift_type","")) or safe_lower(r.get("shift_type","")); k=(r.get("date",""),st)
-        weight=perf_counts.get(k) or shift_counts.get(k) or 1; mk=(dt.year,dt.month)
-        b=months.setdefault(mk,{"weighted":0.0,"weight":0}); b["weighted"]+=agency*weight; b["weight"]+=weight
-    for b in months.values(): b["avg"]=b["weighted"]/b["weight"] if b["weight"] else None
-    return months
+        dt = parse_ddmmyyyy(r.get("date", ""))
+        p = safe_float(r.get("percent", ""))
+        st = normalize_shift_type(r.get("shift_type", "")) or safe_lower(r.get("shift_type", ""))
+        sap = normalize_text(r.get("sap", ""))
+        if not dt or p is None or not st or not sap:
+            continue
+        # one employee = one value inside a date/shift; latest duplicate wins
+        buckets.setdefault((dt.date(), st), {})[sap] = p
+    out = []
+    for (d, st), by_sap in buckets.items():
+        vals = list(by_sap.values())
+        if vals:
+            out.append({"date": d, "shift_type": st, "avg": sum(vals) / len(vals), "count": len(vals)})
+    out.sort(key=lambda x: (x["date"], 0 if x["shift_type"] == "day" else 1, x["shift_type"]))
+    return out
+
+
+def compute_productivity_monthly(perf_rows):
+    """Monthly value is the average of shift averages, so every completed shift has equal weight."""
+    months = {}
+    for row in compute_productivity_by_shift(perf_rows):
+        d = row["date"]
+        months.setdefault((d.year, d.month), []).append(row["avg"])
+    return {k: {"avg": sum(v) / len(v), "shifts": len(v)} for k, v in months.items() if v}
 
 
 def format_agency_dynamics(summary_rows, perf_rows, shifts_rows, today=None, completed_months=6):
-    today=today or datetime.now().date(); months=compute_agency_monthly(summary_rows,perf_rows,shifts_rows)
-    lines=["\U0001f4c8 \u0414\u0438\u043d\u0430\u043c\u0456\u043a\u0430 \u0441\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u0457 \u0430\u0433\u0435\u043d\u0446\u0456\u0439\u043d\u043e\u0457 \u0432\u0438\u0434\u0430\u0439\u043d\u043e\u0441\u0442\u0456","\u0421\u0435\u0440\u0435\u0434\u043d\u044f \u0437\u0432\u0430\u0436\u0435\u043d\u0430 \u0437\u0430 \u043a\u0456\u043b\u044c\u043a\u0456\u0441\u0442\u044e \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0443 \u0437\u043c\u0456\u043d\u0430\u0445.",""]
-    cur=months.get((today.year,today.month))
-    if cur and cur.get("avg") is not None: lines += [f"\u041f\u043e\u0442\u043e\u0447\u043d\u0438\u0439 \u043c\u0456\u0441\u044f\u0446\u044c (\u043d\u0435\u043f\u043e\u0432\u043d\u0438\u0439): {UA_MONTHS[today.month]} \u2014 {fmt_percent(cur['avg'])}%",""]
-    completed=[]
-    for n in range(1,18):
-        d=_shift_back_months(today.replace(day=1),n); b=months.get((d.year,d.month))
-        if b and b.get("avg") is not None: completed.append((d,b["avg"])); lines.append(f"{UA_MONTHS[d.month]} {d.year} \u2014 {fmt_percent(b['avg'])}%")
-        if len(completed)>=completed_months: break
-    if completed:
-        lines += ["","\u0417\u043c\u0456\u043d\u0430 \u0434\u043e \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f:"]
-        for i in range(len(completed)-1):
-            nd,nv=completed[i]; od,ov=completed[i+1]; diff=nv-ov; arrow="\u2191" if diff>0.05 else "\u2193" if diff<-0.05 else "\u2192"; sign="+" if diff>0 else ""
-            lines.append(f"{UA_MONTHS[nd.month]} vs {UA_MONTHS[od.month]}: {arrow} {sign}{fmt_percent(diff)} \u043f.\u043f.")
-    if not completed and not cur: return "\U0001f4c8 \u0414\u0438\u043d\u0430\u043c\u0456\u043a\u0430 \u0430\u0433\u0435\u043d\u0446\u0456\u0457\n\n\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043e\u0432\u043d\u0435\u043d\u0438\u0445 \u0437\u043d\u0430\u0447\u0435\u043d\u044c \u00ab\u0410\u0433\u0435\u043d\u0446\u0456\u044f %\u00bb \u0443 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u0446\u0456 \u0437\u043c\u0456\u043d."
+    # summary_rows/shifts_rows kept in signature for compatibility; calculation is fully automatic from performance.csv
+    today = today or datetime.now().date()
+    shift_rows = compute_productivity_by_shift(perf_rows)
+    months = compute_productivity_monthly(perf_rows)
+    current = [r for r in shift_rows if r["date"].year == today.year and r["date"].month == today.month and r["date"] <= today]
+    lines = [
+        "ð ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° Ð²Ð¸Ð´Ð°Ð¹Ð½Ð¾ÑÑÑ",
+        "Ð Ð°ÑÑÑÑÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð°ÑÐ¸ÑÐ½Ð¾ Ð· % Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ². Â«% Ð¿Ð¾ Ð·Ð¼ÑÐ½ÑÂ» Ð·Ð°Ð¿Ð¾Ð²Ð½ÑÐ²Ð°ÑÐ¸ Ð½Ðµ Ð¿Ð¾ÑÑÑÐ±Ð½Ð¾.",
+        "",
+        f"{UA_MONTHS[today.month]} {today.year} â Ð¿Ð¾ ÐºÐ¾Ð¶Ð½ÑÐ¹ Ð·Ð¼ÑÐ½Ñ:",
+    ]
+    if current:
+        for r in current:
+            label = "ÐÐµÐ½Ñ" if r["shift_type"] == "day" else "ÐÑÑ" if r["shift_type"] == "night" else r["shift_type"]
+            lines.append(f"{r['date'].strftime('%d.%m')} {label}: {fmt_percent(r['avg'])}% ({r['count']} Ð¿ÑÐ°Ñ.)")
+        cur_avg = sum(r["avg"] for r in current) / len(current)
+        lines += ["", f"Ð¡ÐµÑÐµÐ´Ð½Ñ Ð·Ð° Ð¿Ð¾ÑÐ¾ÑÐ½Ð¸Ð¹ Ð¼ÑÑÑÑÑ: {fmt_percent(cur_avg)}% ({len(current)} Ð·Ð¼.)"]
+    else:
+        cur_avg = None
+        lines.append("Ð©Ðµ Ð½ÐµÐ¼Ð°Ñ Ð²Ð½ÐµÑÐµÐ½Ð¸Ñ % Ð·Ð° Ð·Ð¼ÑÐ½Ð¸ ÑÑÐ¾Ð³Ð¾ Ð¼ÑÑÑÑÑ.")
+
+    previous = []
+    for n in range(1, 18):
+        d = _shift_back_months(today.replace(day=1), n)
+        b = months.get((d.year, d.month))
+        if b:
+            previous.append((d, b))
+        if len(previous) >= completed_months:
+            break
+
+    if previous:
+        lines += ["", "ÐÐ¾Ð¿ÐµÑÐµÐ´Ð½Ñ Ð¼ÑÑÑÑÑ:"]
+        for d, b in previous:
+            lines.append(f"{UA_MONTHS[d.month]} {d.year}: {fmt_percent(b['avg'])}% ({b['shifts']} Ð·Ð¼.)")
+        if cur_avg is not None:
+            d, b = previous[0]
+            diff = cur_avg - b["avg"]
+            arrow = "â" if diff > 0.05 else "â" if diff < -0.05 else "â"
+            sign = "+" if diff > 0 else ""
+            lines += ["", f"ÐÐ¾ÑÐ¾ÑÐ½Ð¸Ð¹ Ð¼ÑÑÑÑÑ vs {UA_MONTHS[d.month]}: {arrow} {sign}{fmt_percent(diff)} Ð¿.Ð¿."]
+        if len(previous) > 1:
+            lines += ["", "ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° Ð·Ð°Ð²ÐµÑÑÐµÐ½Ð¸Ñ Ð¼ÑÑÑÑÑÐ²:"]
+            for i in range(len(previous) - 1):
+                nd, nb = previous[i]
+                od, ob = previous[i + 1]
+                diff = nb["avg"] - ob["avg"]
+                arrow = "â" if diff > 0.05 else "â" if diff < -0.05 else "â"
+                sign = "+" if diff > 0 else ""
+                lines.append(f"{UA_MONTHS[nd.month]} vs {UA_MONTHS[od.month]}: {arrow} {sign}{fmt_percent(diff)} Ð¿.Ð¿.")
     return "\n".join(lines)
 
 
@@ -1925,7 +1994,7 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if action == "page":
         page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
-        text, kb = employee_list_page(read_employees(force=True), page)
+        text, kb = employee_list_page(active_employee_rows(read_employees(force=True)), page)
         await query.edit_message_text(text, reply_markup=kb)
         return
 
@@ -1939,6 +2008,47 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         kb = InlineKeyboardMarkup([[InlineKeyboardButton("\u2b05\ufe0f \u0414\u043e \u0441\u043f\u0438\u0441\u043a\u0443", callback_data=f"emp:page:{page}")]])
         await query.edit_message_text(format_employee_card(emp, read_perf(force=True)), reply_markup=kb)
         return
+
+async def inactive_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data or ""
+    parts = data.split(":")
+    action = parts[1] if len(parts) > 1 else ""
+    sap = parts[2] if len(parts) > 2 else ""
+
+    employees = read_employees(force=True)
+    shifts = read_shifts(force=True)
+
+    if action == "refresh":
+        kb = inactive_employee_keyboard(employees, shifts)
+        await query.edit_message_text(format_inactive_30(employees, shifts), reply_markup=kb)
+        return
+
+    emp = employee_by_sap(employees, sap)
+    if not emp:
+        kb = inactive_employee_keyboard(employees, shifts)
+        await query.edit_message_text("ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° Ð²Ð¶Ðµ Ð½ÐµÐ¼Ð°Ñ Ð² Ð°ÐºÑÐ¸Ð²Ð½Ð¾Ð¼Ñ ÑÐ¿Ð¸ÑÐºÑ.\n\n" + format_inactive_30(employees, shifts), reply_markup=kb)
+        return
+
+    if action == "set":
+        employees, changed = set_employee_inactive(employees, emp)
+        if changed:
+            write_employees(employees)
+            await backup_everywhere(context, update.effective_chat.id, "archive_inactive_employee", emp_display(emp))
+        note = f"ð¦ ÐÐµÑÐµÐ½ÐµÑÐµÐ½Ð¾ Ð² inactive: {emp_display(emp)}"
+    elif action == "delete":
+        employees = [e for e in employees if normalize_text(e.get("sap", "")) != normalize_text(sap)]
+        write_employees(employees)
+        await backup_everywhere(context, update.effective_chat.id, "delete_inactive_employee", emp_display(emp))
+        note = f"ð ÐÐ¸Ð´Ð°Ð»ÐµÐ½Ð¾ Ð· Ð±Ð¾ÑÑ: {emp_display(emp)}"
+    else:
+        return
+
+    shifts = read_shifts(force=True)
+    kb = inactive_employee_keyboard(employees, shifts)
+    await query.edit_message_text(note + "\n\n" + format_inactive_30(employees, shifts), reply_markup=kb)
+
 
 # ==============================
 # WEEKLY DEFAULT DAY/NIGHT
@@ -3529,9 +3639,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_btn(text, BTN_INACTIVE_30):
             shifts_now = read_shifts(force=True)
             candidates = inactive_employee_candidates(rows, shifts_now)
-            await send_long_text(update, format_inactive_30(rows, shifts_now), reply_markup=EMPLOYEE_KB if not candidates else ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
             if candidates:
-                ud["mode"] = "inactive_archive_wait_query"; ud["tmp"] = {}
+                await update.message.reply_text(format_inactive_30(rows, shifts_now), reply_markup=inactive_employee_keyboard(rows, shifts_now))
+            else:
+                await update.message.reply_text(format_inactive_30(rows, shifts_now), reply_markup=EMPLOYEE_KB)
             return
         if is_btn(text, "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"):
             ud["mode"] = "add_wait_sap"; ud["tmp"] = {}
@@ -3816,6 +3927,7 @@ def main():
     app.add_handler(CommandHandler("paths", cmd_paths))
     app.add_handler(CommandHandler("ocrtest", cmd_ocrtest))
     app.add_handler(CallbackQueryHandler(employee_callback, pattern=r"^emp:"))
+    app.add_handler(CallbackQueryHandler(inactive_callback, pattern=r"^inactive:"))
     app.add_handler(CallbackQueryHandler(weekly_callback, pattern=r"^weekly:"))
     app.add_handler(CallbackQueryHandler(roster_callback, pattern=r"^roster:"))
     app.add_handler(CallbackQueryHandler(workplace_callback, pattern=r"^wp:"))
@@ -3826,6 +3938,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 

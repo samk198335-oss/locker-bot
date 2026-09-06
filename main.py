@@ -333,6 +333,38 @@ def fmt_percent(p):
         return "-"
     return f"{val:.2f}".replace(".", ",")
 
+async def send_long_text(update, text: str, reply_markup=None, chunk_size: int = 3800):
+    """Send long Telegram text safely in several messages (Telegram limit is 4096 chars)."""
+    text = str(text or "")
+    if len(text) <= chunk_size:
+        await update.message.reply_text(text, reply_markup=reply_markup)
+        return
+
+    lines = text.split("\n")
+    chunks = []
+    current = ""
+    for line in lines:
+        candidate = line if not current else current + "\n" + line
+        if len(candidate) <= chunk_size:
+            current = candidate
+            continue
+        if current:
+            chunks.append(current)
+            current = ""
+        # Safety for a single exceptionally long line.
+        while len(line) > chunk_size:
+            chunks.append(line[:chunk_size])
+            line = line[chunk_size:]
+        current = line
+    if current:
+        chunks.append(current)
+
+    for i, chunk in enumerate(chunks):
+        await update.message.reply_text(
+            chunk,
+            reply_markup=reply_markup if i == len(chunks) - 1 else None
+        )
+
 def emoji_by_percent(p: float) -> str:
     # User rule: green only above 100%; 90\u2013100% inclusive is yellow; below 90% is red.
     if p > 100:
@@ -3180,7 +3212,7 @@ async def work_flow(update, context, text):
                 return
             month = dt.strftime("%m.%Y")
         reset_state(context)
-        await update.message.reply_text(format_sorted_workers(read_perf(True), month), reply_markup=WORK_KB)
+        await send_long_text(update, format_sorted_workers(read_perf(True), month), reply_markup=WORK_KB)
         return
 
     if ud["mode"] == "work_export_date":
@@ -3332,13 +3364,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_btn(text, "\u0411\u0435\u0437 SAP"):
             await update.message.reply_text(format_no_sap(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0417 \u0448\u0430\u0444\u043a\u043e\u044e"):
-            await update.message.reply_text(format_with_locker(rows), reply_markup=EMPLOYEE_KB); return
+            await send_long_text(update, format_with_locker(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0411\u0435\u0437 \u0448\u0430\u0444\u043a\u0438"):
-            await update.message.reply_text(format_no_locker(rows), reply_markup=EMPLOYEE_KB); return
+            await send_long_text(update, format_no_locker(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0417 \u043d\u043e\u0436\u0435\u043c"):
-            await update.message.reply_text(format_with_knife(rows), reply_markup=EMPLOYEE_KB); return
+            await send_long_text(update, format_with_knife(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0411\u0435\u0437 \u043d\u043e\u0436\u0430"):
-            await update.message.reply_text(format_no_knife(rows), reply_markup=EMPLOYEE_KB); return
+            await send_long_text(update, format_no_knife(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"):
             ud["mode"] = "add_wait_sap"; ud["tmp"] = {}
             await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 SAP:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
@@ -3630,5 +3662,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 

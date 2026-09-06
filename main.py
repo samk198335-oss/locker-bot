@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+BOT_BUILD = "2026-09-06-day-night-sort-v2"
 import os
 import csv
 import re
@@ -149,30 +150,30 @@ SEED_SAP_LIST = """
 # UI
 # ==============================
 
-BTN_EMPLOYEE_MENU = "ð¤ ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº"
-BTN_WORK_MENU = "ð­ ÐÑÐ³Ð°Ð½ÑÐ·Ð°ÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸"
-BTN_BACKUP = "ð¾ Backup Ð±Ð°Ð·Ð¸"
-BTN_SEED_SAP = "ð§¬ Seed SAP"
-BTN_RESTORE = "â»ï¸ ÐÑÐ´Ð½Ð¾Ð²Ð¸ÑÐ¸ Ð· ÑÐ°Ð¹Ð»Ñ"
-BTN_BACK = "â¬ï¸ ÐÐ°Ð·Ð°Ð´"
-BTN_CANCEL = "â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸"
+BTN_EMPLOYEE_MENU = "\U0001f464 \u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a"
+BTN_WORK_MENU = "\U0001f3ed \u041e\u0440\u0433\u0430\u043d\u0456\u0437\u0430\u0446\u0456\u044f \u0440\u043e\u0431\u043e\u0442\u0438"
+BTN_BACKUP = "\U0001f4be Backup \u0431\u0430\u0437\u0438"
+BTN_SEED_SAP = "\U0001f9ec Seed SAP"
+BTN_RESTORE = "\u267b\ufe0f \u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0437 \u0444\u0430\u0439\u043b\u0443"
+BTN_BACK = "\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434"
+BTN_CANCEL = "\u274c \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438"
 
 MAIN_KB = ReplyKeyboardMarkup(
     [[BTN_EMPLOYEE_MENU, BTN_WORK_MENU], [BTN_BACKUP, BTN_SEED_SAP], [BTN_RESTORE]],
     resize_keyboard=True
 )
 
-BTN_STATS = "ð Ð¡ÑÐ°ÑÐ¸ÑÑÐ¸ÐºÐ°"
-BTN_ALL = "ð¥ ÐÑÑ"
-BTN_CARD = "ð ÐÐ°ÑÑÐºÐ° Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
-BTN_NO_SAP = "â ï¸ ÐÐµÐ· SAP"
-BTN_WITH_LOCKER = "ðï¸ Ð ÑÐ°ÑÐºÐ¾Ñ"
-BTN_NO_LOCKER = "â ÐÐµÐ· ÑÐ°ÑÐºÐ¸"
-BTN_WITH_KNIFE = "ðª Ð Ð½Ð¾Ð¶ÐµÐ¼"
-BTN_NO_KNIFE = "ð« ÐÐµÐ· Ð½Ð¾Ð¶Ð°"
-BTN_ADD = "â ÐÐ¾Ð´Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
-BTN_EDIT = "âï¸ Ð ÐµÐ´Ð°Ð³ÑÐ²Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
-BTN_DELETE = "ðï¸ ÐÐ¸Ð´Ð°Ð»Ð¸ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
+BTN_STATS = "\U0001f4ca \u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430"
+BTN_ALL = "\U0001f465 \u0412\u0441\u0456"
+BTN_CARD = "\U0001f50e \u041a\u0430\u0440\u0442\u043a\u0430 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
+BTN_NO_SAP = "\u26a0\ufe0f \u0411\u0435\u0437 SAP"
+BTN_WITH_LOCKER = "\U0001f5c4\ufe0f \u0417 \u0448\u0430\u0444\u043a\u043e\u044e"
+BTN_NO_LOCKER = "\u26d4 \u0411\u0435\u0437 \u0448\u0430\u0444\u043a\u0438"
+BTN_WITH_KNIFE = "\U0001f52a \u0417 \u043d\u043e\u0436\u0435\u043c"
+BTN_NO_KNIFE = "\U0001f6ab \u0411\u0435\u0437 \u043d\u043e\u0436\u0430"
+BTN_ADD = "\u2795 \u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
+BTN_EDIT = "\u270f\ufe0f \u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
+BTN_DELETE = "\U0001f5d1\ufe0f \u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
 
 EMPLOYEE_KB = ReplyKeyboardMarkup(
     [
@@ -187,25 +188,25 @@ EMPLOYEE_KB = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-BTN_SHIFT_CREATE = "â Ð¡ÑÐ²Ð¾ÑÐ¸ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"
-BTN_SHIFT_SHOW = "ð ÐÐ¾ÐºÐ°Ð·Ð°ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"
-BTN_SPLIT_DAY_NIGHT = "ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night"
-BTN_SHIFT_ADD_LIST = "â ÐÐ¾Ð´Ð°ÑÐ¸ ÑÐ¿Ð¸ÑÐ¾Ðº Ñ Ð·Ð¼ÑÐ½Ñ"
-BTN_SHIFT_WORKERS = "ð· Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð·Ð¼ÑÐ½Ð¸"
-BTN_DISTRIBUTE_WORKERS = "ð§© Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ Ð³ÑÑÐ¿Ð°Ñ"
-BTN_GROUPS_OVERVIEW = "ð¦ ÐÑÑÐ¿Ð¸ Ð·Ð¼ÑÐ½Ð¸"
-BTN_GROUP_ADD_WORKERS = "ð¥ ÐÐ¾Ð´Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ñ Ð³ÑÑÐ¿Ñ"
-BTN_IMPORT_PERCENT = "ð¥ ÐÐ¼Ð¿Ð¾ÑÑ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ"
-BTN_IMPORT_PHOTO = "ð¸ Ð¤Ð¾ÑÐ¾ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ"
-BTN_CLEAR_PERCENT_DATE = "ð§¹ ÐÑÐ¸ÑÑÐ¸ÑÐ¸ % Ð·Ð° Ð´Ð°ÑÑ"
-BTN_CONFIRM_SAVE_IMPORT = "â ÐÐ±ÐµÑÐµÐ³ÑÐ¸ OCR"
-BTN_CANCEL_IMPORT = "â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸ OCR"
-BTN_GROUP_SET_PERCENT = "ð ÐÐ½ÐµÑÑÐ¸ % Ð³ÑÑÐ¿Ð¸"
-BTN_SORT_WORKERS = "ð Ð¡Ð¾ÑÑÑÐ²Ð°Ð½Ð½Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²"
-BTN_EXPORT_TXT = "ð ÐÐºÑÐ¿Ð¾ÑÑ Ð·Ð¼ÑÐ½Ð¸ TXT"
-BTN_SHIFT_SUMMARY = "ð % Ð¿Ð¾ Ð·Ð¼ÑÐ½Ñ"
-BTN_SHIFT_BACKUP = "ð¾ Backup Ð·Ð¼ÑÐ½Ð¸"
-BTN_WEEKLY_SHIFTS = "ð Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸"
+BTN_SHIFT_CREATE = "\u2795 \u0421\u0442\u0432\u043e\u0440\u0438\u0442\u0438 \u0437\u043c\u0456\u043d\u0443"
+BTN_SHIFT_SHOW = "\U0001f4cb \u041f\u043e\u043a\u0430\u0437\u0430\u0442\u0438 \u0437\u043c\u0456\u043d\u0443"
+BTN_SPLIT_DAY_NIGHT = "\U0001f5d3 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night"
+BTN_SHIFT_ADD_LIST = "\u2795 \u0414\u043e\u0434\u0430\u0442\u0438 \u0441\u043f\u0438\u0441\u043e\u043a \u0443 \u0437\u043c\u0456\u043d\u0443"
+BTN_SHIFT_WORKERS = "\U0001f477 \u0421\u043f\u0438\u0441\u043e\u043a \u0437\u043c\u0456\u043d\u0438"
+BTN_DISTRIBUTE_WORKERS = "\U0001f9e9 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b \u043f\u043e \u0433\u0440\u0443\u043f\u0430\u0445"
+BTN_GROUPS_OVERVIEW = "\U0001f4e6 \u0413\u0440\u0443\u043f\u0438 \u0437\u043c\u0456\u043d\u0438"
+BTN_GROUP_ADD_WORKERS = "\U0001f465 \u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0443 \u0433\u0440\u0443\u043f\u0443"
+BTN_IMPORT_PERCENT = "\U0001f4e5 \u0406\u043c\u043f\u043e\u0440\u0442 % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e"
+BTN_IMPORT_PHOTO = "\U0001f4f8 \u0424\u043e\u0442\u043e % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e"
+BTN_CLEAR_PERCENT_DATE = "\U0001f9f9 \u041e\u0447\u0438\u0441\u0442\u0438\u0442\u0438 % \u0437\u0430 \u0434\u0430\u0442\u0443"
+BTN_CONFIRM_SAVE_IMPORT = "\u2705 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 OCR"
+BTN_CANCEL_IMPORT = "\u274c \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 OCR"
+BTN_GROUP_SET_PERCENT = "\U0001f4c8 \u0412\u043d\u0435\u0441\u0442\u0438 % \u0433\u0440\u0443\u043f\u0438"
+BTN_SORT_WORKERS = "\U0001f4cc \u0421\u043e\u0440\u0442\u0443\u0432\u0430\u043d\u043d\u044f \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432"
+BTN_EXPORT_TXT = "\U0001f4dd \u0415\u043a\u0441\u043f\u043e\u0440\u0442 \u0437\u043c\u0456\u043d\u0438 TXT"
+BTN_SHIFT_SUMMARY = "\U0001f4ca % \u043f\u043e \u0437\u043c\u0456\u043d\u0456"
+BTN_SHIFT_BACKUP = "\U0001f4be Backup \u0437\u043c\u0456\u043d\u0438"
+BTN_WEEKLY_SHIFTS = "\U0001f4c5 \u0421\u0442\u0430\u043b\u0456 \u0437\u043c\u0456\u043d\u0438"
 
 WORK_KB = ReplyKeyboardMarkup(
     [
@@ -276,7 +277,7 @@ def extract_date_from_btn(text: str) -> str:
     t = normalize_text(text)
     if t == "-":
         return today_ddmmyyyy()
-    return normalize_text(t.replace("ð", ""))
+    return normalize_text(t.replace("\U0001f4c5", ""))
 
 def date_kb(days_back: int = 14, days_forward: int = 7):
     today = datetime.now().date()
@@ -289,7 +290,7 @@ def date_kb(days_back: int = 14, days_forward: int = 7):
 
     rows, row = [], []
     for s in dates:
-        row.append(KeyboardButton(f"ð {s}"))
+        row.append(KeyboardButton(f"\U0001f4c5 {s}"))
         if len(row) == 3:
             rows.append(row)
             row = []
@@ -300,14 +301,14 @@ def date_kb(days_back: int = 14, days_forward: int = 7):
 
 def normalize_shift_type(text: str) -> str:
     t = safe_lower(text)
-    if t in {"night", "Ð½ÑÑ", "Ð½ÑÑÐ½Ð°"}:
+    if t in {"night", "\u043d\u0456\u0447", "\u043d\u0456\u0447\u043d\u0430"}:
         return "night"
-    if t in {"day", "Ð´ÐµÐ½Ñ", "Ð´ÐµÐ½Ð½Ð°"}:
+    if t in {"day", "\u0434\u0435\u043d\u044c", "\u0434\u0435\u043d\u043d\u0430"}:
         return "day"
     return ""
 
 def shift_type_label(st: str) -> str:
-    return "Ð½ÑÑÐ½Ð°" if safe_lower(st) == "night" else "Ð´ÐµÐ½Ð½Ð°"
+    return "\u043d\u0456\u0447\u043d\u0430" if safe_lower(st) == "night" else "\u0434\u0435\u043d\u043d\u0430"
 
 def shift_type_kb():
     return ReplyKeyboardMarkup([[KeyboardButton("day"), KeyboardButton("night")], [KeyboardButton(BTN_CANCEL)]], resize_keyboard=True)
@@ -333,12 +334,12 @@ def fmt_percent(p):
     return f"{val:.2f}".replace(".", ",")
 
 def emoji_by_percent(p: float) -> str:
-    # User rule: green only above 100%; 90â100% inclusive is yellow; below 90% is red.
+    # User rule: green only above 100%; 90\u2013100% inclusive is yellow; below 90% is red.
     if p > 100:
-        return "ð¢"
+        return "\U0001f7e2"
     if p >= 90:
-        return "ð¡"
-    return "ð´"
+        return "\U0001f7e1"
+    return "\U0001f534"
 
 def locker_has_value(v: str) -> bool:
     """True only when a real locker number/name is stored."""
@@ -346,18 +347,18 @@ def locker_has_value(v: str) -> bool:
     if not v:
         return False
     return safe_lower(v) not in {
-        "-", "â", "â", "0", "0.0", "Ð½ÐµÐ¼Ð°", "Ð½ÐµÐ¼Ð°Ñ", "Ð½ÐµÑ", "Ð½Ñ",
+        "-", "\u2014", "\u2013", "0", "0.0", "\u043d\u0435\u043c\u0430", "\u043d\u0435\u043c\u0430\u0454", "\u043d\u0435\u0442", "\u043d\u0456",
         "no", "none", "null", "false", "brak", "n/a", "na"
     }
 
 def knife_has(v: str) -> bool:
-    return normalize_text(v) in {"1", "2", "yes", "ÑÐ°Ðº", "Ñ"}
+    return normalize_text(v) in {"1", "2", "yes", "\u0442\u0430\u043a", "\u0454"}
 
 def parse_sap_name_line(line: str):
     line = normalize_text(line)
     if not line:
         return None
-    m = re.match(r"^(\d{6,12})\s*[-ââ]\s*(.+)$", line)
+    m = re.match(r"^(\d{6,12})\s*[-\u2013\u2014]\s*(.+)$", line)
     if m:
         return m.group(1), normalize_text(m.group(2)).upper()
     m = re.match(r"^(.+?)\s+(\d{6,12})$", line)
@@ -369,7 +370,7 @@ def parse_sap_percent_line(line: str):
     line = normalize_text(line)
     if not line:
         return None
-    m = re.match(r"^(\d{6,12})\s*[-ââ\s]\s*([0-9]+(?:[,.][0-9]+)?)\s*%?$", line)
+    m = re.match(r"^(\d{6,12})\s*[-\u2013\u2014\s]\s*([0-9]+(?:[,.][0-9]+)?)\s*%?$", line)
     if not m:
         return None
     return m.group(1), str(safe_float(m.group(2)))
@@ -382,7 +383,7 @@ def _normalize_ocr_text_for_numbers(text: str) -> str:
     """
     t = text or ""
     replacements = {
-        "ï¼": "%", "ï¹ª": "%", "ï¼": ",", "ï¼": ".", "â": "-", "â": "-",
+        "\uff05": "%", "\ufe6a": "%", "\uff0c": ",", "\uff0e": ".", "\u2013": "-", "\u2014": "-",
         "O": "0", "o": "0",
     }
     for a, b in replacements.items():
@@ -545,11 +546,11 @@ def import_percent_rows_by_date(date_str: str, parsed_rows: list) -> dict:
 
         shift_types = sorted(set(m["shift_type"] for m in matches))
         if len(shift_types) == 0:
-            missing.append(f"{sap} â {emp['surname']} â {fmt_percent(percent)}%")
+            missing.append(f"{sap} \u2014 {emp['surname']} \u2014 {fmt_percent(percent)}%")
             continue
 
         if len(shift_types) > 1:
-            ambiguous.append(f"{sap} â {emp['surname']} â Ñ day Ñ night")
+            ambiguous.append(f"{sap} \u2014 {emp['surname']} \u2014 \u0454 day \u0456 night")
             continue
 
         m = matches[0]
@@ -583,30 +584,30 @@ def import_percent_rows_by_date(date_str: str, parsed_rows: list) -> dict:
 def format_import_by_date_report(date_str: str, result: dict) -> str:
     imported = result["imported"]
     msg = [
-        f"â ÐÐ¼Ð¿Ð¾ÑÑ Ð·Ð° Ð´Ð°ÑÑ {date_str}",
-        f"Ð Ð¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾ ÑÑÐ´ÐºÑÐ²: {result['parsed_count']}",
-        f"ÐÐ°Ð¿Ð¸ÑÐ°Ð½Ð¾: {result['written_count']}",
+        f"\u2705 \u0406\u043c\u043f\u043e\u0440\u0442 \u0437\u0430 \u0434\u0430\u0442\u0443 {date_str}",
+        f"\u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u043d\u043e \u0440\u044f\u0434\u043a\u0456\u0432: {result['parsed_count']}",
+        f"\u0417\u0430\u043f\u0438\u0441\u0430\u043d\u043e: {result['written_count']}",
     ]
 
     if imported:
-        msg.append("\nð ÐÐ°Ð¿Ð¸ÑÐ°Ð½Ð¾:")
+        msg.append("\n\U0001f4cc \u0417\u0430\u043f\u0438\u0441\u0430\u043d\u043e:")
         for r in imported[:30]:
-            msg.append(f"{r['sap']} â {r['surname']} â {shift_type_label(r['shift_type'])} â {fmt_percent(r['percent'])}%")
+            msg.append(f"{r['sap']} \u2014 {r['surname']} \u2014 {shift_type_label(r['shift_type'])} \u2014 {fmt_percent(r['percent'])}%")
         if len(imported) > 30:
-            msg.append(f"... ÑÐµ {len(imported)-30}")
+            msg.append(f"... \u0449\u0435 {len(imported)-30}")
 
     if result["missing"]:
-        msg.append("\nâ ï¸ SAP Ñ Ð² Ð±Ð°Ð·Ñ, Ð°Ð»Ðµ Ð½Ðµ Ð´Ð¾Ð´Ð°Ð½Ð¸Ð¹ Ñ day/night Ð½Ð° ÑÑ Ð´Ð°ÑÑ:")
+        msg.append("\n\u26a0\ufe0f SAP \u0454 \u0432 \u0431\u0430\u0437\u0456, \u0430\u043b\u0435 \u043d\u0435 \u0434\u043e\u0434\u0430\u043d\u0438\u0439 \u0443 day/night \u043d\u0430 \u0446\u044e \u0434\u0430\u0442\u0443:")
         msg.extend(result["missing"][:25])
         if len(result["missing"]) > 25:
-            msg.append(f"... ÑÐµ {len(result['missing'])-25}")
+            msg.append(f"... \u0449\u0435 {len(result['missing'])-25}")
 
     if result["ambiguous"]:
-        msg.append("\nâ ï¸ SAP Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¸Ð¹ Ñ Ð² day, Ñ Ð² night â ÑÑÐµÐ±Ð° ÑÑÐ¾ÑÐ½Ð¸ÑÐ¸ Ð²ÑÑÑÐ½Ñ:")
+        msg.append("\n\u26a0\ufe0f SAP \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u0438\u0439 \u0456 \u0432 day, \u0456 \u0432 night \u2014 \u0442\u0440\u0435\u0431\u0430 \u0443\u0442\u043e\u0447\u043d\u0438\u0442\u0438 \u0432\u0440\u0443\u0447\u043d\u0443:")
         msg.extend(result["ambiguous"][:25])
 
     if result["unknown_sap"]:
-        msg.append("\nâ SAP Ð½ÐµÐ¼Ð°Ñ Ð² Ð±Ð°Ð·Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²:")
+        msg.append("\n\u274c SAP \u043d\u0435\u043c\u0430\u0454 \u0432 \u0431\u0430\u0437\u0456 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432:")
         msg.extend(result["unknown_sap"][:25])
 
     return "\n".join(msg)
@@ -648,11 +649,11 @@ def build_import_preview_by_date(date_str: str, parsed_rows: list) -> dict:
 
         shift_types = sorted(set(m["shift_type"] for m in matches))
         if len(shift_types) == 0:
-            missing.append(f"{sap} â {emp['surname']} â {fmt_percent(percent)}%")
+            missing.append(f"{sap} \u2014 {emp['surname']} \u2014 {fmt_percent(percent)}%")
             continue
 
         if len(shift_types) > 1:
-            ambiguous.append(f"{sap} â {emp['surname']} â Ñ day Ñ night")
+            ambiguous.append(f"{sap} \u2014 {emp['surname']} \u2014 \u0454 day \u0456 night")
             continue
 
         m = matches[0]
@@ -680,32 +681,32 @@ def format_import_preview_report(result: dict) -> str:
     date_str = result["date"]
 
     msg = [
-        f"ð§ª ÐÐ¾Ð¿ÐµÑÐµÐ´Ð½ÑÐ¹ Ð¿ÐµÑÐµÐ³Ð»ÑÐ´ OCR Ð·Ð° {date_str}",
-        f"Ð Ð¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾ ÑÑÐ´ÐºÑÐ²: {result['parsed_count']}",
-        f"ÐÐ¾ÑÐ¾Ð²Ð¾ Ð´Ð¾ Ð·Ð°Ð¿Ð¸ÑÑ: {len(preview)}",
+        f"\U0001f9ea \u041f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u0456\u0439 \u043f\u0435\u0440\u0435\u0433\u043b\u044f\u0434 OCR \u0437\u0430 {date_str}",
+        f"\u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u043d\u043e \u0440\u044f\u0434\u043a\u0456\u0432: {result['parsed_count']}",
+        f"\u0413\u043e\u0442\u043e\u0432\u043e \u0434\u043e \u0437\u0430\u043f\u0438\u0441\u0443: {len(preview)}",
     ]
 
     if preview:
-        msg.append("\\nð ÐÑÐ´Ðµ Ð·Ð°Ð¿Ð¸ÑÐ°Ð½Ð¾:")
+        msg.append("\\n\U0001f4cc \u0411\u0443\u0434\u0435 \u0437\u0430\u043f\u0438\u0441\u0430\u043d\u043e:")
         for r in preview[:35]:
-            msg.append(f"{r['sap']} â {r['surname']} â {shift_type_label(r['shift_type'])} â {fmt_percent(r['percent'])}%")
+            msg.append(f"{r['sap']} \u2014 {r['surname']} \u2014 {shift_type_label(r['shift_type'])} \u2014 {fmt_percent(r['percent'])}%")
         if len(preview) > 35:
-            msg.append(f"... ÑÐµ {len(preview)-35}")
+            msg.append(f"... \u0449\u0435 {len(preview)-35}")
 
     if result["missing"]:
-        msg.append("\\nâ ï¸ SAP Ñ Ð² Ð±Ð°Ð·Ñ, Ð°Ð»Ðµ Ð½Ðµ Ð´Ð¾Ð´Ð°Ð½Ð¸Ð¹ Ñ day/night Ð½Ð° ÑÑ Ð´Ð°ÑÑ:")
+        msg.append("\\n\u26a0\ufe0f SAP \u0454 \u0432 \u0431\u0430\u0437\u0456, \u0430\u043b\u0435 \u043d\u0435 \u0434\u043e\u0434\u0430\u043d\u0438\u0439 \u0443 day/night \u043d\u0430 \u0446\u044e \u0434\u0430\u0442\u0443:")
         msg.extend(result["missing"][:20])
 
     if result["ambiguous"]:
-        msg.append("\\nâ ï¸ SAP Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¸Ð¹ Ñ Ð² day, Ñ Ð² night â Ð½Ðµ Ð±ÑÐ´Ðµ Ð·Ð°Ð¿Ð¸ÑÐ°Ð½Ð¾:")
+        msg.append("\\n\u26a0\ufe0f SAP \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u0438\u0439 \u0456 \u0432 day, \u0456 \u0432 night \u2014 \u043d\u0435 \u0431\u0443\u0434\u0435 \u0437\u0430\u043f\u0438\u0441\u0430\u043d\u043e:")
         msg.extend(result["ambiguous"][:20])
 
     if result["unknown_sap"]:
-        msg.append("\\nâ SAP Ð½ÐµÐ¼Ð°Ñ Ð² Ð±Ð°Ð·Ñ:")
+        msg.append("\\n\u274c SAP \u043d\u0435\u043c\u0430\u0454 \u0432 \u0431\u0430\u0437\u0456:")
         msg.extend(result["unknown_sap"][:20])
 
-    msg.append("\\nÐ¯ÐºÑÐ¾ Ð²ÑÐµ Ð¿ÑÐ°Ð²Ð¸Ð»ÑÐ½Ð¾ â Ð½Ð°ÑÐ¸ÑÐ½Ð¸ â ÐÐ±ÐµÑÐµÐ³ÑÐ¸ OCR.")
-    msg.append("Ð¯ÐºÑÐ¾ Ñ Ð¿Ð¾Ð¼Ð¸Ð»ÐºÐ¸ â Ð½Ð°ÑÐ¸ÑÐ½Ð¸ â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸ OCR.")
+    msg.append("\\n\u042f\u043a\u0449\u043e \u0432\u0441\u0435 \u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u043e \u2014 \u043d\u0430\u0442\u0438\u0441\u043d\u0438 \u2705 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 OCR.")
+    msg.append("\u042f\u043a\u0449\u043e \u0454 \u043f\u043e\u043c\u0438\u043b\u043a\u0438 \u2014 \u043d\u0430\u0442\u0438\u0441\u043d\u0438 \u274c \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 OCR.")
 
     return "\\n".join(msg)
 
@@ -1024,12 +1025,12 @@ def shift_rows_for_active(active: dict, force=True):
 def format_shift_workers_numbered(active: dict) -> str:
     rows = shift_rows_for_active(active, force=True)
     if not rows:
-        return "Ð£ ÑÑÐ¹ Ð·Ð¼ÑÐ½Ñ ÑÐµ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²."
+        return "\u0423 \u0446\u0456\u0439 \u0437\u043c\u0456\u043d\u0456 \u0449\u0435 \u043d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432."
 
     rows = sorted(rows, key=lambda r: safe_lower(r.get("surname", "")))
-    lines = [f"ð· Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð·Ð¼ÑÐ½Ð¸ {active['date']} ({shift_type_label(active['shift_type'])})\n"]
+    lines = [f"\U0001f477 \u0421\u043f\u0438\u0441\u043e\u043a \u0437\u043c\u0456\u043d\u0438 {active['date']} ({shift_type_label(active['shift_type'])})\n"]
     for i, r in enumerate(rows, start=1):
-        lines.append(f"{i}. {r['sap']} â {r['surname']}")
+        lines.append(f"{i}. {r['sap']} \u2014 {r['surname']}")
     return "\n".join(lines)
 
 
@@ -1040,12 +1041,12 @@ def sorted_active_employees_for_roster() -> list:
 def format_all_employees_numbered_for_roster(date_str: str) -> str:
     employees = sorted_active_employees_for_roster()
     if not employees:
-        return "Ð£ Ð±Ð°Ð·Ñ Ð½ÐµÐ¼Ð°Ñ Ð°ÐºÑÐ¸Ð²Ð½Ð¸Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² ÑÐ· SAP."
+        return "\u0423 \u0431\u0430\u0437\u0456 \u043d\u0435\u043c\u0430\u0454 \u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0456\u0437 SAP."
 
-    lines = [f"ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night Ð·Ð° {date_str}\n", "ÐÐ¸Ð±Ð¸ÑÐ°Ð¹ Ð½Ð¾Ð¼ÐµÑÐ¸ Ð·Ñ ÑÐ¿Ð¸ÑÐºÑ:", ""]
+    lines = [f"\U0001f5d3 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night \u0437\u0430 {date_str}\n", "\u0412\u0438\u0431\u0438\u0440\u0430\u0439 \u043d\u043e\u043c\u0435\u0440\u0438 \u0437\u0456 \u0441\u043f\u0438\u0441\u043a\u0443:", ""]
     for i, e in enumerate(employees, start=1):
-        lines.append(f"{i}. {e['sap']} â {e['surname']}")
-    lines.append("\nÐ¤Ð¾ÑÐ¼Ð°Ñ: 1,2,5-9")
+        lines.append(f"{i}. {e['sap']} \u2014 {e['surname']}")
+    lines.append("\n\u0424\u043e\u0440\u043c\u0430\u0442: 1,2,5-9")
     return "\n".join(lines)
 
 def set_shift_members_for_date(date_str: str, shift_type: str, selected_indexes: list) -> dict:
@@ -1074,8 +1075,8 @@ def set_shift_members_for_date(date_str: str, shift_type: str, selected_indexes:
             existing_group[r["sap"]] = (r.get("hala", ""), r.get("group", ""))
 
     # Remove:
-    # 1) all rows of this shift for the date â then recreate selected cleanly
-    # 2) selected workers from the opposite shift â no double day/night assignment
+    # 1) all rows of this shift for the date \u2014 then recreate selected cleanly
+    # 2) selected workers from the opposite shift \u2014 no double day/night assignment
     kept = []
     removed_from_same = 0
     removed_from_opposite = 0
@@ -1115,7 +1116,7 @@ def count_shift_members(date_str: str, shift_type: str) -> int:
 def format_groups_overview(active: dict) -> str:
     rows = shift_rows_for_active(active, force=True)
     if not rows:
-        return "Ð£ ÑÑÐ¹ Ð·Ð¼ÑÐ½Ñ ÑÐµ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²."
+        return "\u0423 \u0446\u0456\u0439 \u0437\u043c\u0456\u043d\u0456 \u0449\u0435 \u043d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432."
 
     groups = {}
     for r in rows:
@@ -1128,16 +1129,16 @@ def format_groups_overview(active: dict) -> str:
         safe_lower(k[1])
     ))
 
-    out = [f"ð¦ ÐÑÑÐ¿Ð¸ Ð·Ð¼ÑÐ½Ð¸ {active['date']} ({shift_type_label(active['shift_type'])})"]
+    out = [f"\U0001f4e6 \u0413\u0440\u0443\u043f\u0438 \u0437\u043c\u0456\u043d\u0438 {active['date']} ({shift_type_label(active['shift_type'])})"]
     total = 0
     for hala, group in ordered_keys:
         members = sorted(groups[(hala, group)], key=lambda r: safe_lower(r["surname"]))
         total += len(members)
-        title = f"{hala}/{group}".strip("/") if hala or group else "â¬ ÐÐµÐ· Ð³ÑÑÐ¿Ð¸"
+        title = f"{hala}/{group}".strip("/") if hala or group else "\u2b1c \u0411\u0435\u0437 \u0433\u0440\u0443\u043f\u0438"
         out.append(f"\n{title} ({len(members)})")
         for r in members:
-            out.append(f"â¢ {r['sap']} â {r['surname']}")
-    out.append(f"\nÐÑÑÐ¾Ð³Ð¾: {total}")
+            out.append(f"\u2022 {r['sap']} \u2014 {r['surname']}")
+    out.append(f"\n\u0412\u0441\u044c\u043e\u0433\u043e: {total}")
     return "\n".join(out)
 
 def add_workers_to_shift_unassigned(active: dict, lines: list, employees: list, hala: str = "") -> dict:
@@ -1163,7 +1164,7 @@ def add_workers_to_shift_unassigned(active: dict, lines: list, employees: list, 
 
         sap = emp["sap"]
         if sap in existing_saps:
-            already.append(f"{sap} â {emp['surname']}")
+            already.append(f"{sap} \u2014 {emp['surname']}")
             continue
 
         all_rows.append(ensure_shift_columns({
@@ -1311,7 +1312,7 @@ def migrate_rows_surname_to_sap() -> tuple:
 def format_no_sap(rows):
     items = [r["surname"] for r in rows if r.get("surname") and not r.get("sap")]
     items = sorted(items, key=safe_lower)
-    return "â ï¸ ÐÐµÐ· SAP:\n\n" + ("\n".join(items) if items else "Ð£ÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ¸ Ð¼Ð°ÑÑÑ SAP â")
+    return "\u26a0\ufe0f \u0411\u0435\u0437 SAP:\n\n" + ("\n".join(items) if items else "\u0423\u0441\u0456 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0438 \u043c\u0430\u044e\u0442\u044c SAP \u2705")
 
 def merge_seed_sap():
     rows = read_employees(force=True)
@@ -1554,14 +1555,14 @@ async def send_backup_to_chat(context, chat_id, file_path, caption):
 
 async def backup_everywhere(context, trigger_chat_id: int, reason: str, caption_extra: str = ""):
     path = make_backup_zip(reason)
-    caption = f"ð¾ Backup â¢ {reason}\n{os.path.basename(path)}"
+    caption = f"\U0001f4be Backup \u2022 {reason}\n{os.path.basename(path)}"
     if caption_extra:
         caption += f"\n{caption_extra}"
     if BACKUP_CHAT_ID:
         try:
             await send_backup_to_chat(context, BACKUP_CHAT_ID, path, caption)
         except Exception as e:
-            await context.bot.send_message(chat_id=trigger_chat_id, text=f"â ï¸ Backup Ñ Ð³ÑÑÐ¿Ñ Ð½Ðµ Ð²ÑÐ´Ð¿ÑÐ°Ð²Ð¸Ð²ÑÑ: {e}")
+            await context.bot.send_message(chat_id=trigger_chat_id, text=f"\u26a0\ufe0f Backup \u0443 \u0433\u0440\u0443\u043f\u0443 \u043d\u0435 \u0432\u0456\u0434\u043f\u0440\u0430\u0432\u0438\u0432\u0441\u044f: {e}")
     return [path]
 
 # ==============================
@@ -1569,11 +1570,11 @@ async def backup_everywhere(context, trigger_chat_id: int, reason: str, caption_
 # ==============================
 
 def emp_display(e):
-    return f"{e['sap'] if e['sap'] else 'â ï¸ NO SAP'} â {e['surname']}"
+    return f"{e['sap'] if e['sap'] else '\u26a0\ufe0f NO SAP'} \u2014 {e['surname']}"
 
 def shoe_display(e):
     st = safe_lower(e.get("shoe_type", "unknown"))
-    label = "ÑÐ²Ð¾Ñ" if st == "own" else "Ð²Ð¸Ð´Ð°Ð½Ð¾ Ð°Ð³ÐµÐ½ÑÑÑÑ" if st == "agency" else "Ð½Ðµ Ð²ÐºÐ°Ð·Ð°Ð½Ð¾"
+    label = "\u0441\u0432\u043e\u0454" if st == "own" else "\u0432\u0438\u0434\u0430\u043d\u043e \u0430\u0433\u0435\u043d\u0446\u0456\u0454\u044e" if st == "agency" else "\u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e"
     size = e.get("shoe_size", "")
     if size and st != "unknown":
         return f"{size}, {label}"
@@ -1591,49 +1592,49 @@ def format_employee_card(emp, perf_rows):
         avg = sum(nums) / len(nums)
 
     return (
-        "ð¤ ÐÐ°ÑÑÐºÐ° Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°\n\n"
+        "\U0001f464 \u041a\u0430\u0440\u0442\u043a\u0430 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430\n\n"
         f"SAP: {emp['sap'] or '-'}\n"
-        f"ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº: {emp['surname'] or '-'}\n"
-        f"Ð¨Ð°ÑÐºÐ°: {emp['locker'] or '-'}\n"
-        f"ÐÑÐ¶: {'Ñ' if knife_has(emp['knife']) else 'Ð½ÐµÐ¼Ð°Ñ'}\n"
-        f"ÐÐ·ÑÑÑÑ: {shoe_display(emp)}\n"
-        f"Ð¡ÑÐ°ÑÑÑ: {emp['status'] or 'active'}\n\n"
-        "ð ÐÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ:\n"
-        f"ÐÑÑÐ°Ð½Ð½Ñ: {(last['date'] + ' â ' + fmt_percent(last['percent']) + '%') if last else '-'}\n"
-        f"Ð¡ÐµÑÐµÐ´Ð½Ñ: {(fmt_percent(avg) + '%') if avg is not None else '-'}"
+        f"\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a: {emp['surname'] or '-'}\n"
+        f"\u0428\u0430\u0444\u043a\u0430: {emp['locker'] or '-'}\n"
+        f"\u041d\u0456\u0436: {'\u0454' if knife_has(emp['knife']) else '\u043d\u0435\u043c\u0430\u0454'}\n"
+        f"\u0412\u0437\u0443\u0442\u0442\u044f: {shoe_display(emp)}\n"
+        f"\u0421\u0442\u0430\u0442\u0443\u0441: {emp['status'] or 'active'}\n\n"
+        "\U0001f4ca \u041f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c:\n"
+        f"\u041e\u0441\u0442\u0430\u043d\u043d\u044f: {(last['date'] + ' \u2014 ' + fmt_percent(last['percent']) + '%') if last else '-'}\n"
+        f"\u0421\u0435\u0440\u0435\u0434\u043d\u044f: {(fmt_percent(avg) + '%') if avg is not None else '-'}"
     )
 
 def format_all(rows):
     items = sorted([emp_display(r) for r in rows if r["surname"]], key=safe_lower)
-    return "ð¥ ÐÑÑ:\n\n" + ("\n".join(items) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
+    return "\U0001f465 \u0412\u0441\u0456:\n\n" + ("\n".join(items) if items else "\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445")
 
 def format_with_locker(rows):
-    items = [f"{emp_display(r)} â ÑÐ°ÑÐºÐ° {r['locker']}" for r in rows if r["surname"] and locker_has_value(r["locker"])]
-    return "ðï¸ Ð ÑÐ°ÑÐºÐ¾Ñ:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
+    items = [f"{emp_display(r)} \u2014 \u0448\u0430\u0444\u043a\u0430 {r['locker']}" for r in rows if r["surname"] and locker_has_value(r["locker"])]
+    return "\U0001f5c4\ufe0f \u0417 \u0448\u0430\u0444\u043a\u043e\u044e:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445")
 
 def format_no_locker(rows):
     items = [emp_display(r) for r in rows if r["surname"] and not locker_has_value(r["locker"])]
-    return "â ÐÐµÐ· ÑÐ°ÑÐºÐ¸:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
+    return "\u26d4 \u0411\u0435\u0437 \u0448\u0430\u0444\u043a\u0438:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445")
 
 def format_with_knife(rows):
     items = [emp_display(r) for r in rows if r["surname"] and knife_has(r["knife"])]
-    return "ðª Ð Ð½Ð¾Ð¶ÐµÐ¼:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
+    return "\U0001f52a \u0417 \u043d\u043e\u0436\u0435\u043c:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445")
 
 def format_no_knife(rows):
     items = [emp_display(r) for r in rows if r["surname"] and not knife_has(r["knife"])]
-    return "ð« ÐÐµÐ· Ð½Ð¾Ð¶Ð°:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
+    return "\U0001f6ab \u0411\u0435\u0437 \u043d\u043e\u0436\u0430:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445")
 
 def format_stats(rows):
     only = [r for r in rows if r["surname"]]
     return (
-        "ð Ð¡ÑÐ°ÑÐ¸ÑÑÐ¸ÐºÐ°:\n\n"
-        f"ÐÑÑÐ¾Ð³Ð¾: {len(only)}\n"
-        f"Ð SAP: {len([r for r in only if r['sap']])}\n"
-        f"ÐÐµÐ· SAP: {len([r for r in only if not r['sap']])}\n"
-        f"ðï¸ Ð ÑÐ°ÑÐºÐ¾Ñ: {len([r for r in only if locker_has_value(r['locker'])])}\n"
-        f"â ÐÐµÐ· ÑÐ°ÑÐºÐ¸: {len([r for r in only if not locker_has_value(r['locker'])])}\n"
-        f"ðª Ð Ð½Ð¾Ð¶ÐµÐ¼: {len([r for r in only if knife_has(r['knife'])])}\n"
-        f"ð« ÐÐµÐ· Ð½Ð¾Ð¶Ð°: {len([r for r in only if not knife_has(r['knife'])])}"
+        "\U0001f4ca \u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430:\n\n"
+        f"\u0412\u0441\u044c\u043e\u0433\u043e: {len(only)}\n"
+        f"\u0417 SAP: {len([r for r in only if r['sap']])}\n"
+        f"\u0411\u0435\u0437 SAP: {len([r for r in only if not r['sap']])}\n"
+        f"\U0001f5c4\ufe0f \u0417 \u0448\u0430\u0444\u043a\u043e\u044e: {len([r for r in only if locker_has_value(r['locker'])])}\n"
+        f"\u26d4 \u0411\u0435\u0437 \u0448\u0430\u0444\u043a\u0438: {len([r for r in only if not locker_has_value(r['locker'])])}\n"
+        f"\U0001f52a \u0417 \u043d\u043e\u0436\u0435\u043c: {len([r for r in only if knife_has(r['knife'])])}\n"
+        f"\U0001f6ab \u0411\u0435\u0437 \u043d\u043e\u0436\u0430: {len([r for r in only if not knife_has(r['knife'])])}"
     )
 
 def get_shift_summary(summary_rows, date_str, shift_type):
@@ -1648,23 +1649,23 @@ def compute_shift_avg(perf_rows, date_str, st):
 
 def format_shift(date_str, st, shifts_rows, perf_rows, summary_rows):
     items = [r for r in shifts_rows if r["date"] == date_str and safe_lower(r["shift_type"]) == safe_lower(st)]
-    header = f"{date_str} ({shift_type_label(st)} Ð·Ð¼ÑÐ½Ð°)\n"
+    header = f"{date_str} ({shift_type_label(st)} \u0437\u043c\u0456\u043d\u0430)\n"
     summ = get_shift_summary(summary_rows, date_str, st)
     if summ:
-        header += f"ÐÐ°Ð³Ð°Ð»ÑÐ½Ð¸Ð¹ %: {summ['total_percent'] or '-'} | ÐÐ³ÐµÐ½ÑÑÑ %: {summ['agency_percent'] or '-'}\n"
+        header += f"\u0417\u0430\u0433\u0430\u043b\u044c\u043d\u0438\u0439 %: {summ['total_percent'] or '-'} | \u0410\u0433\u0435\u043d\u0446\u0456\u044f %: {summ['agency_percent'] or '-'}\n"
     avg = compute_shift_avg(perf_rows, date_str, st)
     if avg is not None:
-        header += f"Ð¡ÐµÑÐµÐ´Ð½ÑÐ¹ % Ð¿Ð¾ SAP: {fmt_percent(avg)}%\n"
+        header += f"\u0421\u0435\u0440\u0435\u0434\u043d\u0456\u0439 % \u043f\u043e SAP: {fmt_percent(avg)}%\n"
     if not items:
-        return header + "ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ñ Ð·Ð¼ÑÐ½Ñ."
+        return header + "\u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0443 \u0437\u043c\u0456\u043d\u0456."
 
     perf_map = {r["sap"]: r["percent"] for r in perf_rows if r["date"] == date_str and safe_lower(r["shift_type"]) == safe_lower(st) and r.get("sap")}
     items = sorted(items, key=lambda r: safe_lower(r.get("surname", "")))
     lines = []
     for r in items:
         p = perf_map.get(r.get("sap", ""))
-        tail = f" â {fmt_percent(p)}%" if p else ""
-        lines.append(f"{r['sap']} â {r['surname']}{tail}")
+        tail = f" \u2014 {fmt_percent(p)}%" if p else ""
+        lines.append(f"{r['sap']} \u2014 {r['surname']}{tail}")
     return (header + "\n" + "\n".join(lines)).strip()
 
 
@@ -1688,16 +1689,16 @@ def compute_worker_averages(perf_rows, month: str = ""):
 def format_sorted_workers(perf_rows, month: str = ""):
     avgs = compute_worker_averages(perf_rows, month)
     if not avgs:
-        suffix = f" Ð·Ð° {month}" if month else ""
-        return f"ÐÐµÐ¼Ð°Ñ Ð·Ð°Ð¿Ð¸ÑÑÐ² Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½Ð¾ÑÑÑ Ð´Ð»Ñ ÑÐ¾ÑÑÑÐ²Ð°Ð½Ð½Ñ{suffix}."
+        suffix = f" \u0437\u0430 {month}" if month else ""
+        return f"\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u0438\u0441\u0456\u0432 \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u043e\u0441\u0442\u0456 \u0434\u043b\u044f \u0441\u043e\u0440\u0442\u0443\u0432\u0430\u043d\u043d\u044f{suffix}."
     rows = sorted(
         [(avg, cnt, sap, name) for sap, (avg, cnt, name) in avgs.items()],
         key=lambda x: (-x[0], -x[1], safe_lower(x[3]), x[2])
     )
-    title = "ð ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ¸ Ð·Ð° ÑÐµÑÐµÐ´Ð½ÑÐ¾Ñ Ð²Ð¸Ð´Ð°Ð¹Ð½ÑÑÑÑ" + (f" â {month}" if month else "")
-    legend = "ð¢ >100%   ð¡ 90â100%   ð´ <90%"
+    title = "\U0001f4cc \u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0438 \u0437\u0430 \u0441\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u044e \u0432\u0438\u0434\u0430\u0439\u043d\u0456\u0441\u0442\u044e" + (f" \u2014 {month}" if month else "")
+    legend = "\U0001f7e2 >100%   \U0001f7e1 90\u2013100%   \U0001f534 <90%"
     return title + "\n" + legend + "\n\n" + "\n".join(
-        f"{i}. {emoji_by_percent(avg)} {sap} â {name} â {fmt_percent(avg)}% ({cnt} Ð·Ð¼.)"
+        f"{i}. {emoji_by_percent(avg)} {sap} \u2014 {name} \u2014 {fmt_percent(avg)}% ({cnt} \u0437\u043c.)"
         for i, (avg, cnt, sap, name) in enumerate(rows, 1)
     )
 
@@ -1716,7 +1717,7 @@ def employee_list_page(rows: list, page: int = 0):
     start = page * EMP_PAGE_SIZE
     end = min(start + EMP_PAGE_SIZE, len(items))
 
-    lines = [f"ð¥ ÐÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ¸", f"Ð¡ÑÐ¾ÑÑÐ½ÐºÐ° {page + 1}/{total_pages}", "", "ÐÐ°ÑÐ¸ÑÐ½Ð¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° â Ð²ÑÐ´ÐºÑÐ¸ÑÑÑÑÑ ÐºÐ°ÑÑÐºÐ°:", ""]
+    lines = [f"\U0001f465 \u0412\u0441\u0456 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0438", f"\u0421\u0442\u043e\u0440\u0456\u043d\u043a\u0430 {page + 1}/{total_pages}", "", "\u041d\u0430\u0442\u0438\u0441\u043d\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430 \u2014 \u0432\u0456\u0434\u043a\u0440\u0438\u0454\u0442\u044c\u0441\u044f \u043a\u0430\u0440\u0442\u043a\u0430:", ""]
     for i in range(start, end):
         lines.append(f"{i + 1}. {emp_display(items[i])}")
     return "\n".join(lines), employee_list_keyboard(items, page)
@@ -1730,12 +1731,12 @@ def employee_list_keyboard(items: list, page: int = 0) -> InlineKeyboardMarkup:
     for i in range(start, end):
         e = items[i]
         key = e.get("sap") or ("name_" + canonical_name_key(e.get("surname", ""))[:32])
-        rows.append([InlineKeyboardButton(f"ð¤ {e.get('surname','')[:28]}", callback_data=f"emp:card:{key}:{page}")])
+        rows.append([InlineKeyboardButton(f"\U0001f464 {e.get('surname','')[:28]}", callback_data=f"emp:card:{key}:{page}")])
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("â¬ï¸ ÐÐ°Ð·Ð°Ð´", callback_data=f"emp:page:{page-1}"))
+        nav.append(InlineKeyboardButton("\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434", callback_data=f"emp:page:{page-1}"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("â¡ï¸ ÐÐ°Ð»Ñ", callback_data=f"emp:page:{page+1}"))
+        nav.append(InlineKeyboardButton("\u27a1\ufe0f \u0414\u0430\u043b\u0456", callback_data=f"emp:page:{page+1}"))
     if nav:
         rows.append(nav)
     return InlineKeyboardMarkup(rows)
@@ -1768,9 +1769,9 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         page = parts[3] if len(parts) > 3 else "0"
         emp = employee_find_by_callback_key(key)
         if not emp:
-            await query.edit_message_text("â ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾. ÐÐ½Ð¾Ð²Ð¸ ÑÐ¿Ð¸ÑÐ¾Ðº ð¥ ÐÑÑ.")
+            await query.edit_message_text("\u274c \u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e. \u041e\u043d\u043e\u0432\u0438 \u0441\u043f\u0438\u0441\u043e\u043a \U0001f465 \u0412\u0441\u0456.")
             return
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data=f"emp:page:{page}")]])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("\u2b05\ufe0f \u0414\u043e \u0441\u043f\u0438\u0441\u043a\u0443", callback_data=f"emp:page:{page}")]])
         await query.edit_message_text(format_employee_card(emp, read_perf(force=True)), reply_markup=kb)
         return
 
@@ -1779,7 +1780,7 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==============================
 
 WEEKLY_PAGE_SIZE = 8
-WEEKDAY_LABELS = ["ÐÐ½", "ÐÑ", "Ð¡Ñ", "Ð§Ñ", "ÐÑ", "Ð¡Ð±", "ÐÐ´"]
+WEEKDAY_LABELS = ["\u041f\u043d", "\u0412\u0442", "\u0421\u0440", "\u0427\u0442", "\u041f\u0442", "\u0421\u0431", "\u041d\u0434"]
 
 def weekday_from_date(date_str: str) -> str:
     dt = parse_ddmmyyyy(date_str)
@@ -1818,19 +1819,19 @@ def weekly_page_text(wp: dict) -> str:
     weekday = wp.get("weekday", "0")
     label = WEEKDAY_LABELS[int(weekday)] if weekday.isdigit() and 0 <= int(weekday) <= 6 else weekday
     lines = [
-        f"ð Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸ Ð½Ð° {label}",
-        f"Ð¡ÑÐ¾ÑÑÐ½ÐºÐ° {page + 1}/{total_pages}",
-        f"âï¸ Day: {day} | ð Night: {night} | â¬ ÐÐµ Ð·Ð°Ð´Ð°Ð½Ð¾: {none}",
+        f"\U0001f4c5 \u0421\u0442\u0430\u043b\u0456 \u0437\u043c\u0456\u043d\u0438 \u043d\u0430 {label}",
+        f"\u0421\u0442\u043e\u0440\u0456\u043d\u043a\u0430 {page + 1}/{total_pages}",
+        f"\u2600\ufe0f Day: {day} | \U0001f319 Night: {night} | \u2b1c \u041d\u0435 \u0437\u0430\u0434\u0430\u043d\u043e: {none}",
         "",
-        "ÐÐ°ÑÐ¸ÑÐºÐ°Ð¹ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°: â¬ â âï¸ â ð â â¬",
-        "Ð¦Ðµ ÑÐ°Ð±Ð»Ð¾Ð½ ÑÐ¸Ð¶Ð½Ñ. ÐÐ° ÐºÐ¾Ð½ÐºÑÐµÑÐ½Ñ Ð´Ð°ÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° Ð¼Ð¾Ð¶Ð½Ð° Ð¿ÐµÑÐµÐºÐ¸Ð½ÑÑÐ¸ ÑÐµÑÐµÐ· ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night.",
+        "\u041d\u0430\u0442\u0438\u0441\u043a\u0430\u0439 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430: \u2b1c \u2192 \u2600\ufe0f \u2192 \U0001f319 \u2192 \u2b1c",
+        "\u0426\u0435 \u0448\u0430\u0431\u043b\u043e\u043d \u0442\u0438\u0436\u043d\u044f. \u041d\u0430 \u043a\u043e\u043d\u043a\u0440\u0435\u0442\u043d\u0443 \u0434\u0430\u0442\u0443 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430 \u043c\u043e\u0436\u043d\u0430 \u043f\u0435\u0440\u0435\u043a\u0438\u043d\u0443\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 \U0001f5d3 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night.",
         "",
     ]
     start = page * WEEKLY_PAGE_SIZE
     end = min(start + WEEKLY_PAGE_SIZE, len(items))
     for i in range(start, end):
         item = items[i]
-        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} â {item['surname']}")
+        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} \u2014 {item['surname']}")
     return "\n".join(lines)
 
 def weekly_keyboard(wp: dict) -> InlineKeyboardMarkup:
@@ -1845,12 +1846,12 @@ def weekly_keyboard(wp: dict) -> InlineKeyboardMarkup:
         rows.append([InlineKeyboardButton(f"{roster_status_symbol(item['status'])} {i+1}. {item['surname'][:22]}", callback_data=f"weekly:toggle:{i}")])
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("â¬ï¸ ÐÐ°Ð·Ð°Ð´", callback_data="weekly:page:prev"))
+        nav.append(InlineKeyboardButton("\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434", callback_data="weekly:page:prev"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("â¡ï¸ ÐÐ°Ð»Ñ", callback_data="weekly:page:next"))
+        nav.append(InlineKeyboardButton("\u27a1\ufe0f \u0414\u0430\u043b\u0456", callback_data="weekly:page:next"))
     if nav:
         rows.append(nav)
-    rows.append([InlineKeyboardButton("â ÐÐ±ÐµÑÐµÐ³ÑÐ¸", callback_data="weekly:save"), InlineKeyboardButton("â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸", callback_data="weekly:cancel")])
+    rows.append([InlineKeyboardButton("\u2705 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438", callback_data="weekly:save"), InlineKeyboardButton("\u274c \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438", callback_data="weekly:cancel")])
     return InlineKeyboardMarkup(rows)
 
 def apply_weekly_picker(wp: dict) -> dict:
@@ -1912,7 +1913,7 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud = st(context)
     wp = ud.get("weekly_picker") or {}
     if not wp:
-        await query.edit_message_text("Ð¡ÐµÑÑÑ ÑÑÐ°Ð»Ð¸Ñ Ð·Ð¼ÑÐ½ Ð·Ð°ÑÑÐ°ÑÑÐ»Ð°. ÐÐ°ÑÐ¸ÑÐ½Ð¸ ð Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸ ÑÐµ ÑÐ°Ð·.")
+        await query.edit_message_text("\u0421\u0435\u0441\u0456\u044f \u0441\u0442\u0430\u043b\u0438\u0445 \u0437\u043c\u0456\u043d \u0437\u0430\u0441\u0442\u0430\u0440\u0456\u043b\u0430. \u041d\u0430\u0442\u0438\u0441\u043d\u0438 \U0001f4c5 \u0421\u0442\u0430\u043b\u0456 \u0437\u043c\u0456\u043d\u0438 \u0449\u0435 \u0440\u0430\u0437.")
         return
     data = query.data or ""
     parts = data.split(":")
@@ -1935,14 +1936,14 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if action == "cancel":
         ud.pop("weekly_picker", None)
-        await query.edit_message_text("â Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸ ÑÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾. ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð¾.")
+        await query.edit_message_text("\u274c \u0421\u0442\u0430\u043b\u0456 \u0437\u043c\u0456\u043d\u0438 \u0441\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e. \u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u043c\u0456\u043d\u0435\u043d\u043e.")
         return
     if action == "save":
         await backup_everywhere(context, update.effective_chat.id, "pre_weekly_save")
         result = apply_weekly_picker(wp)
         await backup_everywhere(context, update.effective_chat.id, "after_weekly_save")
         ud.pop("weekly_picker", None)
-        await query.edit_message_text(f"â Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾\nâï¸ Day: {result['day']}\nð Night: {result['night']}")
+        await query.edit_message_text(f"\u2705 \u0421\u0442\u0430\u043b\u0456 \u0437\u043c\u0456\u043d\u0438 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e\n\u2600\ufe0f Day: {result['day']}\n\U0001f319 Night: {result['night']}")
         return
 
 # ==============================
@@ -1958,10 +1959,10 @@ def roster_session(context):
 
 def roster_status_symbol(status: str) -> str:
     if status == "day":
-        return "âï¸"
+        return "\u2600\ufe0f"
     if status == "night":
-        return "ð"
-    return "â¬"
+        return "\U0001f319"
+    return "\u2b1c"
 
 def init_roster_picker(context, date_str: str):
     employees = sorted_active_employees_for_roster()
@@ -2006,12 +2007,12 @@ def roster_page_text(rp: dict) -> str:
     day, night, none = roster_counts(rp)
 
     lines = [
-        f"ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night Ð·Ð° {date}",
-        f"Ð¡ÑÐ¾ÑÑÐ½ÐºÐ° {page + 1}/{total_pages}",
-        f"âï¸ Day: {day} | ð Night: {night} | â¬ ÐÐµ Ð²Ð¸Ð±ÑÐ°Ð½Ð¾: {none}",
+        f"\U0001f5d3 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night \u0437\u0430 {date}",
+        f"\u0421\u0442\u043e\u0440\u0456\u043d\u043a\u0430 {page + 1}/{total_pages}",
+        f"\u2600\ufe0f Day: {day} | \U0001f319 Night: {night} | \u2b1c \u041d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u043e: {none}",
         "",
-        "ÐÐ°ÑÐ¸ÑÐºÐ°Ð¹ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°, ÑÐ¾Ð± Ð¿ÐµÑÐµÐ¼Ð¸ÐºÐ°ÑÐ¸:",
-        "â¬ â âï¸ â ð â â¬",
+        "\u041d\u0430\u0442\u0438\u0441\u043a\u0430\u0439 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430, \u0449\u043e\u0431 \u043f\u0435\u0440\u0435\u043c\u0438\u043a\u0430\u0442\u0438:",
+        "\u2b1c \u2192 \u2600\ufe0f \u2192 \U0001f319 \u2192 \u2b1c",
         "",
     ]
 
@@ -2019,7 +2020,7 @@ def roster_page_text(rp: dict) -> str:
     end_i = min(start_i + ROSTER_PAGE_SIZE, len(items))
     for i in range(start_i, end_i):
         item = items[i]
-        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} â {item['surname']}")
+        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} \u2014 {item['surname']}")
 
     return "\n".join(lines)
 
@@ -2039,15 +2040,15 @@ def roster_keyboard(rp: dict) -> InlineKeyboardMarkup:
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("â¬ï¸ ÐÐ°Ð·Ð°Ð´", callback_data="roster:page:prev"))
+        nav.append(InlineKeyboardButton("\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434", callback_data="roster:page:prev"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("â¡ï¸ ÐÐ°Ð»Ñ", callback_data="roster:page:next"))
+        nav.append(InlineKeyboardButton("\u27a1\ufe0f \u0414\u0430\u043b\u0456", callback_data="roster:page:next"))
     if nav:
         rows.append(nav)
 
     rows.append([
-        InlineKeyboardButton("â ÐÐ±ÐµÑÐµÐ³ÑÐ¸", callback_data="roster:save"),
-        InlineKeyboardButton("â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸", callback_data="roster:cancel"),
+        InlineKeyboardButton("\u2705 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438", callback_data="roster:save"),
+        InlineKeyboardButton("\u274c \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438", callback_data="roster:cancel"),
     ])
 
     return InlineKeyboardMarkup(rows)
@@ -2110,7 +2111,7 @@ async def roster_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rp = ud.get("roster_picker") or {}
 
     if not rp:
-        await query.edit_message_text("Ð¡ÐµÑÑÑ ÑÐ¾Ð·Ð¿Ð¾Ð´ÑÐ»Ñ Ð·Ð°ÑÑÐ°ÑÑÐ»Ð°. ÐÐ¾ÑÐ½Ð¸ ÑÐµ ÑÐ°Ð·: ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night.")
+        await query.edit_message_text("\u0421\u0435\u0441\u0456\u044f \u0440\u043e\u0437\u043f\u043e\u0434\u0456\u043b\u0443 \u0437\u0430\u0441\u0442\u0430\u0440\u0456\u043b\u0430. \u041f\u043e\u0447\u043d\u0438 \u0449\u0435 \u0440\u0430\u0437: \U0001f5d3 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night.")
         return
 
     parts = data.split(":")
@@ -2149,7 +2150,7 @@ async def roster_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if action == "cancel":
         ud.pop("roster_picker", None)
-        await query.edit_message_text("â Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night ÑÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾. ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð¾.")
+        await query.edit_message_text("\u274c \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night \u0441\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e. \u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u043c\u0456\u043d\u0435\u043d\u043e.")
         return
 
     if action == "save":
@@ -2163,10 +2164,10 @@ async def roster_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ud.pop("roster_picker", None)
 
         await query.edit_message_text(
-            f"â Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾ Ð·Ð° {date}\n"
-            f"âï¸ Day: {result['day']}\n"
-            f"ð Night: {result['night']}\n\n"
-            "ÐÐºÑÐ¸Ð²Ð½Ð° Ð·Ð¼ÑÐ½Ð°: day. ÐÐ°Ð»Ñ Ð¼Ð¾Ð¶ÐµÑ Ð½Ð°ÑÐ¸ÑÐ½ÑÑÐ¸ ð§© Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ Ð³ÑÑÐ¿Ð°Ñ."
+            f"\u2705 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e \u0437\u0430 {date}\n"
+            f"\u2600\ufe0f Day: {result['day']}\n"
+            f"\U0001f319 Night: {result['night']}\n\n"
+            "\u0410\u043a\u0442\u0438\u0432\u043d\u0430 \u0437\u043c\u0456\u043d\u0430: day. \u0414\u0430\u043b\u0456 \u043c\u043e\u0436\u0435\u0448 \u043d\u0430\u0442\u0438\u0441\u043d\u0443\u0442\u0438 \U0001f9e9 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b \u043f\u043e \u0433\u0440\u0443\u043f\u0430\u0445."
         )
         return
 
@@ -2209,7 +2210,7 @@ def init_workplace_picker(context, active: dict):
 def workplace_label(item: dict) -> str:
     if item.get("hala") or item.get("group"):
         return f"{item.get('hala','')}/{item.get('group','')}".strip("/")
-    return "â¬ Ð±ÐµÐ· Ð³ÑÑÐ¿Ð¸"
+    return "\u2b1c \u0431\u0435\u0437 \u0433\u0440\u0443\u043f\u0438"
 
 def workplace_counts(wp: dict):
     grouped = len([x for x in wp.get("items", []) if x.get("hala") or x.get("group")])
@@ -2223,11 +2224,11 @@ def workplace_page_text(wp: dict) -> str:
     grouped, no_group, total = workplace_counts(wp)
 
     lines = [
-        f"ð§© Ð Ð¾Ð±Ð¾ÑÑ Ð¼ÑÑÑÑ {wp.get('date')} ({shift_type_label(wp.get('shift_type'))})",
-        f"Ð¡ÑÐ¾ÑÑÐ½ÐºÐ° {page + 1}/{total_pages}",
-        f"ð¥ ÐÑÑÐ¾Ð³Ð¾: {total} | â Ð Ð³ÑÑÐ¿Ð°Ñ: {grouped} | â¬ ÐÐµÐ· Ð³ÑÑÐ¿Ð¸: {no_group}",
+        f"\U0001f9e9 \u0420\u043e\u0431\u043e\u0447\u0456 \u043c\u0456\u0441\u0446\u044f {wp.get('date')} ({shift_type_label(wp.get('shift_type'))})",
+        f"\u0421\u0442\u043e\u0440\u0456\u043d\u043a\u0430 {page + 1}/{total_pages}",
+        f"\U0001f465 \u0412\u0441\u044c\u043e\u0433\u043e: {total} | \u2705 \u0412 \u0433\u0440\u0443\u043f\u0430\u0445: {grouped} | \u2b1c \u0411\u0435\u0437 \u0433\u0440\u0443\u043f\u0438: {no_group}",
         "",
-        "ÐÐ°ÑÐ¸ÑÐ½Ð¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°, Ð¿Ð¾ÑÑÐ¼ Ð¾Ð±ÐµÑÐ¸ HALA/G:",
+        "\u041d\u0430\u0442\u0438\u0441\u043d\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430, \u043f\u043e\u0442\u0456\u043c \u043e\u0431\u0435\u0440\u0438 HALA/G:",
         "",
     ]
 
@@ -2235,7 +2236,7 @@ def workplace_page_text(wp: dict) -> str:
     end_i = min(start_i + WORKPLACE_PAGE_SIZE, len(items))
     for i in range(start_i, end_i):
         item = items[i]
-        lines.append(f"{i + 1}. {item['sap']} â {item['surname']} â {workplace_label(item)}")
+        lines.append(f"{i + 1}. {item['sap']} \u2014 {item['surname']} \u2014 {workplace_label(item)}")
 
     return "\n".join(lines)
 
@@ -2251,20 +2252,20 @@ def workplace_keyboard(wp: dict) -> InlineKeyboardMarkup:
     for i in range(start_i, end_i):
         item = items[i]
         grp = workplace_label(item)
-        label = f"{i + 1}. {item['surname'][:18]} â {grp}"
+        label = f"{i + 1}. {item['surname'][:18]} \u2014 {grp}"
         rows.append([InlineKeyboardButton(label, callback_data=f"wp:choose:{i}")])
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("â¬ï¸ ÐÐ°Ð·Ð°Ð´", callback_data="wp:page:prev"))
+        nav.append(InlineKeyboardButton("\u2b05\ufe0f \u041d\u0430\u0437\u0430\u0434", callback_data="wp:page:prev"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("â¡ï¸ ÐÐ°Ð»Ñ", callback_data="wp:page:next"))
+        nav.append(InlineKeyboardButton("\u27a1\ufe0f \u0414\u0430\u043b\u0456", callback_data="wp:page:next"))
     if nav:
         rows.append(nav)
 
     rows.append([
-        InlineKeyboardButton("ð¦ ÐÐ³Ð»ÑÐ´ Ð³ÑÑÐ¿", callback_data="wp:overview"),
-        InlineKeyboardButton("â ÐÐ¾ÑÐ¾Ð²Ð¾", callback_data="wp:done"),
+        InlineKeyboardButton("\U0001f4e6 \u041e\u0433\u043b\u044f\u0434 \u0433\u0440\u0443\u043f", callback_data="wp:overview"),
+        InlineKeyboardButton("\u2705 \u0413\u043e\u0442\u043e\u0432\u043e", callback_data="wp:done"),
     ])
 
     return InlineKeyboardMarkup(rows)
@@ -2272,9 +2273,9 @@ def workplace_keyboard(wp: dict) -> InlineKeyboardMarkup:
 def workplace_select_text(wp: dict, idx: int) -> str:
     item = wp["items"][idx]
     return (
-        f"ð¤ {item['sap']} â {item['surname']}\n"
-        f"ÐÐ¾ÑÐ¾ÑÐ½Ðµ Ð¼ÑÑÑÐµ: {workplace_label(item)}\n\n"
-        "ÐÑÐ´Ð¸ Ð²ÑÐ´Ð¿ÑÐ°Ð²Ð¸ÑÐ¸?"
+        f"\U0001f464 {item['sap']} \u2014 {item['surname']}\n"
+        f"\u041f\u043e\u0442\u043e\u0447\u043d\u0435 \u043c\u0456\u0441\u0446\u0435: {workplace_label(item)}\n\n"
+        "\u041a\u0443\u0434\u0438 \u0432\u0456\u0434\u043f\u0440\u0430\u0432\u0438\u0442\u0438?"
     )
 
 def workplace_select_keyboard(idx: int) -> InlineKeyboardMarkup:
@@ -2289,8 +2290,8 @@ def workplace_select_keyboard(idx: int) -> InlineKeyboardMarkup:
         rows.append(row)
 
     rows.append([
-        InlineKeyboardButton("â¬ ÐÐµÐ· Ð³ÑÑÐ¿Ð¸", callback_data=f"wp:set:{idx}::"),
-        InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data="wp:back:list"),
+        InlineKeyboardButton("\u2b1c \u0411\u0435\u0437 \u0433\u0440\u0443\u043f\u0438", callback_data=f"wp:set:{idx}::"),
+        InlineKeyboardButton("\u2b05\ufe0f \u0414\u043e \u0441\u043f\u0438\u0441\u043a\u0443", callback_data="wp:back:list"),
     ])
     return InlineKeyboardMarkup(rows)
 
@@ -2323,7 +2324,7 @@ def apply_workplace_to_shift(wp: dict, idx: int, hala: str, group: str):
 async def send_workplace_picker(update: Update, context: ContextTypes.DEFAULT_TYPE, active: dict):
     wp = init_workplace_picker(context, active)
     if not wp.get("items"):
-        await update.message.reply_text("Ð£ ÑÑÐ¹ Ð·Ð¼ÑÐ½Ñ ÑÐµ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ².")
+        await update.message.reply_text("\u0423 \u0446\u0456\u0439 \u0437\u043c\u0456\u043d\u0456 \u0449\u0435 \u043d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432.")
         return
     await update.message.reply_text(workplace_page_text(wp), reply_markup=workplace_keyboard(wp))
 
@@ -2334,7 +2335,7 @@ async def workplace_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ud = st(context)
     wp = ud.get("workplace_picker") or {}
     if not wp:
-        await query.edit_message_text("Ð¡ÐµÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸Ñ Ð¼ÑÑÑÑ Ð·Ð°ÑÑÐ°ÑÑÐ»Ð°. ÐÐ°ÑÐ¸ÑÐ½Ð¸ ð§© Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ Ð³ÑÑÐ¿Ð°Ñ ÑÐµ ÑÐ°Ð·.")
+        await query.edit_message_text("\u0421\u0435\u0441\u0456\u044f \u0440\u043e\u0431\u043e\u0447\u0438\u0445 \u043c\u0456\u0441\u0446\u044c \u0437\u0430\u0441\u0442\u0430\u0440\u0456\u043b\u0430. \u041d\u0430\u0442\u0438\u0441\u043d\u0438 \U0001f9e9 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b \u043f\u043e \u0433\u0440\u0443\u043f\u0430\u0445 \u0449\u0435 \u0440\u0430\u0437.")
         return
 
     data = query.data or ""
@@ -2389,7 +2390,7 @@ async def workplace_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         active = {"date": wp["date"], "shift_type": wp["shift_type"]}
         await query.edit_message_text(
             format_groups_overview(active),
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data="wp:back:list")]])
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("\u2b05\ufe0f \u0414\u043e \u0441\u043f\u0438\u0441\u043a\u0443", callback_data="wp:back:list")]])
         )
         return
 
@@ -2397,7 +2398,7 @@ async def workplace_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         active = {"date": wp["date"], "shift_type": wp["shift_type"]}
         ud.pop("workplace_picker", None)
         await query.edit_message_text(
-            "â Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ ÑÐ¾Ð±Ð¾ÑÐ¸Ñ Ð¼ÑÑÑÑÑ Ð·Ð°Ð²ÐµÑÑÐµÐ½Ð¾.\n\n" + format_groups_overview(active)
+            "\u2705 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b \u043f\u043e \u0440\u043e\u0431\u043e\u0447\u0438\u0445 \u043c\u0456\u0441\u0446\u044f\u0445 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e.\n\n" + format_groups_overview(active)
         )
         return
 
@@ -2423,19 +2424,19 @@ def set_menu(context, menu):
     st(context)["menu"] = menu
 
 def is_cancel(text):
-    return safe_lower(text) in {safe_lower(BTN_CANCEL), "cancel", "ÑÐºÐ°ÑÑÐ²Ð°ÑÐ¸"}
+    return safe_lower(text) in {safe_lower(BTN_CANCEL), "cancel", "\u0441\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438"}
 
-async def show_main_menu(update, context, text="ÐÐ±ÐµÑÐ¸ Ð´ÑÑ ð"):
+async def show_main_menu(update, context, text="\u041e\u0431\u0435\u0440\u0438 \u0434\u0456\u044e \U0001f447"):
     await update.message.reply_text(text, reply_markup=MAIN_KB)
 
-async def show_employee_menu(update, context, text="ÐÐµÐ½Ñ: ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº ð"):
+async def show_employee_menu(update, context, text="\u041c\u0435\u043d\u044e: \u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a \U0001f447"):
     await update.message.reply_text(text, reply_markup=EMPLOYEE_KB)
 
-async def show_work_menu(update, context, text="ÐÐµÐ½Ñ: ÐÑÐ³Ð°Ð½ÑÐ·Ð°ÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸ ð"):
+async def show_work_menu(update, context, text="\u041c\u0435\u043d\u044e: \u041e\u0440\u0433\u0430\u043d\u0456\u0437\u0430\u0446\u0456\u044f \u0440\u043e\u0431\u043e\u0442\u0438 \U0001f447"):
     await update.message.reply_text(text, reply_markup=WORK_KB)
 
 def weekly_weekday_kb():
-    return ReplyKeyboardMarkup([["ð ÐÐ½", "ð ÐÑ", "ð Ð¡Ñ"], ["ð Ð§Ñ", "ð ÐÑ", "ð Ð¡Ð±"], ["ð ÐÐ´"], [BTN_CANCEL]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([["\U0001f4c5 \u041f\u043d", "\U0001f4c5 \u0412\u0442", "\U0001f4c5 \u0421\u0440"], ["\U0001f4c5 \u0427\u0442", "\U0001f4c5 \u041f\u0442", "\U0001f4c5 \u0421\u0431"], ["\U0001f4c5 \u041d\u0434"], [BTN_CANCEL]], resize_keyboard=True)
 
 # ==============================
 # COMMANDS
@@ -2444,7 +2445,7 @@ def weekly_weekday_kb():
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reset_state(context)
     set_menu(context, "main")
-    await show_main_menu(update, context, "ÐÐ¾ÑÐ¾Ð²Ð¾ â")
+    await show_main_menu(update, context, "\u0413\u043e\u0442\u043e\u0432\u043e \u2705")
 
 async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"chat_id = {update.effective_chat.id}")
@@ -2452,7 +2453,7 @@ async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_paths(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = (
-        "ð ÐÐ¾ÑÐ¾ÑÐ½Ñ ÑÐ»ÑÑÐ¸ Ð±Ð°Ð·Ð¸:\n\n"
+        "\U0001f4c1 \u041f\u043e\u0442\u043e\u0447\u043d\u0456 \u0448\u043b\u044f\u0445\u0438 \u0431\u0430\u0437\u0438:\n\n"
         f"DATA_DIR: {DATA_DIR}\n"
         f"employees: {EMPLOYEES_DB_PATH}\n"
         f"local_data: {OLD_LOCAL_DB_PATH}\n"
@@ -2467,16 +2468,16 @@ async def cmd_ocrtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sample = " ".join(context.args) if context.args else ""
     if not sample:
         await update.message.reply_text(
-            "ÐÑÑÐ°Ð² Ð¿ÑÑÐ»Ñ ÐºÐ¾Ð¼Ð°Ð½Ð´Ð¸ ÑÐµÐºÑÑ Ð´Ð»Ñ ÑÐµÑÑÑ. ÐÐ°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´:\n"
+            "\u0412\u0441\u0442\u0430\u0432 \u043f\u0456\u0441\u043b\u044f \u043a\u043e\u043c\u0430\u043d\u0434\u0438 \u0442\u0435\u043a\u0441\u0442 \u0434\u043b\u044f \u0442\u0435\u0441\u0442\u0443. \u041d\u0430\u043f\u0440\u0438\u043a\u043b\u0430\u0434:\n"
             "/ocrtest 156,44% 51009998 135,68% 51010667"
         )
         return
     parsed = parse_sap_percent_from_text(sample)
     if not parsed:
-        await update.message.reply_text("ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ ÑÐ¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾.")
+        await update.message.reply_text("\u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u043d\u043e.")
         return
     lines = [f"{x['sap']} - {fmt_percent(x['percent'])}%" for x in parsed]
-    await update.message.reply_text("Ð Ð¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾:\n" + "\n".join(lines[:50]))
+    await update.message.reply_text("\u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u043d\u043e:\n" + "\n".join(lines[:50]))
 
 
 # ==============================
@@ -2489,64 +2490,64 @@ async def employee_flow(update, context, text):
 
     if ud["mode"] == "add_wait_sap":
         if not re.fullmatch(r"\d{6,12}", text):
-            await update.message.reply_text("SAP Ð¼Ð°Ñ Ð±ÑÑÐ¸ ÑÑÐ»ÑÐºÐ¸ ÑÐ¸ÑÑÐ¸, Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ 51011071.")
+            await update.message.reply_text("SAP \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 \u0442\u0456\u043b\u044c\u043a\u0438 \u0446\u0438\u0444\u0440\u0438, \u043d\u0430\u043f\u0440\u0438\u043a\u043b\u0430\u0434 51011071.")
             return
         if employee_by_sap(rows, text):
-            await update.message.reply_text("â Ð¢Ð°ÐºÐ¸Ð¹ SAP Ð²Ð¶Ðµ Ñ Ð² Ð±Ð°Ð·Ñ.")
+            await update.message.reply_text("\u274c \u0422\u0430\u043a\u0438\u0439 SAP \u0432\u0436\u0435 \u0454 \u0432 \u0431\u0430\u0437\u0456.")
             return
         ud["tmp"]["sap"] = text
         ud["mode"] = "add_wait_surname"
-        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ ÑÐ° ÑÐ¼'Ñ:")
+        await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0435 \u0442\u0430 \u0456\u043c'\u044f:")
         return
 
     if ud["mode"] == "add_wait_surname":
         ud["tmp"]["surname"] = text.upper()
         ud["mode"] = "add_wait_locker"
-        await update.message.reply_text("Ð¨Ð°ÑÐºÐ° Ð°Ð±Ð¾ '-' ÑÐºÑÐ¾ Ð½ÐµÐ¼Ð°Ñ:")
+        await update.message.reply_text("\u0428\u0430\u0444\u043a\u0430 \u0430\u0431\u043e '-' \u044f\u043a\u0449\u043e \u043d\u0435\u043c\u0430\u0454:")
         return
 
     if ud["mode"] == "add_wait_locker":
         ud["tmp"]["locker"] = "" if text == "-" else text
         ud["mode"] = "add_wait_knife"
-        await update.message.reply_text("ÐÑÐ¶: 1/2 = Ñ, 0 = Ð½ÐµÐ¼Ð°Ñ", reply_markup=ReplyKeyboardMarkup([["1", "2", "0"], [BTN_CANCEL]], resize_keyboard=True))
+        await update.message.reply_text("\u041d\u0456\u0436: 1/2 = \u0454, 0 = \u043d\u0435\u043c\u0430\u0454", reply_markup=ReplyKeyboardMarkup([["1", "2", "0"], [BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "add_wait_knife":
         if text not in {"0", "1", "2"}:
-            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ 1, 2 Ð°Ð±Ð¾ 0.")
+            await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 1, 2 \u0430\u0431\u043e 0.")
             return
         ud["tmp"]["knife"] = text
         ud["mode"] = "add_wait_shoe_size"
-        await update.message.reply_text("Ð Ð¾Ð·Ð¼ÑÑ Ð²Ð·ÑÑÑÑ Ð°Ð±Ð¾ '-' ÑÐºÑÐ¾ Ð½Ðµ Ð²ÐºÐ°Ð·Ð°Ð½Ð¾:")
+        await update.message.reply_text("\u0420\u043e\u0437\u043c\u0456\u0440 \u0432\u0437\u0443\u0442\u0442\u044f \u0430\u0431\u043e '-' \u044f\u043a\u0449\u043e \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e:")
         return
 
     if ud["mode"] == "add_wait_shoe_size":
         ud["tmp"]["shoe_size"] = "" if text == "-" else text
         ud["mode"] = "add_wait_shoe_type"
-        await update.message.reply_text("ÐÐ·ÑÑÑÑ: own = ÑÐ²Ð¾Ñ, agency = Ð²Ð¸Ð´Ð°Ð½Ð¾ Ð°Ð³ÐµÐ½ÑÑÑÑ, unknown = Ð½Ðµ Ð²ÐºÐ°Ð·Ð°Ð½Ð¾",
+        await update.message.reply_text("\u0412\u0437\u0443\u0442\u0442\u044f: own = \u0441\u0432\u043e\u0454, agency = \u0432\u0438\u0434\u0430\u043d\u043e \u0430\u0433\u0435\u043d\u0446\u0456\u0454\u044e, unknown = \u043d\u0435 \u0432\u043a\u0430\u0437\u0430\u043d\u043e",
                                         reply_markup=ReplyKeyboardMarkup([["own", "agency", "unknown"], [BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "add_wait_shoe_type":
         if safe_lower(text) not in {"own", "agency", "unknown"}:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ own / agency / unknown.")
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 own / agency / unknown.")
             return
         ud["tmp"]["shoe_type"] = safe_lower(text)
         new_emp = ensure_employee_columns(ud["tmp"])
         write_employees(upsert_employee(rows, new_emp))
         await backup_everywhere(context, update.effective_chat.id, "add_employee", emp_display(new_emp))
         reset_state(context)
-        await show_employee_menu(update, context, f"â ÐÐ¾Ð´Ð°Ð½Ð¾:\n{emp_display(new_emp)}")
+        await show_employee_menu(update, context, f"\u2705 \u0414\u043e\u0434\u0430\u043d\u043e:\n{emp_display(new_emp)}")
         return
 
     if ud["mode"] == "card_wait_query":
         matches = find_employees(rows, text)
         if not matches:
             reset_state(context)
-            await show_employee_menu(update, context, "â ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾.")
+            await show_employee_menu(update, context, "\u274c \u041d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e.")
             return
         if len(matches) > 1:
-            await update.message.reply_text("ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°. ÐÐ²ÐµÐ´Ð¸ ÑÐ¾ÑÐ½ÑÑÐµ Ð°Ð±Ð¾ SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
+            await update.message.reply_text("\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043a\u0456\u043b\u044c\u043a\u0430. \u0412\u0432\u0435\u0434\u0438 \u0442\u043e\u0447\u043d\u0456\u0448\u0435 \u0430\u0431\u043e SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
             return
         reset_state(context)
         await update.message.reply_text(format_employee_card(matches[0], read_perf(force=True)), reply_markup=EMPLOYEE_KB)
@@ -2556,66 +2557,66 @@ async def employee_flow(update, context, text):
         matches = find_employees(rows, text)
         if not matches:
             reset_state(context)
-            await show_employee_menu(update, context, "â ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾.")
+            await show_employee_menu(update, context, "\u274c \u041d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e.")
             return
         if len(matches) > 1:
-            await update.message.reply_text("ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°. ÐÐ²ÐµÐ´Ð¸ ÑÐ¾ÑÐ½ÑÑÐµ Ð°Ð±Ð¾ SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
+            await update.message.reply_text("\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043a\u0456\u043b\u044c\u043a\u0430. \u0412\u0432\u0435\u0434\u0438 \u0442\u043e\u0447\u043d\u0456\u0448\u0435 \u0430\u0431\u043e SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
             return
         emp = matches[0]
         ud["tmp"]["old_sap"] = emp.get("sap", "")
         ud["tmp"]["old_surname"] = emp.get("surname", "")
         ud["tmp"]["sap"] = emp.get("sap", "")
         ud["mode"] = "edit_wait_sap"
-        await update.message.reply_text("ÐÐ¾Ð²Ð¸Ð¹ SAP Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½ / ÑÐºÑÐ¾ Ð½ÐµÐ¼Ð°Ñ SAP â Ð²Ð²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑ:")
+        await update.message.reply_text("\u041d\u043e\u0432\u0438\u0439 SAP \u0430\u0431\u043e '-' \u0431\u0435\u0437 \u0437\u043c\u0456\u043d / \u044f\u043a\u0449\u043e \u043d\u0435\u043c\u0430\u0454 SAP \u2014 \u0432\u0432\u0435\u0434\u0438 \u043d\u043e\u043c\u0435\u0440:")
         return
 
     if ud["mode"] == "edit_wait_sap":
         if text != "-":
             if not re.fullmatch(r"\d{6,12}", text):
-                await update.message.reply_text("SAP Ð¼Ð°Ñ Ð±ÑÑÐ¸ ÑÑÐ»ÑÐºÐ¸ ÑÐ¸ÑÑÐ¸, Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ 51011071.")
+                await update.message.reply_text("SAP \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 \u0442\u0456\u043b\u044c\u043a\u0438 \u0446\u0438\u0444\u0440\u0438, \u043d\u0430\u043f\u0440\u0438\u043a\u043b\u0430\u0434 51011071.")
                 return
             # prevent duplicate SAP on another worker
             for e in rows:
                 if e.get("sap") == text and canonical_name_key(e.get("surname","")) != canonical_name_key(ud["tmp"].get("old_surname","")):
-                    await update.message.reply_text("â Ð¢Ð°ÐºÐ¸Ð¹ SAP Ð²Ð¶Ðµ Ñ Ð² ÑÐ½ÑÐ¾Ð³Ð¾ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°.")
+                    await update.message.reply_text("\u274c \u0422\u0430\u043a\u0438\u0439 SAP \u0432\u0436\u0435 \u0454 \u0432 \u0456\u043d\u0448\u043e\u0433\u043e \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430.")
                     return
             ud["tmp"]["sap"] = text
         ud["mode"] = "edit_wait_surname"
-        await update.message.reply_text("ÐÐ¾Ð²Ðµ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½:")
+        await update.message.reply_text("\u041d\u043e\u0432\u0435 \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0435 \u0430\u0431\u043e '-' \u0431\u0435\u0437 \u0437\u043c\u0456\u043d:")
         return
 
     if ud["mode"] == "edit_wait_surname":
         ud["tmp"]["surname"] = ud["tmp"].get("old_surname", "") if text == "-" else text.upper()
         ud["mode"] = "edit_wait_locker"
-        await update.message.reply_text("ÐÐ¾Ð²Ð° ÑÐ°ÑÐºÐ° Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½:")
+        await update.message.reply_text("\u041d\u043e\u0432\u0430 \u0448\u0430\u0444\u043a\u0430 \u0430\u0431\u043e '-' \u0431\u0435\u0437 \u0437\u043c\u0456\u043d:")
         return
 
     if ud["mode"] == "edit_wait_locker":
         ud["tmp"]["locker"] = "" if text == "-" else text
         ud["tmp"]["locker_keep"] = text == "-"
         ud["mode"] = "edit_wait_knife"
-        await update.message.reply_text("ÐÑÐ¶: 1/2/0 Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½", reply_markup=ReplyKeyboardMarkup([["1", "2", "0", "-"], [BTN_CANCEL]], resize_keyboard=True))
+        await update.message.reply_text("\u041d\u0456\u0436: 1/2/0 \u0430\u0431\u043e '-' \u0431\u0435\u0437 \u0437\u043c\u0456\u043d", reply_markup=ReplyKeyboardMarkup([["1", "2", "0", "-"], [BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "edit_wait_knife":
         if text not in {"0", "1", "2", "-"}:
-            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ 1, 2, 0 Ð°Ð±Ð¾ '-'.")
+            await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 1, 2, 0 \u0430\u0431\u043e '-'.")
             return
         ud["tmp"]["knife"] = "" if text == "-" else text
         ud["mode"] = "edit_wait_shoe_size"
-        await update.message.reply_text("Ð Ð¾Ð·Ð¼ÑÑ Ð²Ð·ÑÑÑÑ Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½:")
+        await update.message.reply_text("\u0420\u043e\u0437\u043c\u0456\u0440 \u0432\u0437\u0443\u0442\u0442\u044f \u0430\u0431\u043e '-' \u0431\u0435\u0437 \u0437\u043c\u0456\u043d:")
         return
 
     if ud["mode"] == "edit_wait_shoe_size":
         ud["tmp"]["shoe_size"] = "" if text == "-" else text
         ud["mode"] = "edit_wait_shoe_type"
-        await update.message.reply_text("ÐÐ·ÑÑÑÑ: own / agency / unknown Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½",
+        await update.message.reply_text("\u0412\u0437\u0443\u0442\u0442\u044f: own / agency / unknown \u0430\u0431\u043e '-' \u0431\u0435\u0437 \u0437\u043c\u0456\u043d",
                                         reply_markup=ReplyKeyboardMarkup([["own", "agency", "unknown", "-"], [BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "edit_wait_shoe_type":
         if safe_lower(text) not in {"own", "agency", "unknown", "-"}:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ own / agency / unknown Ð°Ð±Ð¾ '-'.")
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 own / agency / unknown \u0430\u0431\u043e '-'.")
             return
         emp = {"sap": ud["tmp"].get("sap", ""), "_old_surname": ud["tmp"].get("old_surname", "")}
         for k in ["surname", "knife", "shoe_size"]:
@@ -2633,17 +2634,17 @@ async def employee_flow(update, context, text):
 
         await backup_everywhere(context, update.effective_chat.id, "edit_employee", f"SAP {emp.get('sap','')}")
         reset_state(context)
-        await show_employee_menu(update, context, f"â ÐÐ¼ÑÐ½Ð¸ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.\nÐÐ½Ð¾Ð²Ð»ÐµÐ½Ð¾ ÑÑÐ°ÑÑ Ð·Ð°Ð¿Ð¸ÑÐ¸: Ð·Ð¼ÑÐ½Ð¸ {shift_m}, Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ {perf_m}")
+        await show_employee_menu(update, context, f"\u2705 \u0417\u043c\u0456\u043d\u0438 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e.\n\u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u0441\u0442\u0430\u0440\u0456 \u0437\u0430\u043f\u0438\u0441\u0438: \u0437\u043c\u0456\u043d\u0438 {shift_m}, \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c {perf_m}")
         return
 
     if ud["mode"] == "delete_wait_query":
         matches = find_employees(rows, text)
         if not matches:
             reset_state(context)
-            await show_employee_menu(update, context, "â ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾.")
+            await show_employee_menu(update, context, "\u274c \u041d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e.")
             return
         if len(matches) > 1:
-            await update.message.reply_text("ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°. ÐÐ²ÐµÐ´Ð¸ ÑÐ¾ÑÐ½ÑÑÐµ Ð°Ð±Ð¾ SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
+            await update.message.reply_text("\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043a\u0456\u043b\u044c\u043a\u0430. \u0412\u0432\u0435\u0434\u0438 \u0442\u043e\u0447\u043d\u0456\u0448\u0435 \u0430\u0431\u043e SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
             return
         deleted = matches[0]
         if deleted.get("sap"):
@@ -2652,7 +2653,7 @@ async def employee_flow(update, context, text):
             write_employees([r for r in rows if canonical_name_key(r.get("surname","")) != canonical_name_key(deleted.get("surname",""))])
         await backup_everywhere(context, update.effective_chat.id, "delete_employee", emp_display(deleted))
         reset_state(context)
-        await show_employee_menu(update, context, f"ðï¸ ÐÐ¸Ð´Ð°Ð»ÐµÐ½Ð¾:\n{emp_display(deleted)}")
+        await show_employee_menu(update, context, f"\U0001f5d1\ufe0f \u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e:\n{emp_display(deleted)}")
         return
 
 # ==============================
@@ -2668,40 +2669,40 @@ async def work_flow(update, context, text):
     if ud["mode"] == "work_create_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("\u0414\u0430\u0442\u0430 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "work_create_type"
-        await update.message.reply_text("Ð¢Ð¸Ð¿ Ð·Ð¼ÑÐ½Ð¸:", reply_markup=shift_type_kb())
+        await update.message.reply_text("\u0422\u0438\u043f \u0437\u043c\u0456\u043d\u0438:", reply_markup=shift_type_kb())
         return
 
     if ud["mode"] == "work_create_type":
         typ = normalize_shift_type(text)
         if not typ:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ day Ð°Ð±Ð¾ night.", reply_markup=shift_type_kb())
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 day \u0430\u0431\u043e night.", reply_markup=shift_type_kb())
             return
         date = ud["tmp"]["date"]
         ud["active_shift"] = {"date": date, "shift_type": typ}
         reset_state(context)
-        msg = f"â ÐÐºÑÐ¸Ð²Ð½Ð° Ð·Ð¼ÑÐ½Ð°: {date} ({shift_type_label(typ)})"
-        msg += "\n\nÐ¢ÐµÐ¿ÐµÑ Ð½Ð°ÑÐ¸ÑÐ½Ð¸ â ÐÐ¾Ð´Ð°ÑÐ¸ ÑÐ¿Ð¸ÑÐ¾Ðº Ñ Ð·Ð¼ÑÐ½Ñ ÑÐ° Ð²ÑÑÐ°Ð² ÑÑÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² ÑÑÑÑ Ð·Ð¼ÑÐ½Ð¸ Ð¾Ð´Ð½Ð¸Ð¼ ÑÐ¿Ð¸ÑÐºÐ¾Ð¼."
+        msg = f"\u2705 \u0410\u043a\u0442\u0438\u0432\u043d\u0430 \u0437\u043c\u0456\u043d\u0430: {date} ({shift_type_label(typ)})"
+        msg += "\n\n\u0422\u0435\u043f\u0435\u0440 \u043d\u0430\u0442\u0438\u0441\u043d\u0438 \u2795 \u0414\u043e\u0434\u0430\u0442\u0438 \u0441\u043f\u0438\u0441\u043e\u043a \u0443 \u0437\u043c\u0456\u043d\u0443 \u0442\u0430 \u0432\u0441\u0442\u0430\u0432 \u0443\u0441\u0456\u0445 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0446\u0456\u0454\u0457 \u0437\u043c\u0456\u043d\u0438 \u043e\u0434\u043d\u0438\u043c \u0441\u043f\u0438\u0441\u043a\u043e\u043c."
         await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "work_show_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("\u0414\u0430\u0442\u0430 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "work_show_type"
-        await update.message.reply_text("Ð¢Ð¸Ð¿ Ð·Ð¼ÑÐ½Ð¸:", reply_markup=shift_type_kb())
+        await update.message.reply_text("\u0422\u0438\u043f \u0437\u043c\u0456\u043d\u0438:", reply_markup=shift_type_kb())
         return
 
     if ud["mode"] == "work_show_type":
         typ = normalize_shift_type(text)
         if not typ:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ day Ð°Ð±Ð¾ night.")
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 day \u0430\u0431\u043e night.")
             return
         date = ud["tmp"]["date"]
         ud["active_shift"] = {"date": date, "shift_type": typ}
@@ -2712,7 +2713,7 @@ async def work_flow(update, context, text):
     if ud["mode"] == "split_wait_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("\u0414\u0430\u0442\u0430 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 DD.MM.YYYY.", reply_markup=date_kb())
             return
 
         reset_state(context)
@@ -2724,7 +2725,7 @@ async def work_flow(update, context, text):
         employees = sorted_active_employees_for_roster()
         selected = parse_number_selection(text, len(employees))
         if not selected:
-            await update.message.reply_text("ÐÐµ Ð±Ð°ÑÑ Ð½Ð¾Ð¼ÐµÑÑÐ². ÐÑÐ¸ÐºÐ»Ð°Ð´: 1,2,5-9")
+            await update.message.reply_text("\u041d\u0435 \u0431\u0430\u0447\u0443 \u043d\u043e\u043c\u0435\u0440\u0456\u0432. \u041f\u0440\u0438\u043a\u043b\u0430\u0434: 1,2,5-9")
             return
 
         ud["tmp"]["day_indexes"] = selected
@@ -2732,9 +2733,9 @@ async def work_flow(update, context, text):
 
         await update.message.reply_text(
             format_all_employees_numbered_for_roster(date)
-            + f"\n\nâ Day Ð²Ð¸Ð±ÑÐ°Ð½Ð¾: {len(selected)}"
-            + "\nÐ¢ÐµÐ¿ÐµÑ Ð²Ð²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð´Ð»Ñ ÐÐÐ§ÐÐÐ Ð·Ð¼ÑÐ½Ð¸ night:"
-            + "\nÐ¯ÐºÑÐ¾ Ð½ÑÑÐ½Ð¾Ñ Ð½ÐµÐ¼Ð°Ñ â Ð²Ð²ÐµÐ´Ð¸ 0.",
+            + f"\n\n\u2705 Day \u0432\u0438\u0431\u0440\u0430\u043d\u043e: {len(selected)}"
+            + "\n\u0422\u0435\u043f\u0435\u0440 \u0432\u0432\u0435\u0434\u0438 \u043d\u043e\u043c\u0435\u0440\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0434\u043b\u044f \u041d\u0406\u0427\u041d\u041e\u0407 \u0437\u043c\u0456\u043d\u0438 night:"
+            + "\n\u042f\u043a\u0449\u043e \u043d\u0456\u0447\u043d\u043e\u0457 \u043d\u0435\u043c\u0430\u0454 \u2014 \u0432\u0432\u0435\u0434\u0438 0.",
             reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
         )
         return
@@ -2743,12 +2744,12 @@ async def work_flow(update, context, text):
         date = ud["tmp"].get("date")
         employees = sorted_active_employees_for_roster()
 
-        if normalize_text(text) in {"0", "-", "Ð½ÐµÐ¼Ð°", "Ð½ÐµÐ¼Ð°Ñ"}:
+        if normalize_text(text) in {"0", "-", "\u043d\u0435\u043c\u0430", "\u043d\u0435\u043c\u0430\u0454"}:
             night_selected = []
         else:
             night_selected = parse_number_selection(text, len(employees))
             if not night_selected:
-                await update.message.reply_text("ÐÐµ Ð±Ð°ÑÑ Ð½Ð¾Ð¼ÐµÑÑÐ². ÐÑÐ¸ÐºÐ»Ð°Ð´: 1,2,5-9 Ð°Ð±Ð¾ 0 ÑÐºÑÐ¾ Ð½ÑÑÐ½Ð¾Ñ Ð½ÐµÐ¼Ð°Ñ.")
+                await update.message.reply_text("\u041d\u0435 \u0431\u0430\u0447\u0443 \u043d\u043e\u043c\u0435\u0440\u0456\u0432. \u041f\u0440\u0438\u043a\u043b\u0430\u0434: 1,2,5-9 \u0430\u0431\u043e 0 \u044f\u043a\u0449\u043e \u043d\u0456\u0447\u043d\u043e\u0457 \u043d\u0435\u043c\u0430\u0454.")
                 return
 
         day_selected = ud["tmp"].get("day_indexes", [])
@@ -2769,31 +2770,31 @@ async def work_flow(update, context, text):
         reset_state(context)
 
         msg = (
-            f"â Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night ÑÑÐ²Ð¾ÑÐµÐ½Ð¾ Ð·Ð° {date}\n\n"
-            f"ÐÐµÐ½Ð½Ð° Ð·Ð¼ÑÐ½Ð°: {day_result['selected']}\n"
-            f"ÐÑÑÐ½Ð° Ð·Ð¼ÑÐ½Ð°: {night_result['selected']}\n"
+            f"\u2705 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e \u0437\u0430 {date}\n\n"
+            f"\u0414\u0435\u043d\u043d\u0430 \u0437\u043c\u0456\u043d\u0430: {day_result['selected']}\n"
+            f"\u041d\u0456\u0447\u043d\u0430 \u0437\u043c\u0456\u043d\u0430: {night_result['selected']}\n"
         )
         if duplicates:
-            msg += f"\nâ ï¸ {duplicates} Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð±ÑÐ»Ð¸ Ð²Ð¸Ð±ÑÐ°Ð½Ñ Ñ Ð² day, Ñ Ð² night â Ð·Ð°Ð»Ð¸ÑÐ¸Ð² Ñ day."
+            msg += f"\n\u26a0\ufe0f {duplicates} \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0431\u0443\u043b\u0438 \u0432\u0438\u0431\u0440\u0430\u043d\u0456 \u0456 \u0432 day, \u0456 \u0432 night \u2014 \u0437\u0430\u043b\u0438\u0448\u0438\u0432 \u0443 day."
 
-        msg += "\n\nÐÐºÑÐ¸Ð²Ð½Ð° Ð·Ð¼ÑÐ½Ð° Ð·Ð°ÑÐ°Ð·: day.\nÐÐ°Ð»Ñ Ð¼Ð¾Ð¶ÐµÑ Ð½Ð°ÑÐ¸ÑÐ½ÑÑÐ¸ ð§© Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ Ð³ÑÑÐ¿Ð°Ñ."
+        msg += "\n\n\u0410\u043a\u0442\u0438\u0432\u043d\u0430 \u0437\u043c\u0456\u043d\u0430 \u0437\u0430\u0440\u0430\u0437: day.\n\u0414\u0430\u043b\u0456 \u043c\u043e\u0436\u0435\u0448 \u043d\u0430\u0442\u0438\u0441\u043d\u0443\u0442\u0438 \U0001f9e9 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b \u043f\u043e \u0433\u0440\u0443\u043f\u0430\u0445."
         await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "weekly_wait_weekday":
-        weekday_text = safe_lower(text.replace("ð", ""))
+        weekday_text = safe_lower(text.replace("\U0001f4c5", ""))
         mapping = {
-            "Ð¿Ð½": "0", "Ð¿Ð¾Ð½ÐµÐ´ÑÐ»Ð¾Ðº": "0", "monday": "0", "0": "0",
-            "Ð²Ñ": "1", "Ð²ÑÐ²ÑÐ¾ÑÐ¾Ðº": "1", "tuesday": "1", "1": "1",
-            "ÑÑ": "2", "ÑÐµÑÐµÐ´Ð°": "2", "wednesday": "2", "2": "2",
-            "ÑÑ": "3", "ÑÐµÑÐ²ÐµÑ": "3", "thursday": "3", "3": "3",
-            "Ð¿Ñ": "4", "Ð¿Ê¼ÑÑÐ½Ð¸ÑÑ": "4", "Ð¿ÑÑÐ½Ð¸ÑÑ": "4", "friday": "4", "4": "4",
-            "ÑÐ±": "5", "ÑÑÐ±Ð¾ÑÐ°": "5", "saturday": "5", "5": "5",
-            "Ð½Ð´": "6", "Ð½ÐµÐ´ÑÐ»Ñ": "6", "sunday": "6", "6": "6",
+            "\u043f\u043d": "0", "\u043f\u043e\u043d\u0435\u0434\u0456\u043b\u043e\u043a": "0", "monday": "0", "0": "0",
+            "\u0432\u0442": "1", "\u0432\u0456\u0432\u0442\u043e\u0440\u043e\u043a": "1", "tuesday": "1", "1": "1",
+            "\u0441\u0440": "2", "\u0441\u0435\u0440\u0435\u0434\u0430": "2", "wednesday": "2", "2": "2",
+            "\u0447\u0442": "3", "\u0447\u0435\u0442\u0432\u0435\u0440": "3", "thursday": "3", "3": "3",
+            "\u043f\u0442": "4", "\u043f\u02bc\u044f\u0442\u043d\u0438\u0446\u044f": "4", "\u043f\u044f\u0442\u043d\u0438\u0446\u044f": "4", "friday": "4", "4": "4",
+            "\u0441\u0431": "5", "\u0441\u0443\u0431\u043e\u0442\u0430": "5", "saturday": "5", "5": "5",
+            "\u043d\u0434": "6", "\u043d\u0435\u0434\u0456\u043b\u044f": "6", "sunday": "6", "6": "6",
         }
         weekday = mapping.get(weekday_text)
         if weekday is None:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´ÐµÐ½Ñ ÑÐ¸Ð¶Ð½Ñ ÐºÐ½Ð¾Ð¿ÐºÐ¾Ñ.", reply_markup=weekly_weekday_kb())
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0435\u043d\u044c \u0442\u0438\u0436\u043d\u044f \u043a\u043d\u043e\u043f\u043a\u043e\u044e.", reply_markup=weekly_weekday_kb())
             return
         reset_state(context)
         wp = init_weekly_picker(context, weekday)
@@ -2804,27 +2805,27 @@ async def work_flow(update, context, text):
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
+            await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443.")
             return
 
         lines = [normalize_text(x) for x in (update.message.text or "").splitlines() if normalize_text(x)]
         if not lines:
-            await update.message.reply_text("ÐÑÑÐ°Ð² ÑÐ¿Ð¸ÑÐ¾Ðº Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ², ÐºÐ¾Ð¶ÐµÐ½ Ð· Ð½Ð¾Ð²Ð¾Ð³Ð¾ ÑÑÐ´ÐºÐ°.")
+            await update.message.reply_text("\u0412\u0441\u0442\u0430\u0432 \u0441\u043f\u0438\u0441\u043e\u043a \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432, \u043a\u043e\u0436\u0435\u043d \u0437 \u043d\u043e\u0432\u043e\u0433\u043e \u0440\u044f\u0434\u043a\u0430.")
             return
 
         result = add_workers_to_shift_unassigned(active, lines, employees, "")
         await backup_everywhere(context, update.effective_chat.id, "shift_add_list", f"{active['date']} {active['shift_type']} +{result['added']}")
         reset_state(context)
 
-        msg = f"â ÐÐ¾Ð´Ð°Ð½Ð¾ Ñ {shift_type_label(active['shift_type'])} Ð·Ð¼ÑÐ½Ñ: {result['added']}"
+        msg = f"\u2705 \u0414\u043e\u0434\u0430\u043d\u043e \u0443 {shift_type_label(active['shift_type'])} \u0437\u043c\u0456\u043d\u0443: {result['added']}"
         if result["already"]:
-            msg += f"\n\nâ¹ï¸ ÐÐ¶Ðµ Ð±ÑÐ»Ð¸ Ñ Ð·Ð¼ÑÐ½Ñ: {len(result['already'])}"
+            msg += f"\n\n\u2139\ufe0f \u0412\u0436\u0435 \u0431\u0443\u043b\u0438 \u0443 \u0437\u043c\u0456\u043d\u0456: {len(result['already'])}"
         if result["missing"]:
-            msg += "\n\nâ ï¸ ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾:\n" + "\n".join(result["missing"][:25])
+            msg += "\n\n\u26a0\ufe0f \u041d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e:\n" + "\n".join(result["missing"][:25])
         if result["ambiguous"]:
-            msg += "\n\nâ ï¸ ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ° Ð²Ð°ÑÑÐ°Ð½ÑÑÐ², ÑÑÐ¾ÑÐ½Ð¸ SAP:\n" + "\n".join(result["ambiguous"][:15])
+            msg += "\n\n\u26a0\ufe0f \u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043a\u0456\u043b\u044c\u043a\u0430 \u0432\u0430\u0440\u0456\u0430\u043d\u0442\u0456\u0432, \u0443\u0442\u043e\u0447\u043d\u0438 SAP:\n" + "\n".join(result["ambiguous"][:15])
 
-        msg += "\n\nÐ¡Ð¿Ð¸ÑÐ¾Ðº Ð·Ð¼ÑÐ½Ð¸ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾. ÐÐ»Ñ Ð´ÑÑÐ³Ð¾Ñ Ð·Ð¼ÑÐ½Ð¸ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Day Ð°Ð±Ð¾ Night Ñ Ð´Ð¾Ð´Ð°Ð¹ ÑÑ ÑÐ¿Ð¸ÑÐ¾Ðº."
+        msg += "\n\n\u0421\u043f\u0438\u0441\u043e\u043a \u0437\u043c\u0456\u043d\u0438 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e. \u0414\u043b\u044f \u0434\u0440\u0443\u0433\u043e\u0457 \u0437\u043c\u0456\u043d\u0438 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 Day \u0430\u0431\u043e Night \u0456 \u0434\u043e\u0434\u0430\u0439 \u0457\u0457 \u0441\u043f\u0438\u0441\u043e\u043a."
         await show_work_menu(update, context, msg)
         return
 
@@ -2832,12 +2833,12 @@ async def work_flow(update, context, text):
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
+            await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443.")
             return
 
         group_text = normalize_text(text).upper()
         if not group_text:
-            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð³ÑÑÐ¿Ñ, Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ HALA 2/G1 Ð°Ð±Ð¾ G1.")
+            await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 \u0433\u0440\u0443\u043f\u0443, \u043d\u0430\u043f\u0440\u0438\u043a\u043b\u0430\u0434 HALA 2/G1 \u0430\u0431\u043e G1.")
             return
 
         hala = ""
@@ -2858,9 +2859,9 @@ async def work_flow(update, context, text):
 
         await update.message.reply_text(
             format_shift_workers_numbered(active)
-            + "\n\nÐÐ²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑÐ¸ Ð´Ð»Ñ Ð³ÑÑÐ¿Ð¸ "
+            + "\n\n\u0412\u0432\u0435\u0434\u0438 \u043d\u043e\u043c\u0435\u0440\u0438 \u0434\u043b\u044f \u0433\u0440\u0443\u043f\u0438 "
             + f"{(hala + '/' if hala else '')}{group}\n"
-            + "ÐÑÐ¸ÐºÐ»Ð°Ð´: 1,2,5-9",
+            + "\u041f\u0440\u0438\u043a\u043b\u0430\u0434: 1,2,5-9",
             reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
         )
         return
@@ -2869,18 +2870,18 @@ async def work_flow(update, context, text):
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
+            await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443.")
             return
 
         rows = shift_rows_for_active(active, force=True)
         if not rows:
             reset_state(context)
-            await show_work_menu(update, context, "Ð£ Ð·Ð¼ÑÐ½Ñ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ².")
+            await show_work_menu(update, context, "\u0423 \u0437\u043c\u0456\u043d\u0456 \u043d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432.")
             return
 
         selected = parse_number_selection(text, len(rows))
         if not selected:
-            await update.message.reply_text("ÐÐµ Ð±Ð°ÑÑ Ð½Ð¾Ð¼ÐµÑÑÐ². ÐÑÐ¸ÐºÐ»Ð°Ð´: 1,2,5-9")
+            await update.message.reply_text("\u041d\u0435 \u0431\u0430\u0447\u0443 \u043d\u043e\u043c\u0435\u0440\u0456\u0432. \u041f\u0440\u0438\u043a\u043b\u0430\u0434: 1,2,5-9")
             return
 
         hala = ud["tmp"].get("dispatch_hala", "")
@@ -2893,7 +2894,7 @@ async def work_flow(update, context, text):
         await show_work_menu(
             update,
             context,
-            f"â ÐÐµÑÐµÐ½ÐµÑÐµÐ½Ð¾ Ð² {(hala + '/' if hala else '')}{group}: {moved}\n\n"
+            f"\u2705 \u041f\u0435\u0440\u0435\u043d\u0435\u0441\u0435\u043d\u043e \u0432 {(hala + '/' if hala else '')}{group}: {moved}\n\n"
             + format_groups_overview(active)
         )
         return
@@ -2901,24 +2902,24 @@ async def work_flow(update, context, text):
     if ud["mode"] == "work_add_hala":
         hala = normalize_text(text)
         if hala not in {"HALA 1", "HALA 2", "HALA 3", "HALA 4"}:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ HALA 1â4.", reply_markup=hala_kb())
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 HALA 1\u20134.", reply_markup=hala_kb())
             return
         ud["tmp"]["hala"] = hala
         ud["mode"] = "work_add_group"
-        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð³ÑÑÐ¿Ñ/ÑÐ¾Ð±Ð¾ÑÐµ Ð¼ÑÑÑÐµ, Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ G1 Ð°Ð±Ð¾ LINIA 2:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+        await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 \u0433\u0440\u0443\u043f\u0443/\u0440\u043e\u0431\u043e\u0447\u0435 \u043c\u0456\u0441\u0446\u0435, \u043d\u0430\u043f\u0440\u0438\u043a\u043b\u0430\u0434 G1 \u0430\u0431\u043e LINIA 2:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "work_add_group":
         ud["tmp"]["group"] = text
         ud["mode"] = "work_add_list"
-        await update.message.reply_text("ÐÑÑÐ°Ð² ÑÐ¿Ð¸ÑÐ¾Ðº SAP Ð°Ð±Ð¾ SAP - PRIZVYSHCHE IMIA, ÐºÐ¾Ð¶ÐµÐ½ Ð· Ð½Ð¾Ð²Ð¾Ð³Ð¾ ÑÑÐ´ÐºÐ°:")
+        await update.message.reply_text("\u0412\u0441\u0442\u0430\u0432 \u0441\u043f\u0438\u0441\u043e\u043a SAP \u0430\u0431\u043e SAP - PRIZVYSHCHE IMIA, \u043a\u043e\u0436\u0435\u043d \u0437 \u043d\u043e\u0432\u043e\u0433\u043e \u0440\u044f\u0434\u043a\u0430:")
         return
 
     if ud["mode"] == "work_add_list":
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
+            await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443.")
             return
         emp_by_sap, emp_by_name = build_employee_lookup(employees)
         lines = [normalize_text(x) for x in (update.message.text or "").splitlines() if normalize_text(x)]
@@ -2945,7 +2946,7 @@ async def work_flow(update, context, text):
                     if len(candidates) == 1:
                         emp = candidates[0]
                     elif len(candidates) > 1:
-                        ambiguous.append(line + " â " + ", ".join(emp_display(c) for c in candidates[:5]))
+                        ambiguous.append(line + " \u2192 " + ", ".join(emp_display(c) for c in candidates[:5]))
                         continue
 
             if not emp or not emp.get("sap"):
@@ -2982,27 +2983,27 @@ async def work_flow(update, context, text):
         await backup_everywhere(context, update.effective_chat.id, "shift_add_workers", f"+{added}, moved {moved}")
         reset_state(context)
 
-        msg = f"â ÐÐ¾Ð´Ð°Ð½Ð¾: {added}"
+        msg = f"\u2705 \u0414\u043e\u0434\u0430\u043d\u043e: {added}"
         if moved:
-            msg += f"\nð ÐÐµÑÐµÐ½ÐµÑÐµÐ½Ð¾ Ð² ÑÑ Ð³ÑÑÐ¿Ñ: {moved}"
+            msg += f"\n\U0001f501 \u041f\u0435\u0440\u0435\u043d\u0435\u0441\u0435\u043d\u043e \u0432 \u0446\u044e \u0433\u0440\u0443\u043f\u0443: {moved}"
         if missing:
-            msg += "\n\nâ ï¸ ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²:\n" + "\n".join(missing[:30])
+            msg += "\n\n\u26a0\ufe0f \u041d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432:\n" + "\n".join(missing[:30])
         if ambiguous:
-            msg += "\n\nâ ï¸ Ð£ÑÐ¾ÑÐ½Ð¸, Ð±Ð¾ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°:\n" + "\n".join(ambiguous[:10])
+            msg += "\n\n\u26a0\ufe0f \u0423\u0442\u043e\u0447\u043d\u0438, \u0431\u043e \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043a\u0456\u043b\u044c\u043a\u0430:\n" + "\n".join(ambiguous[:10])
         await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "import_by_date_wait_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("\u0414\u0430\u0442\u0430 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "import_by_date_wait_text"
         await update.message.reply_text(
-            "ÐÑÑÐ°Ð² ÑÐ¿Ð¸ÑÐ¾Ðº SAP - % Ð´Ð»Ñ ÑÑÑÑ Ð´Ð°ÑÐ¸.\n"
-            "ÐÐ¾Ñ ÑÐ°Ð¼ Ð·Ð½Ð°Ð¹Ð´Ðµ SAP Ñ day/night Ð½Ð° ÑÑ Ð´Ð°ÑÑ Ñ Ð·Ð°Ð¿Ð¸ÑÐµ Ñ Ð¿ÑÐ°Ð²Ð¸Ð»ÑÐ½Ñ Ð·Ð¼ÑÐ½Ñ.\n\n"
-            "ÐÑÐ¸ÐºÐ»Ð°Ð´:\n51009998 - 156,44\n51010002 - 156,44",
+            "\u0412\u0441\u0442\u0430\u0432 \u0441\u043f\u0438\u0441\u043e\u043a SAP - % \u0434\u043b\u044f \u0446\u0456\u0454\u0457 \u0434\u0430\u0442\u0438.\n"
+            "\u0411\u043e\u0442 \u0441\u0430\u043c \u0437\u043d\u0430\u0439\u0434\u0435 SAP \u0443 day/night \u043d\u0430 \u0446\u044e \u0434\u0430\u0442\u0443 \u0456 \u0437\u0430\u043f\u0438\u0448\u0435 \u0443 \u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u0443 \u0437\u043c\u0456\u043d\u0443.\n\n"
+            "\u041f\u0440\u0438\u043a\u043b\u0430\u0434:\n51009998 - 156,44\n51010002 - 156,44",
             reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
         )
         return
@@ -3011,7 +3012,7 @@ async def work_flow(update, context, text):
         date = ud["tmp"]["date"]
         parsed = parse_sap_percent_from_text(update.message.text or "")
         if not parsed:
-            await update.message.reply_text("ÐÐµ Ð·Ð½Ð°Ð¹ÑÐ¾Ð² SAP Ñ %. ÐÑÐ¸ÐºÐ»Ð°Ð´: 51009998 - 156,44")
+            await update.message.reply_text("\u041d\u0435 \u0437\u043d\u0430\u0439\u0448\u043e\u0432 SAP \u0456 %. \u041f\u0440\u0438\u043a\u043b\u0430\u0434: 51009998 - 156,44")
             return
         result = import_percent_rows_by_date(date, parsed)
         if result["written_count"]:
@@ -3023,13 +3024,13 @@ async def work_flow(update, context, text):
     if ud["mode"] == "import_photo_wait_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("\u0414\u0430\u0442\u0430 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "import_photo_wait_photo"
         await update.message.reply_text(
-            "ÐÐ°Ð´ÑÑÐ»Ð¸ ÑÐ¾ÑÐ¾ Ð·Ð²ÑÑÑ Ð· SAP Ñ %.\n"
-            "ÐÐ¾Ñ ÑÐ°Ð¼ ÑÐ¾Ð·Ð½ÐµÑÐµ % Ð¼ÑÐ¶ ÐÐµÐ½Ð½Ð¾Ñ Ñ ÐÑÑÐ½Ð¾Ñ Ð·Ð¼ÑÐ½Ð°Ð¼Ð¸ Ð·Ð° ÑÐ¿Ð¸ÑÐºÐ°Ð¼Ð¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð½Ð° ÑÑ Ð´Ð°ÑÑ.",
+            "\u041d\u0430\u0434\u0456\u0448\u043b\u0438 \u0444\u043e\u0442\u043e \u0437\u0432\u0456\u0442\u0443 \u0437 SAP \u0456 %.\n"
+            "\u0411\u043e\u0442 \u0441\u0430\u043c \u0440\u043e\u0437\u043d\u0435\u0441\u0435 % \u043c\u0456\u0436 \u0414\u0435\u043d\u043d\u043e\u044e \u0456 \u041d\u0456\u0447\u043d\u043e\u044e \u0437\u043c\u0456\u043d\u0430\u043c\u0438 \u0437\u0430 \u0441\u043f\u0438\u0441\u043a\u0430\u043c\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u043d\u0430 \u0446\u044e \u0434\u0430\u0442\u0443.",
             reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
         )
         return
@@ -3038,7 +3039,7 @@ async def work_flow(update, context, text):
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
+            await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443.")
             return
         emp_by_sap = {e["sap"]: e for e in employees if e["sap"]}
         shift_rows = [r for r in read_shifts(True) if r["date"] == active["date"] and r["shift_type"] == active["shift_type"]]
@@ -3059,7 +3060,7 @@ async def work_flow(update, context, text):
             parsed.append({"date": active["date"], "shift_type": active["shift_type"], "hala": hala, "group": group, "sap": sap, "surname": emp["surname"], "percent": percent})
 
         if not parsed:
-            await update.message.reply_text("ÐÐµ Ð·Ð½Ð°Ð¹ÑÐ¾Ð² ÑÑÐ´ÐºÑÐ² ÑÐ¾ÑÐ¼Ð°ÑÑ: 51009998 - 156,44")
+            await update.message.reply_text("\u041d\u0435 \u0437\u043d\u0430\u0439\u0448\u043e\u0432 \u0440\u044f\u0434\u043a\u0456\u0432 \u0444\u043e\u0440\u043c\u0430\u0442\u0443: 51009998 - 156,44")
             return
 
         # replace existing same shift + SAP
@@ -3067,40 +3068,40 @@ async def work_flow(update, context, text):
         sap_set = {r["sap"] for r in parsed}
         kept = [r for r in old if not (r["date"] == active["date"] and r["shift_type"] == active["shift_type"] and r["sap"] in sap_set)]
         write_perf(kept + [ensure_perf_columns(r) for r in parsed])
-        await backup_everywhere(context, update.effective_chat.id, "import_percent", f"{active['date']} {active['shift_type']} Ð·Ð°Ð¿Ð¸ÑÑÐ² {len(parsed)}")
+        await backup_everywhere(context, update.effective_chat.id, "import_percent", f"{active['date']} {active['shift_type']} \u0437\u0430\u043f\u0438\u0441\u0456\u0432 {len(parsed)}")
         reset_state(context)
 
-        preview = "\n".join(f"{r['sap']} â {r['surname']} â {fmt_percent(r['percent'])}%" for r in parsed[:25])
-        msg = f"â ÐÐ¼Ð¿Ð¾ÑÑÐ¾Ð²Ð°Ð½Ð¾ %: {len(parsed)}\n\n{preview}"
+        preview = "\n".join(f"{r['sap']} \u2014 {r['surname']} \u2014 {fmt_percent(r['percent'])}%" for r in parsed[:25])
+        msg = f"\u2705 \u0406\u043c\u043f\u043e\u0440\u0442\u043e\u0432\u0430\u043d\u043e %: {len(parsed)}\n\n{preview}"
         if len(parsed) > 25:
-            msg += f"\n... ÑÐµ {len(parsed)-25}"
+            msg += f"\n... \u0449\u0435 {len(parsed)-25}"
         if missing:
-            msg += "\n\nâ ï¸ SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾:\n" + "\n".join(missing[:20])
+            msg += "\n\n\u26a0\ufe0f SAP \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e:\n" + "\n".join(missing[:20])
         if bad:
-            msg += "\n\nâ ï¸ ÐÐµ ÑÐ¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾ ÑÑÐ´ÐºÐ¸:\n" + "\n".join(bad[:10])
+            msg += "\n\n\u26a0\ufe0f \u041d\u0435 \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u043d\u043e \u0440\u044f\u0434\u043a\u0438:\n" + "\n".join(bad[:10])
         await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "work_set_group_hala":
         hala = normalize_text(text)
         if hala not in {"HALA 1", "HALA 2", "HALA 3", "HALA 4"}:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ HALA 1â4.", reply_markup=hala_kb())
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 HALA 1\u20134.", reply_markup=hala_kb())
             return
         ud["tmp"]["hala"] = hala
         ud["mode"] = "work_set_group_name"
-        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð³ÑÑÐ¿Ñ/ÑÐ¾Ð±Ð¾ÑÐµ Ð¼ÑÑÑÐµ:")
+        await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 \u0433\u0440\u0443\u043f\u0443/\u0440\u043e\u0431\u043e\u0447\u0435 \u043c\u0456\u0441\u0446\u0435:")
         return
 
     if ud["mode"] == "work_set_group_name":
         ud["tmp"]["group"] = text
         ud["mode"] = "work_set_group_percent"
-        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ % Ð´Ð»Ñ Ð²ÑÑÑÑ Ð³ÑÑÐ¿Ð¸:")
+        await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 % \u0434\u043b\u044f \u0432\u0441\u0456\u0454\u0457 \u0433\u0440\u0443\u043f\u0438:")
         return
 
     if ud["mode"] == "work_set_group_percent":
         p = safe_float(text)
         if p is None:
-            await update.message.reply_text("ÐÐµ ÑÑÐ¾Ð¶Ðµ Ð½Ð° ÑÐ¸ÑÐ»Ð¾.")
+            await update.message.reply_text("\u041d\u0435 \u0441\u0445\u043e\u0436\u0435 \u043d\u0430 \u0447\u0438\u0441\u043b\u043e.")
             return
         active = ud.get("active_shift")
         rows_shift = [r for r in read_shifts(True) if r["date"] == active["date"] and r["shift_type"] == active["shift_type"] and r["hala"] == ud["tmp"]["hala"] and r["group"] == ud["tmp"]["group"]]
@@ -3111,62 +3112,62 @@ async def work_flow(update, context, text):
         write_perf(kept + new)
         await backup_everywhere(context, update.effective_chat.id, "group_percent", f"{ud['tmp']['hala']}/{ud['tmp']['group']}={p}")
         reset_state(context)
-        await show_work_menu(update, context, f"â ÐÐ°Ð¿Ð¸ÑÐ°Ð½Ð¾ {fmt_percent(p)}% Ð´Ð»Ñ {len(new)} Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ².")
+        await show_work_menu(update, context, f"\u2705 \u0417\u0430\u043f\u0438\u0441\u0430\u043d\u043e {fmt_percent(p)}% \u0434\u043b\u044f {len(new)} \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432.")
         return
 
     if ud["mode"] == "ocr_preview_wait_confirm":
-        if is_btn(text, BTN_CONFIRM_SAVE_IMPORT) or safe_lower(text) in {"ÑÐ°Ðº", "yes", "save"}:
+        if is_btn(text, BTN_CONFIRM_SAVE_IMPORT) or safe_lower(text) in {"\u0442\u0430\u043a", "yes", "save"}:
             pending = ud.get("pending_ocr_import") or {}
             rows_to_save = pending.get("preview") or []
             date = pending.get("date", "")
             if not rows_to_save:
                 reset_state(context)
                 ud.pop("pending_ocr_import", None)
-                await show_work_menu(update, context, "â ÐÐµÐ¼Ð°Ñ ÑÑÐ´ÐºÑÐ² Ð´Ð»Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð½Ñ.")
+                await show_work_menu(update, context, "\u274c \u041d\u0435\u043c\u0430\u0454 \u0440\u044f\u0434\u043a\u0456\u0432 \u0434\u043b\u044f \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043d\u044f.")
                 return
             await backup_everywhere(context, update.effective_chat.id, "pre_ocr_save", f"{date}: before save")
             count = save_import_preview_rows(rows_to_save)
             await backup_everywhere(context, update.effective_chat.id, "after_ocr_save", f"{date}: saved {count}")
             reset_state(context)
             ud.pop("pending_ocr_import", None)
-            await show_work_menu(update, context, f"â OCR Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾. ÐÐ°Ð¿Ð¸ÑÐ°Ð½Ð¾: {count}")
+            await show_work_menu(update, context, f"\u2705 OCR \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e. \u0417\u0430\u043f\u0438\u0441\u0430\u043d\u043e: {count}")
             return
 
-        if is_btn(text, BTN_CANCEL_IMPORT) or safe_lower(text) in {"Ð½Ñ", "no", "cancel"}:
+        if is_btn(text, BTN_CANCEL_IMPORT) or safe_lower(text) in {"\u043d\u0456", "no", "cancel"}:
             reset_state(context)
             ud.pop("pending_ocr_import", None)
-            await show_work_menu(update, context, "â OCR-ÑÐ¼Ð¿Ð¾ÑÑ ÑÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾. ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ Ð·Ð°Ð¿Ð¸ÑÐ°Ð½Ð¾.")
+            await show_work_menu(update, context, "\u274c OCR-\u0456\u043c\u043f\u043e\u0440\u0442 \u0441\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e. \u041d\u0456\u0447\u043e\u0433\u043e \u043d\u0435 \u0437\u0430\u043f\u0438\u0441\u0430\u043d\u043e.")
             return
 
-        await update.message.reply_text("ÐÐ°ÑÐ¸ÑÐ½Ð¸ â ÐÐ±ÐµÑÐµÐ³ÑÐ¸ OCR Ð°Ð±Ð¾ â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸ OCR.")
+        await update.message.reply_text("\u041d\u0430\u0442\u0438\u0441\u043d\u0438 \u2705 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 OCR \u0430\u0431\u043e \u274c \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438 OCR.")
         return
 
     if ud["mode"] == "clear_percent_wait_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("\u0414\u0430\u0442\u0430 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "clear_percent_confirm"
-        kb = ReplyKeyboardMarkup([["Ð¢ÐÐ, Ð¾ÑÐ¸ÑÑÐ¸ÑÐ¸ %"], [BTN_CANCEL]], resize_keyboard=True)
+        kb = ReplyKeyboardMarkup([["\u0422\u0410\u041a, \u043e\u0447\u0438\u0441\u0442\u0438\u0442\u0438 %"], [BTN_CANCEL]], resize_keyboard=True)
         await update.message.reply_text(
-            f"â ï¸ ÐÑÐ¸ÑÑÐ¸ÑÐ¸ ÐÐ¡Ð® Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ Ð·Ð° {date} Ð´Ð»Ñ day Ñ night?\\n"
-            "Ð¡Ð¿Ð¸ÑÐºÐ¸ ÐÐµÐ½Ð½Ð¾Ñ/ÐÑÑÐ½Ð¾Ñ Ð·Ð¼ÑÐ½Ð¸ Ð·Ð°Ð»Ð¸ÑÐ°ÑÑÑÑ, Ð²Ð¸Ð´Ð°Ð»ÑÑÑÑÑ ÑÑÐ»ÑÐºÐ¸ %.",
+            f"\u26a0\ufe0f \u041e\u0447\u0438\u0441\u0442\u0438\u0442\u0438 \u0412\u0421\u042e \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c \u0437\u0430 {date} \u0434\u043b\u044f day \u0456 night?\\n"
+            "\u0421\u043f\u0438\u0441\u043a\u0438 \u0414\u0435\u043d\u043d\u043e\u0457/\u041d\u0456\u0447\u043d\u043e\u0457 \u0437\u043c\u0456\u043d\u0438 \u0437\u0430\u043b\u0438\u0448\u0430\u0442\u044c\u0441\u044f, \u0432\u0438\u0434\u0430\u043b\u044f\u0442\u044c\u0441\u044f \u0442\u0456\u043b\u044c\u043a\u0438 %.",
             reply_markup=kb
         )
         return
 
     if ud["mode"] == "clear_percent_confirm":
-        if safe_lower(text) != safe_lower("Ð¢ÐÐ, Ð¾ÑÐ¸ÑÑÐ¸ÑÐ¸ %"):
+        if safe_lower(text) != safe_lower("\u0422\u0410\u041a, \u043e\u0447\u0438\u0441\u0442\u0438\u0442\u0438 %"):
             reset_state(context)
-            await show_work_menu(update, context, "Ð¡ÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾ â")
+            await show_work_menu(update, context, "\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e \u2705")
             return
         date = ud["tmp"].get("date")
         await backup_everywhere(context, update.effective_chat.id, "pre_clear_percent", f"{date}")
         removed = clear_percent_for_date(date)
         await backup_everywhere(context, update.effective_chat.id, "after_clear_percent", f"{date}: removed {removed}")
         reset_state(context)
-        await show_work_menu(update, context, f"ð§¹ ÐÑÐ¸ÑÐµÐ½Ð¾ % Ð·Ð° {date}. ÐÐ¸Ð´Ð°Ð»ÐµÐ½Ð¾ Ð·Ð°Ð¿Ð¸ÑÑÐ²: {removed}")
+        await show_work_menu(update, context, f"\U0001f9f9 \u041e\u0447\u0438\u0449\u0435\u043d\u043e % \u0437\u0430 {date}. \u0412\u0438\u0434\u0430\u043b\u0435\u043d\u043e \u0437\u0430\u043f\u0438\u0441\u0456\u0432: {removed}")
         return
 
     if ud["mode"] == "work_sort_month":
@@ -3175,7 +3176,7 @@ async def work_flow(update, context, text):
         else:
             dt = parse_mmyyyy(text)
             if not dt:
-                await update.message.reply_text("Ð¤Ð¾ÑÐ¼Ð°Ñ MM.YYYY Ð°Ð±Ð¾ '-'.")
+                await update.message.reply_text("\u0424\u043e\u0440\u043c\u0430\u0442 MM.YYYY \u0430\u0431\u043e '-'.")
                 return
             month = dt.strftime("%m.%Y")
         reset_state(context)
@@ -3185,17 +3186,17 @@ async def work_flow(update, context, text):
     if ud["mode"] == "work_export_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("\u0414\u0430\u0442\u0430 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "work_export_type"
-        await update.message.reply_text("Ð¢Ð¸Ð¿ Ð·Ð¼ÑÐ½Ð¸:", reply_markup=shift_type_kb())
+        await update.message.reply_text("\u0422\u0438\u043f \u0437\u043c\u0456\u043d\u0438:", reply_markup=shift_type_kb())
         return
 
     if ud["mode"] == "work_export_type":
         typ = normalize_shift_type(text)
         if not typ:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ day Ð°Ð±Ð¾ night.")
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 day \u0430\u0431\u043e night.")
             return
         date = ud["tmp"]["date"]
         content = format_shift(date, typ, read_shifts(True), read_perf(True), read_summary(True))
@@ -3204,44 +3205,44 @@ async def work_flow(update, context, text):
         with open(path, "w", encoding="utf-8") as f:
             f.write(content + "\n")
         reset_state(context)
-        await context.bot.send_document(update.effective_chat.id, document=InputFile(path, filename=filename), caption="ð ÐÐºÑÐ¿Ð¾ÑÑ Ð·Ð¼ÑÐ½Ð¸")
-        await show_work_menu(update, context, "ÐÐ¾ÑÐ¾Ð²Ð¾ â")
+        await context.bot.send_document(update.effective_chat.id, document=InputFile(path, filename=filename), caption="\U0001f4dd \u0415\u043a\u0441\u043f\u043e\u0440\u0442 \u0437\u043c\u0456\u043d\u0438")
+        await show_work_menu(update, context, "\u0413\u043e\u0442\u043e\u0432\u043e \u2705")
         return
 
     if ud["mode"] == "summary_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("\u0414\u0430\u0442\u0430 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "summary_type"
-        await update.message.reply_text("Ð¢Ð¸Ð¿ Ð·Ð¼ÑÐ½Ð¸:", reply_markup=shift_type_kb())
+        await update.message.reply_text("\u0422\u0438\u043f \u0437\u043c\u0456\u043d\u0438:", reply_markup=shift_type_kb())
         return
 
     if ud["mode"] == "summary_type":
         typ = normalize_shift_type(text)
         if not typ:
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ day Ð°Ð±Ð¾ night.")
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 day \u0430\u0431\u043e night.")
             return
         ud["tmp"]["shift_type"] = typ
         ud["mode"] = "summary_total"
-        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð·Ð°Ð³Ð°Ð»ÑÐ½Ð¸Ð¹ %:")
+        await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 \u0437\u0430\u0433\u0430\u043b\u044c\u043d\u0438\u0439 %:")
         return
 
     if ud["mode"] == "summary_total":
         p = safe_float(text)
         if p is None:
-            await update.message.reply_text("ÐÐµ ÑÑÐ¾Ð¶Ðµ Ð½Ð° ÑÐ¸ÑÐ»Ð¾.")
+            await update.message.reply_text("\u041d\u0435 \u0441\u0445\u043e\u0436\u0435 \u043d\u0430 \u0447\u0438\u0441\u043b\u043e.")
             return
         ud["tmp"]["total_percent"] = str(p)
         ud["mode"] = "summary_agency"
-        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð°Ð³ÐµÐ½ÑÑÐ¹Ð½Ð¸Ð¹ %:")
+        await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 \u0430\u0433\u0435\u043d\u0446\u0456\u0439\u043d\u0438\u0439 %:")
         return
 
     if ud["mode"] == "summary_agency":
         p = safe_float(text)
         if p is None:
-            await update.message.reply_text("ÐÐµ ÑÑÐ¾Ð¶Ðµ Ð½Ð° ÑÐ¸ÑÐ»Ð¾.")
+            await update.message.reply_text("\u041d\u0435 \u0441\u0445\u043e\u0436\u0435 \u043d\u0430 \u0447\u0438\u0441\u043b\u043e.")
             return
         rows = read_summary(True)
         date, typ = ud["tmp"]["date"], ud["tmp"]["shift_type"]
@@ -3250,7 +3251,7 @@ async def work_flow(update, context, text):
         write_summary(rows)
         await backup_everywhere(context, update.effective_chat.id, "summary", f"{date} {typ}")
         reset_state(context)
-        await show_work_menu(update, context, "â % Ð¿Ð¾ Ð·Ð¼ÑÐ½Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.")
+        await show_work_menu(update, context, "\u2705 % \u043f\u043e \u0437\u043c\u0456\u043d\u0456 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e.")
         return
 
 # ==============================
@@ -3266,15 +3267,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ud["mode"] and is_cancel(text):
         reset_state(context)
         if ud["menu"] == "employee":
-            await show_employee_menu(update, context, "Ð¡ÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾ â")
+            await show_employee_menu(update, context, "\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e \u2705")
         elif ud["menu"] == "work":
-            await show_work_menu(update, context, "Ð¡ÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾ â")
+            await show_work_menu(update, context, "\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e \u2705")
         else:
-            await show_main_menu(update, context, "Ð¡ÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾ â")
+            await show_main_menu(update, context, "\u0421\u043a\u0430\u0441\u043e\u0432\u0430\u043d\u043e \u2705")
         return
 
     if ud["mode"] == "restore_wait_file":
-        await update.message.reply_text("ÐÐ°Ð´ÑÑÐ»Ð¸ CSV Ð°Ð±Ð¾ ZIP ÑÐ°Ð¹Ð»Ð¾Ð¼-Ð´Ð¾ÐºÑÐ¼ÐµÐ½ÑÐ¾Ð¼.")
+        await update.message.reply_text("\u041d\u0430\u0434\u0456\u0448\u043b\u0438 CSV \u0430\u0431\u043e ZIP \u0444\u0430\u0439\u043b\u043e\u043c-\u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u043c.")
         return
 
     if ud["mode"]:
@@ -3289,152 +3290,152 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_btn(text, BTN_EMPLOYEE_MENU):
         set_menu(context, "employee")
         reset_state(context)
-        await show_employee_menu(update, context, "ÐÐµÐ½Ñ: ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº â")
+        await show_employee_menu(update, context, "\u041c\u0435\u043d\u044e: \u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a \u2705")
         return
 
     if is_btn(text, BTN_WORK_MENU):
         set_menu(context, "work")
         reset_state(context)
-        await show_work_menu(update, context, "ÐÐµÐ½Ñ: ÐÑÐ³Ð°Ð½ÑÐ·Ð°ÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸ â")
+        await show_work_menu(update, context, "\u041c\u0435\u043d\u044e: \u041e\u0440\u0433\u0430\u043d\u0456\u0437\u0430\u0446\u0456\u044f \u0440\u043e\u0431\u043e\u0442\u0438 \u2705")
         return
 
     if is_btn(text, "Backup"):
         paths = await backup_everywhere(context, update.effective_chat.id, "manual")
-        await update.message.reply_text("ð¾ Backup Ð·ÑÐ¾Ð±Ð»ÐµÐ½Ð¾:\n" + "\n".join(os.path.basename(p) for p in paths), reply_markup=MAIN_KB)
+        await update.message.reply_text("\U0001f4be Backup \u0437\u0440\u043e\u0431\u043b\u0435\u043d\u043e:\n" + "\n".join(os.path.basename(p) for p in paths), reply_markup=MAIN_KB)
         return
 
     if is_btn(text, "Seed SAP"):
         await backup_everywhere(context, update.effective_chat.id, "pre_seed_sap")
         count = merge_seed_sap()
         await backup_everywhere(context, update.effective_chat.id, "after_seed_sap")
-        await show_main_menu(update, context, f"ð§¬ Seed SAP Ð·Ð°Ð²ÐµÑÑÐµÐ½Ð¾ â\nÐÐ°Ð¿Ð¸ÑÑÐ² Ñ Ð±Ð°Ð·Ñ: {count}")
+        await show_main_menu(update, context, f"\U0001f9ec Seed SAP \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043e \u2705\n\u0417\u0430\u043f\u0438\u0441\u0456\u0432 \u0443 \u0431\u0430\u0437\u0456: {count}")
         return
 
-    if is_btn(text, "ÐÑÐ´Ð½Ð¾Ð²Ð¸ÑÐ¸"):
+    if is_btn(text, "\u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438"):
         ud["mode"] = "restore_wait_file"
         ud["tmp"] = {}
         set_menu(context, "main")
-        await update.message.reply_text("ÐÐ°Ð´ÑÑÐ»Ð¸ ZIP backup Ð°Ð±Ð¾ employees.csv ÑÐ°Ð¹Ð»Ð¾Ð¼.")
+        await update.message.reply_text("\u041d\u0430\u0434\u0456\u0448\u043b\u0438 ZIP backup \u0430\u0431\u043e employees.csv \u0444\u0430\u0439\u043b\u043e\u043c.")
         return
 
     # employee menu
     if ud["menu"] == "employee":
         rows = read_employees()
-        if is_btn(text, "Ð¡ÑÐ°ÑÐ¸ÑÑÐ¸ÐºÐ°"):
+        if is_btn(text, "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430"):
             await update.message.reply_text(format_stats(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "ÐÑÑ"):
+        if is_btn(text, "\u0412\u0441\u0456"):
             msg, kb = employee_list_page(rows, 0)
             await update.message.reply_text(msg, reply_markup=kb); return
-        if is_btn(text, "ÐÐ°ÑÑÐºÐ°"):
+        if is_btn(text, "\u041a\u0430\u0440\u0442\u043a\u0430"):
             ud["mode"] = "card_wait_query"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP Ð°Ð±Ð¾ ÑÐ°ÑÑÐ¸Ð½Ñ Ð¿ÑÑÐ·Ð²Ð¸ÑÐ°:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
-        if is_btn(text, "ÐÐµÐ· SAP"):
+            await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 SAP \u0430\u0431\u043e \u0447\u0430\u0441\u0442\u0438\u043d\u0443 \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0430:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+        if is_btn(text, "\u0411\u0435\u0437 SAP"):
             await update.message.reply_text(format_no_sap(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "Ð ÑÐ°ÑÐºÐ¾Ñ"):
+        if is_btn(text, "\u0417 \u0448\u0430\u0444\u043a\u043e\u044e"):
             await update.message.reply_text(format_with_locker(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "ÐÐµÐ· ÑÐ°ÑÐºÐ¸"):
+        if is_btn(text, "\u0411\u0435\u0437 \u0448\u0430\u0444\u043a\u0438"):
             await update.message.reply_text(format_no_locker(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "Ð Ð½Ð¾Ð¶ÐµÐ¼"):
+        if is_btn(text, "\u0417 \u043d\u043e\u0436\u0435\u043c"):
             await update.message.reply_text(format_with_knife(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "ÐÐµÐ· Ð½Ð¾Ð¶Ð°"):
+        if is_btn(text, "\u0411\u0435\u0437 \u043d\u043e\u0436\u0430"):
             await update.message.reply_text(format_no_knife(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "ÐÐ¾Ð´Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"):
+        if is_btn(text, "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"):
             ud["mode"] = "add_wait_sap"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
-        if is_btn(text, "Ð ÐµÐ´Ð°Ð³ÑÐ²Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"):
+            await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 SAP:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+        if is_btn(text, "\u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"):
             ud["mode"] = "edit_wait_query"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP Ð°Ð±Ð¾ ÑÐ°ÑÑÐ¸Ð½Ñ Ð¿ÑÑÐ·Ð²Ð¸ÑÐ°:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
-        if is_btn(text, "ÐÐ¸Ð´Ð°Ð»Ð¸ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"):
+            await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 SAP \u0430\u0431\u043e \u0447\u0430\u0441\u0442\u0438\u043d\u0443 \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0430:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+        if is_btn(text, "\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"):
             ud["mode"] = "delete_wait_query"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP Ð°Ð±Ð¾ ÑÐ°ÑÑÐ¸Ð½Ñ Ð¿ÑÑÐ·Ð²Ð¸ÑÐ°:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+            await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 SAP \u0430\u0431\u043e \u0447\u0430\u0441\u0442\u0438\u043d\u0443 \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0430:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
         if is_btn(text, BTN_BACK):
             set_menu(context, "main"); reset_state(context)
-            await show_main_menu(update, context, "ÐÐ°Ð·Ð°Ð´ â"); return
+            await show_main_menu(update, context, "\u041d\u0430\u0437\u0430\u0434 \u2705"); return
         await show_employee_menu(update, context); return
 
     # work menu
     if ud["menu"] == "work":
-        if is_btn(text, "Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night"):
+        if is_btn(text, "\u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night"):
             ud["mode"] = "split_wait_date"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ Ð´Ð»Ñ ÑÐ¾Ð·Ð¿Ð¾Ð´ÑÐ»Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð½Ð° day/night:", reply_markup=date_kb()); return
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443 \u0434\u043b\u044f \u0440\u043e\u0437\u043f\u043e\u0434\u0456\u043b\u0443 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u043d\u0430 day/night:", reply_markup=date_kb()); return
 
-        if is_btn(text, "Ð¡ÑÐ²Ð¾ÑÐ¸ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"):
+        if is_btn(text, "\u0421\u0442\u0432\u043e\u0440\u0438\u0442\u0438 \u0437\u043c\u0456\u043d\u0443"):
             ud["mode"] = "work_create_date"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
-        if is_btn(text, "ÐÐ¾ÐºÐ°Ð·Ð°ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"):
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443:", reply_markup=date_kb()); return
+        if is_btn(text, "\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u0438 \u0437\u043c\u0456\u043d\u0443"):
             ud["mode"] = "work_show_date"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
-        if is_btn(text, "ÐÐ¾Ð´Ð°ÑÐ¸ ÑÐ¿Ð¸ÑÐ¾Ðº"):
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443:", reply_markup=date_kb()); return
+        if is_btn(text, "\u0414\u043e\u0434\u0430\u0442\u0438 \u0441\u043f\u0438\u0441\u043e\u043a"):
             if not ud.get("active_shift"):
-                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
+                await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443."); return
             ud["mode"] = "shift_add_list_wait_text"; ud["tmp"] = {}
             active = ud["active_shift"]
             await update.message.reply_text(
-                f"ÐÑÑÐ°Ð² ÑÑÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² {shift_type_label(active['shift_type'])} Ð·Ð¼ÑÐ½Ð¸ Ð·Ð° {active['date']}, ÐºÐ¾Ð¶ÐµÐ½ Ð· Ð½Ð¾Ð²Ð¾Ð³Ð¾ ÑÑÐ´ÐºÐ°.\n"
-                "ÐÐ¾Ð¶Ð½Ð° SAP, SAP - ÑÐ¼Ê¼Ñ Ð°Ð±Ð¾ ÑÑÐ»ÑÐºÐ¸ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ.",
+                f"\u0412\u0441\u0442\u0430\u0432 \u0443\u0441\u0456\u0445 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 {shift_type_label(active['shift_type'])} \u0437\u043c\u0456\u043d\u0438 \u0437\u0430 {active['date']}, \u043a\u043e\u0436\u0435\u043d \u0437 \u043d\u043e\u0432\u043e\u0433\u043e \u0440\u044f\u0434\u043a\u0430.\n"
+                "\u041c\u043e\u0436\u043d\u0430 SAP, SAP - \u0456\u043c\u02bc\u044f \u0430\u0431\u043e \u0442\u0456\u043b\u044c\u043a\u0438 \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0435.",
                 reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
             ); return
 
-        if is_btn(text, "Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð·Ð¼ÑÐ½Ð¸"):
+        if is_btn(text, "\u0421\u043f\u0438\u0441\u043e\u043a \u0437\u043c\u0456\u043d\u0438"):
             active = ud.get("active_shift")
             if not active:
-                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
+                await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443."); return
             await update.message.reply_text(format_shift_workers_numbered(active), reply_markup=WORK_KB); return
 
-        if is_btn(text, "Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ»"):
+        if is_btn(text, "\u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b"):
             active = ud.get("active_shift")
             if not active:
-                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
+                await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443."); return
             if not shift_rows_for_active(active, force=True):
-                await show_work_menu(update, context, "Ð£ Ð·Ð¼ÑÐ½Ñ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ². Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ Ð·ÑÐ¾Ð±Ð¸ ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night Ð°Ð±Ð¾ Ð´Ð¾Ð´Ð°Ð¹ ÑÐ¿Ð¸ÑÐ¾Ðº Ñ Ð·Ð¼ÑÐ½Ñ."); return
+                await show_work_menu(update, context, "\u0423 \u0437\u043c\u0456\u043d\u0456 \u043d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432. \u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0437\u0440\u043e\u0431\u0438 \U0001f5d3 \u0420\u043e\u0437\u043f\u043e\u0434\u0456\u043b day/night \u0430\u0431\u043e \u0434\u043e\u0434\u0430\u0439 \u0441\u043f\u0438\u0441\u043e\u043a \u0443 \u0437\u043c\u0456\u043d\u0443."); return
             reset_state(context)
             await send_workplace_picker(update, context, active); return
 
-        if is_btn(text, "ÐÑÑÐ¿Ð¸ Ð·Ð¼ÑÐ½Ð¸"):
+        if is_btn(text, "\u0413\u0440\u0443\u043f\u0438 \u0437\u043c\u0456\u043d\u0438"):
             active = ud.get("active_shift")
             if not active:
-                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
+                await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443."); return
             await update.message.reply_text(format_groups_overview(active), reply_markup=WORK_KB); return
 
-        if is_btn(text, "ÐÐ¾Ð´Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²"):
+        if is_btn(text, "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432"):
             if not ud.get("active_shift"):
-                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
+                await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443."); return
             ud["mode"] = "work_add_hala"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð·Ð°Ð»:", reply_markup=hala_kb()); return
-        if is_btn(text, "ÐÐ¼Ð¿Ð¾ÑÑ %"):
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0437\u0430\u043b:", reply_markup=hala_kb()); return
+        if is_btn(text, "\u0406\u043c\u043f\u043e\u0440\u0442 %"):
             ud["mode"] = "import_by_date_wait_date"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ Ð´Ð»Ñ ÑÐ¼Ð¿Ð¾ÑÑÑ %:", reply_markup=date_kb()); return
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443 \u0434\u043b\u044f \u0456\u043c\u043f\u043e\u0440\u0442\u0443 %:", reply_markup=date_kb()); return
 
-        if is_btn(text, "Ð¤Ð¾ÑÐ¾ %"):
+        if is_btn(text, "\u0424\u043e\u0442\u043e %"):
             ud["mode"] = "import_photo_wait_date"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ Ð´Ð»Ñ ÑÐ¾ÑÐ¾-ÑÐ¼Ð¿Ð¾ÑÑÑ %:", reply_markup=date_kb()); return
-        if is_btn(text, "ÐÐ½ÐµÑÑÐ¸ %"):
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443 \u0434\u043b\u044f \u0444\u043e\u0442\u043e-\u0456\u043c\u043f\u043e\u0440\u0442\u0443 %:", reply_markup=date_kb()); return
+        if is_btn(text, "\u0412\u043d\u0435\u0441\u0442\u0438 %"):
             if not ud.get("active_shift"):
-                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
+                await show_work_menu(update, context, "\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0441\u0442\u0432\u043e\u0440\u0438/\u043e\u0431\u0435\u0440\u0438 \u0437\u043c\u0456\u043d\u0443."); return
             ud["mode"] = "work_set_group_hala"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð·Ð°Ð»:", reply_markup=hala_kb()); return
-        if is_btn(text, "ÐÑÐ¸ÑÑÐ¸ÑÐ¸ %"):
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0437\u0430\u043b:", reply_markup=hala_kb()); return
+        if is_btn(text, "\u041e\u0447\u0438\u0441\u0442\u0438\u0442\u0438 %"):
             ud["mode"] = "clear_percent_wait_date"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ, Ð·Ð° ÑÐºÑ Ð¾ÑÐ¸ÑÑÐ¸ÑÐ¸ ÑÑÐ»ÑÐºÐ¸ %:", reply_markup=date_kb()); return
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443, \u0437\u0430 \u044f\u043a\u0443 \u043e\u0447\u0438\u0441\u0442\u0438\u0442\u0438 \u0442\u0456\u043b\u044c\u043a\u0438 %:", reply_markup=date_kb()); return
 
-        if is_btn(text, "% Ð¿Ð¾ Ð·Ð¼ÑÐ½Ñ"):
+        if is_btn(text, "% \u043f\u043e \u0437\u043c\u0456\u043d\u0456"):
             ud["mode"] = "summary_date"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
-        if is_btn(text, "Ð¡Ð¾ÑÑÑÐ²Ð°Ð½Ð½Ñ"):
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443:", reply_markup=date_kb()); return
+        if is_btn(text, "\u0421\u043e\u0440\u0442\u0443\u0432\u0430\u043d\u043d\u044f"):
             ud["mode"] = "work_sort_month"; ud["tmp"] = {}
             await update.message.reply_text(
-                "ÐÐ²ÐµÐ´Ð¸ Ð¼ÑÑÑÑÑ MM.YYYY Ð°Ð±Ð¾ '-' Ð´Ð»Ñ Ð¿Ð¾ÑÐ¾ÑÐ½Ð¾Ð³Ð¾:",
+                "\u0412\u0432\u0435\u0434\u0438 \u043c\u0456\u0441\u044f\u0446\u044c MM.YYYY \u0430\u0431\u043e '-' \u0434\u043b\u044f \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u0433\u043e:",
                 reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
             ); return
-        if is_btn(text, "ÐÐºÑÐ¿Ð¾ÑÑ"):
+        if is_btn(text, "\u0415\u043a\u0441\u043f\u043e\u0440\u0442"):
             ud["mode"] = "work_export_date"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
-        if is_btn(text, "Backup Ð·Ð¼ÑÐ½Ð¸"):
+            await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443:", reply_markup=date_kb()); return
+        if is_btn(text, "Backup \u0437\u043c\u0456\u043d\u0438"):
             paths = await backup_everywhere(context, update.effective_chat.id, "manual_shift")
-            await update.message.reply_text("ð¾ Backup Ð·ÑÐ¾Ð±Ð»ÐµÐ½Ð¾:\n" + "\n".join(os.path.basename(p) for p in paths), reply_markup=WORK_KB); return
+            await update.message.reply_text("\U0001f4be Backup \u0437\u0440\u043e\u0431\u043b\u0435\u043d\u043e:\n" + "\n".join(os.path.basename(p) for p in paths), reply_markup=WORK_KB); return
         if is_btn(text, BTN_BACK):
             set_menu(context, "main"); reset_state(context)
-            await show_main_menu(update, context, "ÐÐ°Ð·Ð°Ð´ â"); return
+            await show_main_menu(update, context, "\u041d\u0430\u0437\u0430\u0434 \u2705"); return
         await show_work_menu(update, context); return
 
     await show_main_menu(update, context)
@@ -3446,14 +3447,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud = st(context)
     if ud["mode"] != "restore_wait_file":
-        await update.message.reply_text("Ð¤Ð°Ð¹Ð» Ð¾ÑÑÐ¸Ð¼Ð°Ð², Ð°Ð»Ðµ Ð·Ð°ÑÐ°Ð· Ð½Ðµ ÑÐµÐ¶Ð¸Ð¼ Ð²ÑÐ´Ð½Ð¾Ð²Ð»ÐµÐ½Ð½Ñ. ÐÐ°ÑÐ¸ÑÐ½Ð¸ â»ï¸ ÐÑÐ´Ð½Ð¾Ð²Ð¸ÑÐ¸ Ð· ÑÐ°Ð¹Ð»Ñ.")
+        await update.message.reply_text("\u0424\u0430\u0439\u043b \u043e\u0442\u0440\u0438\u043c\u0430\u0432, \u0430\u043b\u0435 \u0437\u0430\u0440\u0430\u0437 \u043d\u0435 \u0440\u0435\u0436\u0438\u043c \u0432\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u044f. \u041d\u0430\u0442\u0438\u0441\u043d\u0438 \u267b\ufe0f \u0412\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u0437 \u0444\u0430\u0439\u043b\u0443.")
         return
 
     doc: Document = update.message.document
     fname = doc.file_name or ""
     low = fname.lower()
     if not (low.endswith(".csv") or low.endswith(".zip")):
-        await update.message.reply_text("ÐÐ¾ÑÑÑÐ±ÐµÐ½ CSV Ð°Ð±Ð¾ ZIP.")
+        await update.message.reply_text("\u041f\u043e\u0442\u0440\u0456\u0431\u0435\u043d CSV \u0430\u0431\u043e ZIP.")
         return
 
     await backup_everywhere(context, update.effective_chat.id, "pre_restore")
@@ -3494,20 +3495,20 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 _employee_cache["mtime"] = _shift_cache["mtime"] = _perf_cache["mtime"] = _summary_cache["mtime"] = None
 
             reset_state(context); set_menu(context, "main")
-            msg = "â»ï¸ ÐÑÐ´Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ Ð· ZIP â\n" + ", ".join(restored)
+            msg = "\u267b\ufe0f \u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u0437 ZIP \u2705\n" + ", ".join(restored)
             shift_m, perf_m = migrate_rows_surname_to_sap()
             if converted_count:
-                msg += f"\nð¤ employees.csv ÑÑÐ²Ð¾ÑÐµÐ½Ð¾/Ð¾Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾: {converted_count}"
+                msg += f"\n\U0001f464 employees.csv \u0441\u0442\u0432\u043e\u0440\u0435\u043d\u043e/\u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043e: {converted_count}"
             if merge_info:
-                msg += f"\nð local_data.csv Ð¿ÑÐ´ÑÑÐ³Ð½ÑÑÐ¾: {merge_info['matched']} Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²"
-                msg += f"\nðï¸ Ð¨Ð°ÑÐºÐ¸: {merge_info['locker']} | ðª ÐÐ¾Ð¶Ñ: {merge_info['knife']}"
+                msg += f"\n\U0001f501 local_data.csv \u043f\u0456\u0434\u0442\u044f\u0433\u043d\u0443\u0442\u043e: {merge_info['matched']} \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432"
+                msg += f"\n\U0001f5c4\ufe0f \u0428\u0430\u0444\u043a\u0438: {merge_info['locker']} | \U0001f52a \u041d\u043e\u0436\u0456: {merge_info['knife']}"
             if shift_m or perf_m:
-                msg += f"\nð SAP Ð¿ÑÐ´ÑÑÐ³Ð½ÑÑÐ¾: Ð·Ð¼ÑÐ½Ð¸ {shift_m}, Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ {perf_m}"
+                msg += f"\n\U0001f517 SAP \u043f\u0456\u0434\u0442\u044f\u0433\u043d\u0443\u0442\u043e: \u0437\u043c\u0456\u043d\u0438 {shift_m}, \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c {perf_m}"
             if os.path.basename(OLD_LOCAL_DB_PATH) not in restored:
-                msg += "\nâ ï¸ Ð£ ÑÑÐ¾Ð¼Ñ ZIP Ð½ÐµÐ¼Ð°Ñ local_data.csv â ÑÐ°ÑÐºÐ¸/Ð½Ð¾Ð¶Ñ Ð· Ð½ÑÐ¾Ð³Ð¾ Ð²ÑÐ´Ð½Ð¾Ð²Ð¸ÑÐ¸ Ð½ÐµÐ¼Ð¾Ð¶Ð»Ð¸Ð²Ð¾."
+                msg += "\n\u26a0\ufe0f \u0423 \u0446\u044c\u043e\u043c\u0443 ZIP \u043d\u0435\u043c\u0430\u0454 local_data.csv \u2014 \u0448\u0430\u0444\u043a\u0438/\u043d\u043e\u0436\u0456 \u0437 \u043d\u044c\u043e\u0433\u043e \u0432\u0456\u0434\u043d\u043e\u0432\u0438\u0442\u0438 \u043d\u0435\u043c\u043e\u0436\u043b\u0438\u0432\u043e."
             await show_main_menu(update, context, msg)
         except Exception as e:
-            await update.message.reply_text(f"â ÐÐ¾Ð¼Ð¸Ð»ÐºÐ° ZIP: {e}")
+            await update.message.reply_text(f"\u274c \u041f\u043e\u043c\u0438\u043b\u043a\u0430 ZIP: {e}")
         return
 
     text = content.decode("utf-8", errors="replace")
@@ -3531,9 +3532,9 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows.append(emp)
     rows = [r for r in rows if r["surname"] or r["sap"]]
     write_employees(rows)
-    await backup_everywhere(context, update.effective_chat.id, "after_restore", f"ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²: {len(rows)}")
+    await backup_everywhere(context, update.effective_chat.id, "after_restore", f"\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432: {len(rows)}")
     reset_state(context); set_menu(context, "main")
-    await show_main_menu(update, context, f"â»ï¸ employees.csv Ð²ÑÐ´Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ â\nÐÐ°Ð¿Ð¸ÑÑÐ²: {len(rows)}")
+    await show_main_menu(update, context, f"\u267b\ufe0f employees.csv \u0432\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u2705\n\u0417\u0430\u043f\u0438\u0441\u0456\u0432: {len(rows)}")
 
 # ==============================
 # PHOTO PLACEHOLDER
@@ -3543,27 +3544,27 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud = st(context)
     if ud.get("mode") != "import_photo_wait_photo":
         await update.message.reply_text(
-            "ð¸ Ð¤Ð¾ÑÐ¾ Ð¾ÑÑÐ¸Ð¼Ð°Ð², Ð°Ð»Ðµ Ð·Ð°ÑÐ°Ð· Ð½Ðµ ÑÐµÐ¶Ð¸Ð¼ ÑÐ¾ÑÐ¾-ÑÐ¼Ð¿Ð¾ÑÑÑ.\n"
-            "ÐÐ°ÑÐ¸ÑÐ½Ð¸: ð­ ÐÑÐ³Ð°Ð½ÑÐ·Ð°ÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸ â ð¸ Ð¤Ð¾ÑÐ¾ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ"
+            "\U0001f4f8 \u0424\u043e\u0442\u043e \u043e\u0442\u0440\u0438\u043c\u0430\u0432, \u0430\u043b\u0435 \u0437\u0430\u0440\u0430\u0437 \u043d\u0435 \u0440\u0435\u0436\u0438\u043c \u0444\u043e\u0442\u043e-\u0456\u043c\u043f\u043e\u0440\u0442\u0443.\n"
+            "\u041d\u0430\u0442\u0438\u0441\u043d\u0438: \U0001f3ed \u041e\u0440\u0433\u0430\u043d\u0456\u0437\u0430\u0446\u0456\u044f \u0440\u043e\u0431\u043e\u0442\u0438 \u2192 \U0001f4f8 \u0424\u043e\u0442\u043e % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e"
         )
         return
 
     date = ud["tmp"].get("date")
     if not date:
         reset_state(context)
-        await show_work_menu(update, context, "â ÐÐ°ÑÐ° Ð½Ðµ Ð²Ð¸Ð±ÑÐ°Ð½Ð°. ÐÐ¾ÑÐ½Ð¸ ÑÐ¾ÑÐ¾-ÑÐ¼Ð¿Ð¾ÑÑ ÑÐµ ÑÐ°Ð·.")
+        await show_work_menu(update, context, "\u274c \u0414\u0430\u0442\u0430 \u043d\u0435 \u0432\u0438\u0431\u0440\u0430\u043d\u0430. \u041f\u043e\u0447\u043d\u0438 \u0444\u043e\u0442\u043e-\u0456\u043c\u043f\u043e\u0440\u0442 \u0449\u0435 \u0440\u0430\u0437.")
         return
 
     if not OCR_SPACE_API_KEY:
         await update.message.reply_text(
-            "â ï¸ Ð¤Ð¾ÑÐ¾-ÑÐ¼Ð¿Ð¾ÑÑ Ð¿Ð¾ÑÑÐµÐ±ÑÑ OCR_SPACE_API_KEY Ñ Render Environment.\n\n"
-            "ÐÐ¾ÐºÐ¸ Ð·ÑÐ¾Ð±Ð¸ ÑÐ°Ðº: Ð²ÑÐ´ÐºÑÐ¸Ð¹ ÑÐ¾ÑÐ¾ â ÑÐºÐ¾Ð¿ÑÑÐ¹/Ð½Ð°Ð±ÐµÑÐ¸ ÑÑÐ´ÐºÐ¸ SAP - % Ñ Ð²Ð¸ÐºÐ¾ÑÐ¸ÑÑÐ°Ð¹ ð¥ ÐÐ¼Ð¿Ð¾ÑÑ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ.\n"
-            "ÐÑÐ¸ÐºÐ»Ð°Ð´:\n51009998 - 156,44"
+            "\u26a0\ufe0f \u0424\u043e\u0442\u043e-\u0456\u043c\u043f\u043e\u0440\u0442 \u043f\u043e\u0442\u0440\u0435\u0431\u0443\u0454 OCR_SPACE_API_KEY \u0443 Render Environment.\n\n"
+            "\u041f\u043e\u043a\u0438 \u0437\u0440\u043e\u0431\u0438 \u0442\u0430\u043a: \u0432\u0456\u0434\u043a\u0440\u0438\u0439 \u0444\u043e\u0442\u043e \u2192 \u0441\u043a\u043e\u043f\u0456\u044e\u0439/\u043d\u0430\u0431\u0435\u0440\u0438 \u0440\u044f\u0434\u043a\u0438 SAP - % \u0456 \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u0430\u0439 \U0001f4e5 \u0406\u043c\u043f\u043e\u0440\u0442 % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e.\n"
+            "\u041f\u0440\u0438\u043a\u043b\u0430\u0434:\n51009998 - 156,44"
         )
         return
 
     try:
-        await update.message.reply_text("ð¸ Ð¤Ð¾ÑÐ¾ Ð¾ÑÑÐ¸Ð¼Ð°Ð². Ð Ð¾Ð·Ð¿ÑÐ·Ð½Ð°Ñ OCR...")
+        await update.message.reply_text("\U0001f4f8 \u0424\u043e\u0442\u043e \u043e\u0442\u0440\u0438\u043c\u0430\u0432. \u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u044e OCR...")
         photo = update.message.photo[-1]
         tg_file = await photo.get_file()
         content = await tg_file.download_as_bytearray()
@@ -3575,10 +3576,10 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if len(preview) > 700:
                 preview = preview[:700] + "\n..."
             await update.message.reply_text(
-                "â OCR Ð½Ðµ Ð·Ð½Ð°Ð¹ÑÐ¾Ð² SAP Ñ %.\n\n"
-                "Ð¤ÑÐ°Ð³Ð¼ÐµÐ½Ñ OCR-ÑÐµÐºÑÑÑ:\n"
-                f"{preview or '(Ð¿Ð¾ÑÐ¾Ð¶Ð½ÑÐ¾)'}\n\n"
-                "Ð¡Ð¿ÑÐ¾Ð±ÑÐ¹ ÑÐµ ÑÐ°Ð· Ð°Ð±Ð¾ Ð²ÑÑÐ°Ð² ÑÐµÐºÑÑÐ¾Ð¼ ÑÐµÑÐµÐ· ð¥ ÐÐ¼Ð¿Ð¾ÑÑ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ."
+                "\u274c OCR \u043d\u0435 \u0437\u043d\u0430\u0439\u0448\u043e\u0432 SAP \u0456 %.\n\n"
+                "\u0424\u0440\u0430\u0433\u043c\u0435\u043d\u0442 OCR-\u0442\u0435\u043a\u0441\u0442\u0443:\n"
+                f"{preview or '(\u043f\u043e\u0440\u043e\u0436\u043d\u044c\u043e)'}\n\n"
+                "\u0421\u043f\u0440\u043e\u0431\u0443\u0439 \u0449\u0435 \u0440\u0430\u0437 \u0430\u0431\u043e \u0432\u0441\u0442\u0430\u0432 \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0447\u0435\u0440\u0435\u0437 \U0001f4e5 \u0406\u043c\u043f\u043e\u0440\u0442 % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e."
             )
             return
 
@@ -3595,7 +3596,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(format_import_preview_report(preview_result), reply_markup=kb)
 
     except Exception as e:
-        await update.message.reply_text(f"â ÐÐ¾Ð¼Ð¸Ð»ÐºÐ° OCR: {e}\n\nÐÐ¾Ð¶ÐµÑ Ð²ÑÑÐ°Ð²Ð¸ÑÐ¸ ÑÑ Ð´Ð°Ð½Ñ ÑÐµÐºÑÑÐ¾Ð¼ ÑÐµÑÐµÐ· ð¥ ÐÐ¼Ð¿Ð¾ÑÑ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ.")
+        await update.message.reply_text(f"\u274c \u041f\u043e\u043c\u0438\u043b\u043a\u0430 OCR: {e}\n\n\u041c\u043e\u0436\u0435\u0448 \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0446\u0456 \u0434\u0430\u043d\u0456 \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0447\u0435\u0440\u0435\u0437 \U0001f4e5 \u0406\u043c\u043f\u043e\u0440\u0442 % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e.")
 
 # ==============================
 # MAIN

@@ -174,8 +174,8 @@ BTN_NO_KNIFE = "\U0001f6ab \u0411\u0435\u0437 \u043d\u043e\u0436\u0430"
 BTN_ADD = "\u2795 \u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
 BTN_EDIT = "\u270f\ufe0f \u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
 BTN_DELETE = "\U0001f5d1\ufe0f \u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
-BTN_LOW_WEEK = "ð ÐÐ¸Ð·ÑÐºÐ° Ð²Ð¸Ð´Ð°Ð¹Ð½ÑÑÑÑ 7 Ð´Ð½ÑÐ²"
-BTN_INACTIVE_30 = "ð ÐÐµÐ°ÐºÑÐ¸Ð²Ð½Ñ 30+ Ð´Ð½ÑÐ²"
+BTN_LOW_WEEK = "\U0001f4c9 \u041d\u0438\u0437\u044c\u043a\u0430 \u0432\u0438\u0434\u0430\u0439\u043d\u0456\u0441\u0442\u044c 7 \u0434\u043d\u0456\u0432"
+BTN_INACTIVE_30 = "\U0001f552 \u041d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u0456 30+ \u0434\u043d\u0456\u0432"
 
 EMPLOYEE_KB = ReplyKeyboardMarkup(
     [
@@ -210,7 +210,7 @@ BTN_EXPORT_TXT = "\U0001f4dd \u0415\u043a\u0441\u043f\u043e\u0440\u0442 \u0437\u
 BTN_SHIFT_SUMMARY = "\U0001f4ca % \u043f\u043e \u0437\u043c\u0456\u043d\u0456"
 BTN_SHIFT_BACKUP = "\U0001f4be Backup \u0437\u043c\u0456\u043d\u0438"
 BTN_WEEKLY_SHIFTS = "\U0001f4c5 \u0421\u0442\u0430\u043b\u0456 \u0437\u043c\u0456\u043d\u0438"
-BTN_AGENCY_DYNAMICS = "ð ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° Ð°Ð³ÐµÐ½ÑÑÑ"
+BTN_AGENCY_DYNAMICS = "\U0001f4c8 \u0414\u0438\u043d\u0430\u043c\u0456\u043a\u0430 \u0430\u0433\u0435\u043d\u0446\u0456\u0457"
 
 WORK_KB = ReplyKeyboardMarkup(
     [
@@ -1775,15 +1775,15 @@ def format_low_productivity_week(employees, perf_rows, today=None, min_shifts=3,
         pv=list(prev_map.get(sap, {}).values()); prev_avg=(sum(pv)/len(pv)) if pv else None
         rows.append((avg,len(vals),sap,active[sap].get("surname",""),prev_avg))
     rows.sort(key=lambda x:(x[0],-x[1],safe_lower(x[3])))
-    title=f"ð ÐÐ¸Ð·ÑÐºÐ° Ð²Ð¸Ð´Ð°Ð¹Ð½ÑÑÑÑ Ð·Ð° 7 Ð´Ð½ÑÐ² ({cur_start.strftime('%d.%m')}â{today.strftime('%d.%m')})"
-    if not rows: return title + f"\n\nâ ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² ÑÐ· ÑÐµÑÐµÐ´Ð½ÑÐ¾Ñ Ð½Ð¸Ð¶ÑÐµ {fmt_percent(threshold)}% Ð¿ÑÐ¸ Ð¼ÑÐ½ÑÐ¼ÑÐ¼ {min_shifts} Ð·Ð¼ÑÐ½Ð°Ñ."
-    lines=[title,f"Ð£Ð¼Ð¾Ð²Ð°: ÑÐµÑÐµÐ´Ð½Ñ <{fmt_percent(threshold)}%, Ð¼ÑÐ½ÑÐ¼ÑÐ¼ {min_shifts} Ð·Ð¼ÑÐ½Ð¸.",""]
+    title=f"\U0001f4c9 \u041d\u0438\u0437\u044c\u043a\u0430 \u0432\u0438\u0434\u0430\u0439\u043d\u0456\u0441\u0442\u044c \u0437\u0430 7 \u0434\u043d\u0456\u0432 ({cur_start.strftime('%d.%m')}\u2013{today.strftime('%d.%m')})"
+    if not rows: return title + f"\n\n\u2705 \u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0456\u0437 \u0441\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u044e \u043d\u0438\u0436\u0447\u0435 {fmt_percent(threshold)}% \u043f\u0440\u0438 \u043c\u0456\u043d\u0456\u043c\u0443\u043c {min_shifts} \u0437\u043c\u0456\u043d\u0430\u0445."
+    lines=[title,f"\u0423\u043c\u043e\u0432\u0430: \u0441\u0435\u0440\u0435\u0434\u043d\u044f <{fmt_percent(threshold)}%, \u043c\u0456\u043d\u0456\u043c\u0443\u043c {min_shifts} \u0437\u043c\u0456\u043d\u0438.",""]
     for i,(avg,cnt,sap,name,prev_avg) in enumerate(rows,1):
-        if prev_avg is None: dyn="â Ð¿Ð¾Ð¿ÐµÑÐµÐ´Ð½ÑÐ¹ ÑÐ¸Ð¶Ð´ÐµÐ½Ñ: Ð½ÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ"
+        if prev_avg is None: dyn="\u2014 \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u0456\u0439 \u0442\u0438\u0436\u0434\u0435\u043d\u044c: \u043d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445"
         else:
-            diff=avg-prev_avg; arrow="â" if diff>0.05 else "â" if diff<-0.05 else "â"; sign="+" if diff>0 else ""
-            dyn=f"â {arrow} {sign}{fmt_percent(diff)} Ð¿.Ð¿. Ð´Ð¾ Ð¿Ð¾Ð¿ÐµÑ. ÑÐ¸Ð¶Ð½Ñ"
-        lines.append(f"{i}. ð´ {sap} â {name} â {fmt_percent(avg)}% ({cnt} Ð·Ð¼.) {dyn}")
+            diff=avg-prev_avg; arrow="\u2191" if diff>0.05 else "\u2193" if diff<-0.05 else "\u2192"; sign="+" if diff>0 else ""
+            dyn=f"\u2014 {arrow} {sign}{fmt_percent(diff)} \u043f.\u043f. \u0434\u043e \u043f\u043e\u043f\u0435\u0440. \u0442\u0438\u0436\u043d\u044f"
+        lines.append(f"{i}. \U0001f534 {sap} \u2014 {name} \u2014 {fmt_percent(avg)}% ({cnt} \u0437\u043c.) {dyn}")
     return "\n".join(lines)
 
 
@@ -1807,11 +1807,11 @@ def inactive_employee_candidates(employees, shifts, today=None, days=30):
 
 def format_inactive_30(employees, shifts, today=None):
     rows=inactive_employee_candidates(employees,shifts,today=today,days=30)
-    if not rows: return "ð ÐÐµÐ°ÐºÑÐ¸Ð²Ð½Ñ 30+ Ð´Ð½ÑÐ²\n\nâ ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ´ÑÐ²ÐµÑÐ´Ð¶ÐµÐ½Ð¸Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð±ÐµÐ· Ð·Ð¼ÑÐ½ 30+ Ð´Ð½ÑÐ²."
-    lines=["ð ÐÐµÐ°ÐºÑÐ¸Ð²Ð½Ñ 30+ Ð´Ð½ÑÐ²","ÐÐµÐ¼Ð°Ñ Ð·Ð¼ÑÐ½Ð¸ Ð² Ð¿Ð¾ÑÐ¾ÑÐ½Ð¾Ð¼Ñ Ð¼ÑÑÑÑÑ + Ð¾ÑÑÐ°Ð½Ð½Ñ Ð·Ð¼ÑÐ½Ð° 30+ Ð´Ð½ÑÐ² ÑÐ¾Ð¼Ñ.",""]
+    if not rows: return "\U0001f552 \u041d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u0456 30+ \u0434\u043d\u0456\u0432\n\n\u2705 \u041d\u0435\u043c\u0430\u0454 \u043f\u0456\u0434\u0442\u0432\u0435\u0440\u0434\u0436\u0435\u043d\u0438\u0445 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0431\u0435\u0437 \u0437\u043c\u0456\u043d 30+ \u0434\u043d\u0456\u0432."
+    lines=["\U0001f552 \u041d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u0456 30+ \u0434\u043d\u0456\u0432","\u041d\u0435\u043c\u0430\u0454 \u0437\u043c\u0456\u043d\u0438 \u0432 \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u043c\u0443 \u043c\u0456\u0441\u044f\u0446\u0456 + \u043e\u0441\u0442\u0430\u043d\u043d\u044f \u0437\u043c\u0456\u043d\u0430 30+ \u0434\u043d\u0456\u0432 \u0442\u043e\u043c\u0443.",""]
     for i,item in enumerate(rows,1):
-        e=item["employee"]; lines.append(f"{i}. {e.get('sap','')} â {e.get('surname','')} â Ð¾ÑÑÐ°Ð½Ð½Ñ {item['last'].strftime('%d.%m.%Y')} ({item['days']} Ð´Ð½.)")
-    lines += ["","ÐÐ²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑ, SAP Ð°Ð±Ð¾ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ â Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸Ðº ÑÑÐ°Ð½Ðµ inactive. ÐÑÑÐ¾ÑÑÑ Ð·Ð¼ÑÐ½ Ñ % Ð·Ð°Ð»Ð¸ÑÐ¸ÑÑÑÑ."]
+        e=item["employee"]; lines.append(f"{i}. {e.get('sap','')} \u2014 {e.get('surname','')} \u2014 \u043e\u0441\u0442\u0430\u043d\u043d\u044f {item['last'].strftime('%d.%m.%Y')} ({item['days']} \u0434\u043d.)")
+    lines += ["","\u0412\u0432\u0435\u0434\u0438 \u043d\u043e\u043c\u0435\u0440, SAP \u0430\u0431\u043e \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0435 \u2014 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a \u0441\u0442\u0430\u043d\u0435 inactive. \u0406\u0441\u0442\u043e\u0440\u0456\u044f \u0437\u043c\u0456\u043d \u0456 % \u0437\u0430\u043b\u0438\u0448\u0438\u0442\u044c\u0441\u044f."]
     return "\n".join(lines)
 
 
@@ -1824,7 +1824,7 @@ def set_employee_inactive(employees, employee):
     return out,changed
 
 
-UA_MONTHS={1:"Ð¡ÑÑÐµÐ½Ñ",2:"ÐÑÑÐ¸Ð¹",3:"ÐÐµÑÐµÐ·ÐµÐ½Ñ",4:"ÐÐ²ÑÑÐµÐ½Ñ",5:"Ð¢ÑÐ°Ð²ÐµÐ½Ñ",6:"Ð§ÐµÑÐ²ÐµÐ½Ñ",7:"ÐÐ¸Ð¿ÐµÐ½Ñ",8:"Ð¡ÐµÑÐ¿ÐµÐ½Ñ",9:"ÐÐµÑÐµÑÐµÐ½Ñ",10:"ÐÐ¾Ð²ÑÐµÐ½Ñ",11:"ÐÐ¸ÑÑÐ¾Ð¿Ð°Ð´",12:"ÐÑÑÐ´ÐµÐ½Ñ"}
+UA_MONTHS={1:"\u0421\u0456\u0447\u0435\u043d\u044c",2:"\u041b\u044e\u0442\u0438\u0439",3:"\u0411\u0435\u0440\u0435\u0437\u0435\u043d\u044c",4:"\u041a\u0432\u0456\u0442\u0435\u043d\u044c",5:"\u0422\u0440\u0430\u0432\u0435\u043d\u044c",6:"\u0427\u0435\u0440\u0432\u0435\u043d\u044c",7:"\u041b\u0438\u043f\u0435\u043d\u044c",8:"\u0421\u0435\u0440\u043f\u0435\u043d\u044c",9:"\u0412\u0435\u0440\u0435\u0441\u0435\u043d\u044c",10:"\u0416\u043e\u0432\u0442\u0435\u043d\u044c",11:"\u041b\u0438\u0441\u0442\u043e\u043f\u0430\u0434",12:"\u0413\u0440\u0443\u0434\u0435\u043d\u044c"}
 
 def _shift_back_months(d,n):
     y=d.year; m=d.month-n
@@ -1852,20 +1852,20 @@ def compute_agency_monthly(summary_rows, perf_rows, shifts_rows):
 
 def format_agency_dynamics(summary_rows, perf_rows, shifts_rows, today=None, completed_months=6):
     today=today or datetime.now().date(); months=compute_agency_monthly(summary_rows,perf_rows,shifts_rows)
-    lines=["ð ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° ÑÐµÑÐµÐ´Ð½ÑÐ¾Ñ Ð°Ð³ÐµÐ½ÑÑÐ¹Ð½Ð¾Ñ Ð²Ð¸Ð´Ð°Ð¹Ð½Ð¾ÑÑÑ","Ð¡ÐµÑÐµÐ´Ð½Ñ Ð·Ð²Ð°Ð¶ÐµÐ½Ð° Ð·Ð° ÐºÑÐ»ÑÐºÑÑÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ñ Ð·Ð¼ÑÐ½Ð°Ñ.",""]
+    lines=["\U0001f4c8 \u0414\u0438\u043d\u0430\u043c\u0456\u043a\u0430 \u0441\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u0457 \u0430\u0433\u0435\u043d\u0446\u0456\u0439\u043d\u043e\u0457 \u0432\u0438\u0434\u0430\u0439\u043d\u043e\u0441\u0442\u0456","\u0421\u0435\u0440\u0435\u0434\u043d\u044f \u0437\u0432\u0430\u0436\u0435\u043d\u0430 \u0437\u0430 \u043a\u0456\u043b\u044c\u043a\u0456\u0441\u0442\u044e \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432 \u0443 \u0437\u043c\u0456\u043d\u0430\u0445.",""]
     cur=months.get((today.year,today.month))
-    if cur and cur.get("avg") is not None: lines += [f"ÐÐ¾ÑÐ¾ÑÐ½Ð¸Ð¹ Ð¼ÑÑÑÑÑ (Ð½ÐµÐ¿Ð¾Ð²Ð½Ð¸Ð¹): {UA_MONTHS[today.month]} â {fmt_percent(cur['avg'])}%",""]
+    if cur and cur.get("avg") is not None: lines += [f"\u041f\u043e\u0442\u043e\u0447\u043d\u0438\u0439 \u043c\u0456\u0441\u044f\u0446\u044c (\u043d\u0435\u043f\u043e\u0432\u043d\u0438\u0439): {UA_MONTHS[today.month]} \u2014 {fmt_percent(cur['avg'])}%",""]
     completed=[]
     for n in range(1,18):
         d=_shift_back_months(today.replace(day=1),n); b=months.get((d.year,d.month))
-        if b and b.get("avg") is not None: completed.append((d,b["avg"])); lines.append(f"{UA_MONTHS[d.month]} {d.year} â {fmt_percent(b['avg'])}%")
+        if b and b.get("avg") is not None: completed.append((d,b["avg"])); lines.append(f"{UA_MONTHS[d.month]} {d.year} \u2014 {fmt_percent(b['avg'])}%")
         if len(completed)>=completed_months: break
     if completed:
-        lines += ["","ÐÐ¼ÑÐ½Ð° Ð´Ð¾ Ð¿Ð¾Ð¿ÐµÑÐµÐ´Ð½ÑÐ¾Ð³Ð¾ Ð¼ÑÑÑÑÑ:"]
+        lines += ["","\u0417\u043c\u0456\u043d\u0430 \u0434\u043e \u043f\u043e\u043f\u0435\u0440\u0435\u0434\u043d\u044c\u043e\u0433\u043e \u043c\u0456\u0441\u044f\u0446\u044f:"]
         for i in range(len(completed)-1):
-            nd,nv=completed[i]; od,ov=completed[i+1]; diff=nv-ov; arrow="â" if diff>0.05 else "â" if diff<-0.05 else "â"; sign="+" if diff>0 else ""
-            lines.append(f"{UA_MONTHS[nd.month]} vs {UA_MONTHS[od.month]}: {arrow} {sign}{fmt_percent(diff)} Ð¿.Ð¿.")
-    if not completed and not cur: return "ð ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° Ð°Ð³ÐµÐ½ÑÑÑ\n\nÐÐµÐ¼Ð°Ñ Ð·Ð°Ð¿Ð¾Ð²Ð½ÐµÐ½Ð¸Ñ Ð·Ð½Ð°ÑÐµÐ½Ñ Â«ÐÐ³ÐµÐ½ÑÑÑ %Â» Ñ ÑÑÐ°ÑÐ¸ÑÑÐ¸ÑÑ Ð·Ð¼ÑÐ½."
+            nd,nv=completed[i]; od,ov=completed[i+1]; diff=nv-ov; arrow="\u2191" if diff>0.05 else "\u2193" if diff<-0.05 else "\u2192"; sign="+" if diff>0 else ""
+            lines.append(f"{UA_MONTHS[nd.month]} vs {UA_MONTHS[od.month]}: {arrow} {sign}{fmt_percent(diff)} \u043f.\u043f.")
+    if not completed and not cur: return "\U0001f4c8 \u0414\u0438\u043d\u0430\u043c\u0456\u043a\u0430 \u0430\u0433\u0435\u043d\u0446\u0456\u0457\n\n\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u043f\u043e\u0432\u043d\u0435\u043d\u0438\u0445 \u0437\u043d\u0430\u0447\u0435\u043d\u044c \u00ab\u0410\u0433\u0435\u043d\u0446\u0456\u044f %\u00bb \u0443 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u0446\u0456 \u0437\u043c\u0456\u043d."
     return "\n".join(lines)
 
 
@@ -2805,7 +2805,7 @@ async def employee_flow(update, context, text):
     if ud["mode"] == "inactive_archive_wait_query":
         candidates = inactive_employee_candidates(rows, read_shifts(force=True))
         if not candidates:
-            reset_state(context); await show_employee_menu(update, context, "â Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð½ÐµÐ°ÐºÑÐ¸Ð²Ð½Ð¸Ñ ÑÐ¶Ðµ Ð¿Ð¾ÑÐ¾Ð¶Ð½ÑÐ¹."); return
+            reset_state(context); await show_employee_menu(update, context, "\u2705 \u0421\u043f\u0438\u0441\u043e\u043a \u043d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0445 \u0443\u0436\u0435 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u0439."); return
         chosen=None; raw=normalize_text(text)
         if raw.isdigit() and 1 <= int(raw) <= len(candidates): chosen=candidates[int(raw)-1]["employee"]
         else:
@@ -2814,12 +2814,12 @@ async def employee_flow(update, context, text):
                 e=item["employee"]
                 if raw==normalize_text(e.get("sap","")) or (q and q in safe_lower(e.get("surname",""))): matches.append(e)
             if len(matches)==1: chosen=matches[0]
-            elif len(matches)>1: await update.message.reply_text("ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°. ÐÐ²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑ Ð·Ñ ÑÐ¿Ð¸ÑÐºÑ Ð°Ð±Ð¾ ÑÐ¾ÑÐ½Ð¸Ð¹ SAP."); return
-        if not chosen: await update.message.reply_text("ÐÐµ Ð·Ð½Ð°Ð¹ÑÐ¾Ð² Ñ ÑÐ¿Ð¸ÑÐºÑ Ð½ÐµÐ°ÐºÑÐ¸Ð²Ð½Ð¸Ñ. ÐÐ²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑ, SAP Ð°Ð±Ð¾ ÑÐ¾ÑÐ½ÑÑÐµ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ."); return
+            elif len(matches)>1: await update.message.reply_text("\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043a\u0456\u043b\u044c\u043a\u0430. \u0412\u0432\u0435\u0434\u0438 \u043d\u043e\u043c\u0435\u0440 \u0437\u0456 \u0441\u043f\u0438\u0441\u043a\u0443 \u0430\u0431\u043e \u0442\u043e\u0447\u043d\u0438\u0439 SAP."); return
+        if not chosen: await update.message.reply_text("\u041d\u0435 \u0437\u043d\u0430\u0439\u0448\u043e\u0432 \u0443 \u0441\u043f\u0438\u0441\u043a\u0443 \u043d\u0435\u0430\u043a\u0442\u0438\u0432\u043d\u0438\u0445. \u0412\u0432\u0435\u0434\u0438 \u043d\u043e\u043c\u0435\u0440, SAP \u0430\u0431\u043e \u0442\u043e\u0447\u043d\u0456\u0448\u0435 \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0435."); return
         new_rows,changed=set_employee_inactive(rows,chosen)
         if changed:
             write_employees(new_rows); await backup_everywhere(context, update.effective_chat.id, "archive_inactive_employee", emp_display(chosen))
-        reset_state(context); await show_employee_menu(update, context, f"ð¦ ÐÐµÑÐµÐ½ÐµÑÐµÐ½Ð¾ Ð² inactive:\n{emp_display(chosen)}\n\nÐÑÑÐ¾ÑÑÑ Ð·Ð¼ÑÐ½ Ñ % Ð½Ðµ Ð²Ð¸Ð´Ð°Ð»ÐµÐ½Ð°."); return
+        reset_state(context); await show_employee_menu(update, context, f"\U0001f4e6 \u041f\u0435\u0440\u0435\u043d\u0435\u0441\u0435\u043d\u043e \u0432 inactive:\n{emp_display(chosen)}\n\n\u0406\u0441\u0442\u043e\u0440\u0456\u044f \u0437\u043c\u0456\u043d \u0456 % \u043d\u0435 \u0432\u0438\u0434\u0430\u043b\u0435\u043d\u0430."); return
 
     if ud["mode"] == "delete_wait_query":
         matches = find_employees(rows, text)
@@ -3826,4 +3826,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
 

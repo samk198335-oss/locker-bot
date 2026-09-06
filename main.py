@@ -37,7 +37,7 @@ def run_http_server():
 
 threading.Thread(target=run_http_server, daemon=True).start()
 
-# VERSION: main_sap_v14_cards_weekly_shift_defaults
+# VERSION: main_sap_v15_simple_hall_roster_avg_sort
 # ==============================
 # CONFIG
 # ==============================
@@ -148,30 +148,30 @@ SEED_SAP_LIST = """
 # UI
 # ==============================
 
-BTN_EMPLOYEE_MENU = "👤 Працівник"
-BTN_WORK_MENU = "🏭 Організація роботи"
-BTN_BACKUP = "💾 Backup бази"
-BTN_SEED_SAP = "🧬 Seed SAP"
-BTN_RESTORE = "♻️ Відновити з файлу"
-BTN_BACK = "⬅️ Назад"
-BTN_CANCEL = "❌ Скасувати"
+BTN_EMPLOYEE_MENU = "ð¤ ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº"
+BTN_WORK_MENU = "ð­ ÐÑÐ³Ð°Ð½ÑÐ·Ð°ÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸"
+BTN_BACKUP = "ð¾ Backup Ð±Ð°Ð·Ð¸"
+BTN_SEED_SAP = "ð§¬ Seed SAP"
+BTN_RESTORE = "â»ï¸ ÐÑÐ´Ð½Ð¾Ð²Ð¸ÑÐ¸ Ð· ÑÐ°Ð¹Ð»Ñ"
+BTN_BACK = "â¬ï¸ ÐÐ°Ð·Ð°Ð´"
+BTN_CANCEL = "â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸"
 
 MAIN_KB = ReplyKeyboardMarkup(
     [[BTN_EMPLOYEE_MENU, BTN_WORK_MENU], [BTN_BACKUP, BTN_SEED_SAP], [BTN_RESTORE]],
     resize_keyboard=True
 )
 
-BTN_STATS = "📊 Статистика"
-BTN_ALL = "👥 Всі"
-BTN_CARD = "🔎 Картка працівника"
-BTN_NO_SAP = "⚠️ Без SAP"
-BTN_WITH_LOCKER = "🗄️ З шафкою"
-BTN_NO_LOCKER = "⛔ Без шафки"
-BTN_WITH_KNIFE = "🔪 З ножем"
-BTN_NO_KNIFE = "🚫 Без ножа"
-BTN_ADD = "➕ Додати працівника"
-BTN_EDIT = "✏️ Редагувати працівника"
-BTN_DELETE = "🗑️ Видалити працівника"
+BTN_STATS = "ð Ð¡ÑÐ°ÑÐ¸ÑÑÐ¸ÐºÐ°"
+BTN_ALL = "ð¥ ÐÑÑ"
+BTN_CARD = "ð ÐÐ°ÑÑÐºÐ° Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
+BTN_NO_SAP = "â ï¸ ÐÐµÐ· SAP"
+BTN_WITH_LOCKER = "ðï¸ Ð ÑÐ°ÑÐºÐ¾Ñ"
+BTN_NO_LOCKER = "â ÐÐµÐ· ÑÐ°ÑÐºÐ¸"
+BTN_WITH_KNIFE = "ðª Ð Ð½Ð¾Ð¶ÐµÐ¼"
+BTN_NO_KNIFE = "ð« ÐÐµÐ· Ð½Ð¾Ð¶Ð°"
+BTN_ADD = "â ÐÐ¾Ð´Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
+BTN_EDIT = "âï¸ Ð ÐµÐ´Ð°Ð³ÑÐ²Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
+BTN_DELETE = "ðï¸ ÐÐ¸Ð´Ð°Ð»Ð¸ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
 
 EMPLOYEE_KB = ReplyKeyboardMarkup(
     [
@@ -186,38 +186,33 @@ EMPLOYEE_KB = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-BTN_SHIFT_CREATE = "➕ Створити зміну"
-BTN_SHIFT_SHOW = "📋 Показати зміну"
-BTN_SPLIT_DAY_NIGHT = "🗓 Розподіл day/night"
-BTN_SHIFT_ADD_LIST = "➕ Додати список у зміну"
-BTN_SHIFT_WORKERS = "👷 Список зміни"
-BTN_DISTRIBUTE_WORKERS = "🧩 Розподіл по групах"
-BTN_GROUPS_OVERVIEW = "📦 Групи зміни"
-BTN_GROUP_ADD_WORKERS = "👥 Додати працівників у групу"
-BTN_IMPORT_PERCENT = "📥 Імпорт % за датою"
-BTN_IMPORT_PHOTO = "📸 Фото % за датою"
-BTN_CLEAR_PERCENT_DATE = "🧹 Очистити % за дату"
-BTN_CONFIRM_SAVE_IMPORT = "✅ Зберегти OCR"
-BTN_CANCEL_IMPORT = "❌ Скасувати OCR"
-BTN_GROUP_SET_PERCENT = "📈 Внести % групи"
-BTN_SORT_WORKERS = "📌 Сортування працівників"
-BTN_EXPORT_TXT = "📝 Експорт зміни TXT"
-BTN_SHIFT_SUMMARY = "📊 % по зміні"
-BTN_SHIFT_BACKUP = "💾 Backup зміни"
-BTN_WEEKLY_SHIFTS = "📅 Сталі зміни"
+BTN_SHIFT_CREATE = "â Ð¡ÑÐ²Ð¾ÑÐ¸ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"
+BTN_SHIFT_SHOW = "ð ÐÐ¾ÐºÐ°Ð·Ð°ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"
+BTN_SPLIT_DAY_NIGHT = "ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night"
+BTN_SHIFT_ADD_LIST = "â ÐÐ¾Ð´Ð°ÑÐ¸ ÑÐ¿Ð¸ÑÐ¾Ðº Ñ Ð·Ð¼ÑÐ½Ñ"
+BTN_SHIFT_WORKERS = "ð· Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð·Ð¼ÑÐ½Ð¸"
+BTN_DISTRIBUTE_WORKERS = "ð§© Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ Ð³ÑÑÐ¿Ð°Ñ"
+BTN_GROUPS_OVERVIEW = "ð¦ ÐÑÑÐ¿Ð¸ Ð·Ð¼ÑÐ½Ð¸"
+BTN_GROUP_ADD_WORKERS = "ð¥ ÐÐ¾Ð´Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ñ Ð³ÑÑÐ¿Ñ"
+BTN_IMPORT_PERCENT = "ð¥ ÐÐ¼Ð¿Ð¾ÑÑ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ"
+BTN_IMPORT_PHOTO = "ð¸ Ð¤Ð¾ÑÐ¾ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ"
+BTN_CLEAR_PERCENT_DATE = "ð§¹ ÐÑÐ¸ÑÑÐ¸ÑÐ¸ % Ð·Ð° Ð´Ð°ÑÑ"
+BTN_CONFIRM_SAVE_IMPORT = "â ÐÐ±ÐµÑÐµÐ³ÑÐ¸ OCR"
+BTN_CANCEL_IMPORT = "â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸ OCR"
+BTN_GROUP_SET_PERCENT = "ð ÐÐ½ÐµÑÑÐ¸ % Ð³ÑÑÐ¿Ð¸"
+BTN_SORT_WORKERS = "ð Ð¡Ð¾ÑÑÑÐ²Ð°Ð½Ð½Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²"
+BTN_EXPORT_TXT = "ð ÐÐºÑÐ¿Ð¾ÑÑ Ð·Ð¼ÑÐ½Ð¸ TXT"
+BTN_SHIFT_SUMMARY = "ð % Ð¿Ð¾ Ð·Ð¼ÑÐ½Ñ"
+BTN_SHIFT_BACKUP = "ð¾ Backup Ð·Ð¼ÑÐ½Ð¸"
+BTN_WEEKLY_SHIFTS = "ð Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸"
 
 WORK_KB = ReplyKeyboardMarkup(
     [
         [BTN_SHIFT_CREATE, BTN_SHIFT_SHOW],
-        [BTN_SPLIT_DAY_NIGHT, BTN_WEEKLY_SHIFTS],
         [BTN_SHIFT_ADD_LIST, BTN_SHIFT_WORKERS],
-        [BTN_DISTRIBUTE_WORKERS, BTN_GROUPS_OVERVIEW],
-        [BTN_GROUP_ADD_WORKERS],
         [BTN_IMPORT_PERCENT, BTN_IMPORT_PHOTO],
-        [BTN_GROUP_SET_PERCENT],
         [BTN_CLEAR_PERCENT_DATE],
-        [BTN_SHIFT_SUMMARY],
-        [BTN_SORT_WORKERS],
+        [BTN_SHIFT_SUMMARY, BTN_SORT_WORKERS],
         [BTN_EXPORT_TXT, BTN_SHIFT_BACKUP],
         [BTN_BACK],
     ],
@@ -280,7 +275,7 @@ def extract_date_from_btn(text: str) -> str:
     t = normalize_text(text)
     if t == "-":
         return today_ddmmyyyy()
-    return normalize_text(t.replace("📅", ""))
+    return normalize_text(t.replace("ð", ""))
 
 def date_kb(days_back: int = 14, days_forward: int = 7):
     today = datetime.now().date()
@@ -293,7 +288,7 @@ def date_kb(days_back: int = 14, days_forward: int = 7):
 
     rows, row = [], []
     for s in dates:
-        row.append(KeyboardButton(f"📅 {s}"))
+        row.append(KeyboardButton(f"ð {s}"))
         if len(row) == 3:
             rows.append(row)
             row = []
@@ -304,14 +299,14 @@ def date_kb(days_back: int = 14, days_forward: int = 7):
 
 def normalize_shift_type(text: str) -> str:
     t = safe_lower(text)
-    if t in {"night", "ніч", "нічна"}:
+    if t in {"night", "Ð½ÑÑ", "Ð½ÑÑÐ½Ð°"}:
         return "night"
-    if t in {"day", "день", "денна"}:
+    if t in {"day", "Ð´ÐµÐ½Ñ", "Ð´ÐµÐ½Ð½Ð°"}:
         return "day"
     return ""
 
 def shift_type_label(st: str) -> str:
-    return "нічна" if safe_lower(st) == "night" else "денна"
+    return "Ð½ÑÑÐ½Ð°" if safe_lower(st) == "night" else "Ð´ÐµÐ½Ð½Ð°"
 
 def shift_type_kb():
     return ReplyKeyboardMarkup([[KeyboardButton("day"), KeyboardButton("night")], [KeyboardButton(BTN_CANCEL)]], resize_keyboard=True)
@@ -338,25 +333,29 @@ def fmt_percent(p):
 
 def emoji_by_percent(p: float) -> str:
     if p >= 100:
-        return "🟢"
+        return "ð¢"
     if p >= 90:
-        return "🟡"
-    return "🔴"
+        return "ð¡"
+    return "ð´"
 
 def locker_has_value(v: str) -> bool:
+    """True only when a real locker number/name is stored."""
     v = normalize_text(v)
     if not v:
         return False
-    return safe_lower(v) not in {"-", "—", "–", "нема", "нет", "ні", "no", "none"}
+    return safe_lower(v) not in {
+        "-", "â", "â", "0", "0.0", "Ð½ÐµÐ¼Ð°", "Ð½ÐµÐ¼Ð°Ñ", "Ð½ÐµÑ", "Ð½Ñ",
+        "no", "none", "null", "false", "brak", "n/a", "na"
+    }
 
 def knife_has(v: str) -> bool:
-    return normalize_text(v) in {"1", "2", "yes", "так", "є"}
+    return normalize_text(v) in {"1", "2", "yes", "ÑÐ°Ðº", "Ñ"}
 
 def parse_sap_name_line(line: str):
     line = normalize_text(line)
     if not line:
         return None
-    m = re.match(r"^(\d{6,12})\s*[-–—]\s*(.+)$", line)
+    m = re.match(r"^(\d{6,12})\s*[-ââ]\s*(.+)$", line)
     if m:
         return m.group(1), normalize_text(m.group(2)).upper()
     m = re.match(r"^(.+?)\s+(\d{6,12})$", line)
@@ -368,7 +367,7 @@ def parse_sap_percent_line(line: str):
     line = normalize_text(line)
     if not line:
         return None
-    m = re.match(r"^(\d{6,12})\s*[-–—\s]\s*([0-9]+(?:[,.][0-9]+)?)\s*%?$", line)
+    m = re.match(r"^(\d{6,12})\s*[-ââ\s]\s*([0-9]+(?:[,.][0-9]+)?)\s*%?$", line)
     if not m:
         return None
     return m.group(1), str(safe_float(m.group(2)))
@@ -381,7 +380,7 @@ def _normalize_ocr_text_for_numbers(text: str) -> str:
     """
     t = text or ""
     replacements = {
-        "％": "%", "﹪": "%", "，": ",", "．": ".", "–": "-", "—": "-",
+        "ï¼": "%", "ï¹ª": "%", "ï¼": ",", "ï¼": ".", "â": "-", "â": "-",
         "O": "0", "o": "0",
     }
     for a, b in replacements.items():
@@ -544,11 +543,11 @@ def import_percent_rows_by_date(date_str: str, parsed_rows: list) -> dict:
 
         shift_types = sorted(set(m["shift_type"] for m in matches))
         if len(shift_types) == 0:
-            missing.append(f"{sap} — {emp['surname']} — {fmt_percent(percent)}%")
+            missing.append(f"{sap} â {emp['surname']} â {fmt_percent(percent)}%")
             continue
 
         if len(shift_types) > 1:
-            ambiguous.append(f"{sap} — {emp['surname']} — є day і night")
+            ambiguous.append(f"{sap} â {emp['surname']} â Ñ day Ñ night")
             continue
 
         m = matches[0]
@@ -582,30 +581,30 @@ def import_percent_rows_by_date(date_str: str, parsed_rows: list) -> dict:
 def format_import_by_date_report(date_str: str, result: dict) -> str:
     imported = result["imported"]
     msg = [
-        f"✅ Імпорт за дату {date_str}",
-        f"Розпізнано рядків: {result['parsed_count']}",
-        f"Записано: {result['written_count']}",
+        f"â ÐÐ¼Ð¿Ð¾ÑÑ Ð·Ð° Ð´Ð°ÑÑ {date_str}",
+        f"Ð Ð¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾ ÑÑÐ´ÐºÑÐ²: {result['parsed_count']}",
+        f"ÐÐ°Ð¿Ð¸ÑÐ°Ð½Ð¾: {result['written_count']}",
     ]
 
     if imported:
-        msg.append("\n📌 Записано:")
+        msg.append("\nð ÐÐ°Ð¿Ð¸ÑÐ°Ð½Ð¾:")
         for r in imported[:30]:
-            msg.append(f"{r['sap']} — {r['surname']} — {r['shift_type']} — {r['hala']}/{r['group']} — {fmt_percent(r['percent'])}%")
+            msg.append(f"{r['sap']} â {r['surname']} â {shift_type_label(r['shift_type'])} â {fmt_percent(r['percent'])}%")
         if len(imported) > 30:
-            msg.append(f"... ще {len(imported)-30}")
+            msg.append(f"... ÑÐµ {len(imported)-30}")
 
     if result["missing"]:
-        msg.append("\n⚠️ SAP є в базі, але не доданий у day/night на цю дату:")
+        msg.append("\nâ ï¸ SAP Ñ Ð² Ð±Ð°Ð·Ñ, Ð°Ð»Ðµ Ð½Ðµ Ð´Ð¾Ð´Ð°Ð½Ð¸Ð¹ Ñ day/night Ð½Ð° ÑÑ Ð´Ð°ÑÑ:")
         msg.extend(result["missing"][:25])
         if len(result["missing"]) > 25:
-            msg.append(f"... ще {len(result['missing'])-25}")
+            msg.append(f"... ÑÐµ {len(result['missing'])-25}")
 
     if result["ambiguous"]:
-        msg.append("\n⚠️ SAP знайдений і в day, і в night — треба уточнити вручну:")
+        msg.append("\nâ ï¸ SAP Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¸Ð¹ Ñ Ð² day, Ñ Ð² night â ÑÑÐµÐ±Ð° ÑÑÐ¾ÑÐ½Ð¸ÑÐ¸ Ð²ÑÑÑÐ½Ñ:")
         msg.extend(result["ambiguous"][:25])
 
     if result["unknown_sap"]:
-        msg.append("\n❌ SAP немає в базі працівників:")
+        msg.append("\nâ SAP Ð½ÐµÐ¼Ð°Ñ Ð² Ð±Ð°Ð·Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²:")
         msg.extend(result["unknown_sap"][:25])
 
     return "\n".join(msg)
@@ -647,11 +646,11 @@ def build_import_preview_by_date(date_str: str, parsed_rows: list) -> dict:
 
         shift_types = sorted(set(m["shift_type"] for m in matches))
         if len(shift_types) == 0:
-            missing.append(f"{sap} — {emp['surname']} — {fmt_percent(percent)}%")
+            missing.append(f"{sap} â {emp['surname']} â {fmt_percent(percent)}%")
             continue
 
         if len(shift_types) > 1:
-            ambiguous.append(f"{sap} — {emp['surname']} — є day і night")
+            ambiguous.append(f"{sap} â {emp['surname']} â Ñ day Ñ night")
             continue
 
         m = matches[0]
@@ -679,32 +678,32 @@ def format_import_preview_report(result: dict) -> str:
     date_str = result["date"]
 
     msg = [
-        f"🧪 Попередній перегляд OCR за {date_str}",
-        f"Розпізнано рядків: {result['parsed_count']}",
-        f"Готово до запису: {len(preview)}",
+        f"ð§ª ÐÐ¾Ð¿ÐµÑÐµÐ´Ð½ÑÐ¹ Ð¿ÐµÑÐµÐ³Ð»ÑÐ´ OCR Ð·Ð° {date_str}",
+        f"Ð Ð¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾ ÑÑÐ´ÐºÑÐ²: {result['parsed_count']}",
+        f"ÐÐ¾ÑÐ¾Ð²Ð¾ Ð´Ð¾ Ð·Ð°Ð¿Ð¸ÑÑ: {len(preview)}",
     ]
 
     if preview:
-        msg.append("\\n📌 Буде записано:")
+        msg.append("\\nð ÐÑÐ´Ðµ Ð·Ð°Ð¿Ð¸ÑÐ°Ð½Ð¾:")
         for r in preview[:35]:
-            msg.append(f"{r['sap']} — {r['surname']} — {r['shift_type']} — {r['hala']}/{r['group']} — {fmt_percent(r['percent'])}%")
+            msg.append(f"{r['sap']} â {r['surname']} â {shift_type_label(r['shift_type'])} â {fmt_percent(r['percent'])}%")
         if len(preview) > 35:
-            msg.append(f"... ще {len(preview)-35}")
+            msg.append(f"... ÑÐµ {len(preview)-35}")
 
     if result["missing"]:
-        msg.append("\\n⚠️ SAP є в базі, але не доданий у day/night на цю дату:")
+        msg.append("\\nâ ï¸ SAP Ñ Ð² Ð±Ð°Ð·Ñ, Ð°Ð»Ðµ Ð½Ðµ Ð´Ð¾Ð´Ð°Ð½Ð¸Ð¹ Ñ day/night Ð½Ð° ÑÑ Ð´Ð°ÑÑ:")
         msg.extend(result["missing"][:20])
 
     if result["ambiguous"]:
-        msg.append("\\n⚠️ SAP знайдений і в day, і в night — не буде записано:")
+        msg.append("\\nâ ï¸ SAP Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¸Ð¹ Ñ Ð² day, Ñ Ð² night â Ð½Ðµ Ð±ÑÐ´Ðµ Ð·Ð°Ð¿Ð¸ÑÐ°Ð½Ð¾:")
         msg.extend(result["ambiguous"][:20])
 
     if result["unknown_sap"]:
-        msg.append("\\n❌ SAP немає в базі:")
+        msg.append("\\nâ SAP Ð½ÐµÐ¼Ð°Ñ Ð² Ð±Ð°Ð·Ñ:")
         msg.extend(result["unknown_sap"][:20])
 
-    msg.append("\\nЯкщо все правильно — натисни ✅ Зберегти OCR.")
-    msg.append("Якщо є помилки — натисни ❌ Скасувати OCR.")
+    msg.append("\\nÐ¯ÐºÑÐ¾ Ð²ÑÐµ Ð¿ÑÐ°Ð²Ð¸Ð»ÑÐ½Ð¾ â Ð½Ð°ÑÐ¸ÑÐ½Ð¸ â ÐÐ±ÐµÑÐµÐ³ÑÐ¸ OCR.")
+    msg.append("Ð¯ÐºÑÐ¾ Ñ Ð¿Ð¾Ð¼Ð¸Ð»ÐºÐ¸ â Ð½Ð°ÑÐ¸ÑÐ½Ð¸ â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸ OCR.")
 
     return "\\n".join(msg)
 
@@ -1023,20 +1022,12 @@ def shift_rows_for_active(active: dict, force=True):
 def format_shift_workers_numbered(active: dict) -> str:
     rows = shift_rows_for_active(active, force=True)
     if not rows:
-        return "У цій зміні ще немає працівників."
+        return "Ð£ ÑÑÐ¹ Ð·Ð¼ÑÐ½Ñ ÑÐµ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²."
 
-    rows = sorted(rows, key=lambda r: (
-        0 if not r.get("hala") and not r.get("group") else 1,
-        safe_lower(r.get("hala", "")),
-        safe_lower(r.get("group", "")),
-        safe_lower(r.get("surname", "")),
-    ))
-
-    lines = [f"👷 Список зміни {active['date']} ({shift_type_label(active['shift_type'])})\n"]
+    rows = sorted(rows, key=lambda r: safe_lower(r.get("surname", "")))
+    lines = [f"ð· Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð·Ð¼ÑÐ½Ð¸ {active['date']} ({shift_type_label(active['shift_type'])})\n"]
     for i, r in enumerate(rows, start=1):
-        grp = f"{r['hala']}/{r['group']}".strip("/") if r.get("hala") or r.get("group") else "⬜ без групи"
-        lines.append(f"{i}. {r['sap']} — {r['surname']} — {grp}")
-
+        lines.append(f"{i}. {r['sap']} â {r['surname']}")
     return "\n".join(lines)
 
 
@@ -1047,12 +1038,12 @@ def sorted_active_employees_for_roster() -> list:
 def format_all_employees_numbered_for_roster(date_str: str) -> str:
     employees = sorted_active_employees_for_roster()
     if not employees:
-        return "У базі немає активних працівників із SAP."
+        return "Ð£ Ð±Ð°Ð·Ñ Ð½ÐµÐ¼Ð°Ñ Ð°ÐºÑÐ¸Ð²Ð½Ð¸Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² ÑÐ· SAP."
 
-    lines = [f"🗓 Розподіл day/night за {date_str}\n", "Вибирай номери зі списку:", ""]
+    lines = [f"ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night Ð·Ð° {date_str}\n", "ÐÐ¸Ð±Ð¸ÑÐ°Ð¹ Ð½Ð¾Ð¼ÐµÑÐ¸ Ð·Ñ ÑÐ¿Ð¸ÑÐºÑ:", ""]
     for i, e in enumerate(employees, start=1):
-        lines.append(f"{i}. {e['sap']} — {e['surname']}")
-    lines.append("\nФормат: 1,2,5-9")
+        lines.append(f"{i}. {e['sap']} â {e['surname']}")
+    lines.append("\nÐ¤Ð¾ÑÐ¼Ð°Ñ: 1,2,5-9")
     return "\n".join(lines)
 
 def set_shift_members_for_date(date_str: str, shift_type: str, selected_indexes: list) -> dict:
@@ -1081,8 +1072,8 @@ def set_shift_members_for_date(date_str: str, shift_type: str, selected_indexes:
             existing_group[r["sap"]] = (r.get("hala", ""), r.get("group", ""))
 
     # Remove:
-    # 1) all rows of this shift for the date — then recreate selected cleanly
-    # 2) selected workers from the opposite shift — no double day/night assignment
+    # 1) all rows of this shift for the date â then recreate selected cleanly
+    # 2) selected workers from the opposite shift â no double day/night assignment
     kept = []
     removed_from_same = 0
     removed_from_opposite = 0
@@ -1122,7 +1113,7 @@ def count_shift_members(date_str: str, shift_type: str) -> int:
 def format_groups_overview(active: dict) -> str:
     rows = shift_rows_for_active(active, force=True)
     if not rows:
-        return "У цій зміні ще немає працівників."
+        return "Ð£ ÑÑÐ¹ Ð·Ð¼ÑÐ½Ñ ÑÐµ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²."
 
     groups = {}
     for r in rows:
@@ -1135,19 +1126,19 @@ def format_groups_overview(active: dict) -> str:
         safe_lower(k[1])
     ))
 
-    out = [f"📦 Групи зміни {active['date']} ({shift_type_label(active['shift_type'])})"]
+    out = [f"ð¦ ÐÑÑÐ¿Ð¸ Ð·Ð¼ÑÐ½Ð¸ {active['date']} ({shift_type_label(active['shift_type'])})"]
     total = 0
     for hala, group in ordered_keys:
         members = sorted(groups[(hala, group)], key=lambda r: safe_lower(r["surname"]))
         total += len(members)
-        title = f"{hala}/{group}".strip("/") if hala or group else "⬜ Без групи"
+        title = f"{hala}/{group}".strip("/") if hala or group else "â¬ ÐÐµÐ· Ð³ÑÑÐ¿Ð¸"
         out.append(f"\n{title} ({len(members)})")
         for r in members:
-            out.append(f"• {r['sap']} — {r['surname']}")
-    out.append(f"\nВсього: {total}")
+            out.append(f"â¢ {r['sap']} â {r['surname']}")
+    out.append(f"\nÐÑÑÐ¾Ð³Ð¾: {total}")
     return "\n".join(out)
 
-def add_workers_to_shift_unassigned(active: dict, lines: list, employees: list) -> dict:
+def add_workers_to_shift_unassigned(active: dict, lines: list, employees: list, hala: str = "") -> dict:
     all_rows = read_shifts(force=True)
     existing_saps = {
         r["sap"] for r in all_rows
@@ -1170,7 +1161,7 @@ def add_workers_to_shift_unassigned(active: dict, lines: list, employees: list) 
 
         sap = emp["sap"]
         if sap in existing_saps:
-            already.append(f"{sap} — {emp['surname']}")
+            already.append(f"{sap} â {emp['surname']}")
             continue
 
         all_rows.append(ensure_shift_columns({
@@ -1318,7 +1309,7 @@ def migrate_rows_surname_to_sap() -> tuple:
 def format_no_sap(rows):
     items = [r["surname"] for r in rows if r.get("surname") and not r.get("sap")]
     items = sorted(items, key=safe_lower)
-    return "⚠️ Без SAP:\n\n" + ("\n".join(items) if items else "Усі працівники мають SAP ✅")
+    return "â ï¸ ÐÐµÐ· SAP:\n\n" + ("\n".join(items) if items else "Ð£ÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ¸ Ð¼Ð°ÑÑÑ SAP â")
 
 def merge_seed_sap():
     rows = read_employees(force=True)
@@ -1561,14 +1552,14 @@ async def send_backup_to_chat(context, chat_id, file_path, caption):
 
 async def backup_everywhere(context, trigger_chat_id: int, reason: str, caption_extra: str = ""):
     path = make_backup_zip(reason)
-    caption = f"💾 Backup • {reason}\n{os.path.basename(path)}"
+    caption = f"ð¾ Backup â¢ {reason}\n{os.path.basename(path)}"
     if caption_extra:
         caption += f"\n{caption_extra}"
     if BACKUP_CHAT_ID:
         try:
             await send_backup_to_chat(context, BACKUP_CHAT_ID, path, caption)
         except Exception as e:
-            await context.bot.send_message(chat_id=trigger_chat_id, text=f"⚠️ Backup у групу не відправився: {e}")
+            await context.bot.send_message(chat_id=trigger_chat_id, text=f"â ï¸ Backup Ñ Ð³ÑÑÐ¿Ñ Ð½Ðµ Ð²ÑÐ´Ð¿ÑÐ°Ð²Ð¸Ð²ÑÑ: {e}")
     return [path]
 
 # ==============================
@@ -1576,11 +1567,11 @@ async def backup_everywhere(context, trigger_chat_id: int, reason: str, caption_
 # ==============================
 
 def emp_display(e):
-    return f"{e['sap'] if e['sap'] else '⚠️ NO SAP'} — {e['surname']}"
+    return f"{e['sap'] if e['sap'] else 'â ï¸ NO SAP'} â {e['surname']}"
 
 def shoe_display(e):
     st = safe_lower(e.get("shoe_type", "unknown"))
-    label = "своє" if st == "own" else "видано агенцією" if st == "agency" else "не вказано"
+    label = "ÑÐ²Ð¾Ñ" if st == "own" else "Ð²Ð¸Ð´Ð°Ð½Ð¾ Ð°Ð³ÐµÐ½ÑÑÑÑ" if st == "agency" else "Ð½Ðµ Ð²ÐºÐ°Ð·Ð°Ð½Ð¾"
     size = e.get("shoe_size", "")
     if size and st != "unknown":
         return f"{size}, {label}"
@@ -1598,49 +1589,49 @@ def format_employee_card(emp, perf_rows):
         avg = sum(nums) / len(nums)
 
     return (
-        "👤 Картка працівника\n\n"
+        "ð¤ ÐÐ°ÑÑÐºÐ° Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°\n\n"
         f"SAP: {emp['sap'] or '-'}\n"
-        f"Працівник: {emp['surname'] or '-'}\n"
-        f"Шафка: {emp['locker'] or '-'}\n"
-        f"Ніж: {'є' if knife_has(emp['knife']) else 'немає'}\n"
-        f"Взуття: {shoe_display(emp)}\n"
-        f"Статус: {emp['status'] or 'active'}\n\n"
-        "📊 Продуктивність:\n"
-        f"Остання: {(last['date'] + ' — ' + fmt_percent(last['percent']) + '%') if last else '-'}\n"
-        f"Середня: {(fmt_percent(avg) + '%') if avg is not None else '-'}"
+        f"ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº: {emp['surname'] or '-'}\n"
+        f"Ð¨Ð°ÑÐºÐ°: {emp['locker'] or '-'}\n"
+        f"ÐÑÐ¶: {'Ñ' if knife_has(emp['knife']) else 'Ð½ÐµÐ¼Ð°Ñ'}\n"
+        f"ÐÐ·ÑÑÑÑ: {shoe_display(emp)}\n"
+        f"Ð¡ÑÐ°ÑÑÑ: {emp['status'] or 'active'}\n\n"
+        "ð ÐÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ:\n"
+        f"ÐÑÑÐ°Ð½Ð½Ñ: {(last['date'] + ' â ' + fmt_percent(last['percent']) + '%') if last else '-'}\n"
+        f"Ð¡ÐµÑÐµÐ´Ð½Ñ: {(fmt_percent(avg) + '%') if avg is not None else '-'}"
     )
 
 def format_all(rows):
     items = sorted([emp_display(r) for r in rows if r["surname"]], key=safe_lower)
-    return "👥 Всі:\n\n" + ("\n".join(items) if items else "Немає даних")
+    return "ð¥ ÐÑÑ:\n\n" + ("\n".join(items) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
 
 def format_with_locker(rows):
-    items = [f"{emp_display(r)} — шафка {r['locker']}" for r in rows if r["surname"] and locker_has_value(r["locker"])]
-    return "🗄️ З шафкою:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "Немає даних")
+    items = [f"{emp_display(r)} â ÑÐ°ÑÐºÐ° {r['locker']}" for r in rows if r["surname"] and locker_has_value(r["locker"])]
+    return "ðï¸ Ð ÑÐ°ÑÐºÐ¾Ñ:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
 
 def format_no_locker(rows):
     items = [emp_display(r) for r in rows if r["surname"] and not locker_has_value(r["locker"])]
-    return "⛔ Без шафки:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "Немає даних")
+    return "â ÐÐµÐ· ÑÐ°ÑÐºÐ¸:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
 
 def format_with_knife(rows):
     items = [emp_display(r) for r in rows if r["surname"] and knife_has(r["knife"])]
-    return "🔪 З ножем:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "Немає даних")
+    return "ðª Ð Ð½Ð¾Ð¶ÐµÐ¼:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
 
 def format_no_knife(rows):
     items = [emp_display(r) for r in rows if r["surname"] and not knife_has(r["knife"])]
-    return "🚫 Без ножа:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "Немає даних")
+    return "ð« ÐÐµÐ· Ð½Ð¾Ð¶Ð°:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "ÐÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ")
 
 def format_stats(rows):
     only = [r for r in rows if r["surname"]]
     return (
-        "📊 Статистика:\n\n"
-        f"Всього: {len(only)}\n"
-        f"З SAP: {len([r for r in only if r['sap']])}\n"
-        f"Без SAP: {len([r for r in only if not r['sap']])}\n"
-        f"🗄️ З шафкою: {len([r for r in only if locker_has_value(r['locker'])])}\n"
-        f"⛔ Без шафки: {len([r for r in only if not locker_has_value(r['locker'])])}\n"
-        f"🔪 З ножем: {len([r for r in only if knife_has(r['knife'])])}\n"
-        f"🚫 Без ножа: {len([r for r in only if not knife_has(r['knife'])])}"
+        "ð Ð¡ÑÐ°ÑÐ¸ÑÑÐ¸ÐºÐ°:\n\n"
+        f"ÐÑÑÐ¾Ð³Ð¾: {len(only)}\n"
+        f"Ð SAP: {len([r for r in only if r['sap']])}\n"
+        f"ÐÐµÐ· SAP: {len([r for r in only if not r['sap']])}\n"
+        f"ðï¸ Ð ÑÐ°ÑÐºÐ¾Ñ: {len([r for r in only if locker_has_value(r['locker'])])}\n"
+        f"â ÐÐµÐ· ÑÐ°ÑÐºÐ¸: {len([r for r in only if not locker_has_value(r['locker'])])}\n"
+        f"ðª Ð Ð½Ð¾Ð¶ÐµÐ¼: {len([r for r in only if knife_has(r['knife'])])}\n"
+        f"ð« ÐÐµÐ· Ð½Ð¾Ð¶Ð°: {len([r for r in only if not knife_has(r['knife'])])}"
     )
 
 def get_shift_summary(summary_rows, date_str, shift_type):
@@ -1655,56 +1646,50 @@ def compute_shift_avg(perf_rows, date_str, st):
 
 def format_shift(date_str, st, shifts_rows, perf_rows, summary_rows):
     items = [r for r in shifts_rows if r["date"] == date_str and safe_lower(r["shift_type"]) == safe_lower(st)]
-    header = f"{date_str} ({shift_type_label(st)} зміна)\n"
+    header = f"{date_str} ({shift_type_label(st)} Ð·Ð¼ÑÐ½Ð°)\n"
     summ = get_shift_summary(summary_rows, date_str, st)
     if summ:
-        header += f"Загальний %: {summ['total_percent'] or '-'} | Агенція %: {summ['agency_percent'] or '-'}\n"
+        header += f"ÐÐ°Ð³Ð°Ð»ÑÐ½Ð¸Ð¹ %: {summ['total_percent'] or '-'} | ÐÐ³ÐµÐ½ÑÑÑ %: {summ['agency_percent'] or '-'}\n"
     avg = compute_shift_avg(perf_rows, date_str, st)
     if avg is not None:
-        header += f"Середній % по SAP: {fmt_percent(avg)}%\n"
+        header += f"Ð¡ÐµÑÐµÐ´Ð½ÑÐ¹ % Ð¿Ð¾ SAP: {fmt_percent(avg)}%\n"
     if not items:
-        return header + "Немає працівників у зміні."
+        return header + "ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ñ Ð·Ð¼ÑÐ½Ñ."
 
-    perf_map = {(r["sap"], r["hala"], r["group"]): r["percent"] for r in perf_rows if r["date"] == date_str and safe_lower(r["shift_type"]) == safe_lower(st)}
-    items = sorted(items, key=lambda r: (safe_lower(r["hala"]), safe_lower(r["group"]), safe_lower(r["surname"])))
-    blocks = []
-    cur = None
+    perf_map = {r["sap"]: r["percent"] for r in perf_rows if r["date"] == date_str and safe_lower(r["shift_type"]) == safe_lower(st) and r.get("sap")}
+    items = sorted(items, key=lambda r: safe_lower(r.get("surname", "")))
     lines = []
     for r in items:
-        key = (r["hala"], r["group"])
-        if cur != key:
-            if lines:
-                blocks.append("\n".join(lines))
-            cur = key
-            lines = [f"\n{r['hala']} / {r['group']}"]
-        p = perf_map.get((r["sap"], r["hala"], r["group"]))
-        tail = f" — {fmt_percent(p)}%" if p else ""
-        lines.append(f"{r['sap']} — {r['surname']}{tail}")
-    if lines:
-        blocks.append("\n".join(lines))
-    return (header + "\n".join(blocks)).strip()
+        p = perf_map.get(r.get("sap", ""))
+        tail = f" â {fmt_percent(p)}%" if p else ""
+        lines.append(f"{r['sap']} â {r['surname']}{tail}")
+    return (header + "\n" + "\n".join(lines)).strip()
 
-def compute_month_averages(perf_rows, month):
+
+def compute_worker_averages(perf_rows):
+    """Average productivity per SAP across all saved performance records."""
     sums, cnts, names = {}, {}, {}
     for r in perf_rows:
-        if month_key_from_date_str(r["date"]) != month:
+        p = safe_float(r.get("percent", ""))
+        sap = normalize_text(r.get("sap", ""))
+        if p is None or not sap:
             continue
-        p = safe_float(r["percent"])
-        if p is None or not r["sap"]:
-            continue
-        sums[r["sap"]] = sums.get(r["sap"], 0) + p
-        cnts[r["sap"]] = cnts.get(r["sap"], 0) + 1
-        names[r["sap"]] = r["surname"]
+        sums[sap] = sums.get(sap, 0.0) + p
+        cnts[sap] = cnts.get(sap, 0) + 1
+        names[sap] = normalize_text(r.get("surname", "")).upper()
     return {sap: (sums[sap] / cnts[sap], cnts[sap], names.get(sap, "")) for sap in sums}
 
-def format_sorted_workers(perf_rows, month):
-    avgs = compute_month_averages(perf_rows, month)
+def format_sorted_workers(perf_rows):
+    avgs = compute_worker_averages(perf_rows)
     if not avgs:
-        return f"Немає записів продуктивності за {month}."
-    rows = sorted([(avg, cnt, sap, name) for sap, (avg, cnt, name) in avgs.items()], key=lambda x: x[0])
-    return "📌 Сортування працівників за " + month + "\n\n" + "\n".join(
-        f"{emoji_by_percent(avg)} {sap} — {name} — avg {fmt_percent(avg)}% ({cnt} зм.)"
-        for avg, cnt, sap, name in rows
+        return "ÐÐµÐ¼Ð°Ñ Ð·Ð°Ð¿Ð¸ÑÑÐ² Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½Ð¾ÑÑÑ Ð´Ð»Ñ ÑÐ¾ÑÑÑÐ²Ð°Ð½Ð½Ñ."
+    rows = sorted(
+        [(avg, cnt, sap, name) for sap, (avg, cnt, name) in avgs.items()],
+        key=lambda x: (-x[0], -x[1], safe_lower(x[3]), x[2])
+    )
+    return "ð ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ¸ Ð·Ð° ÑÐµÑÐµÐ´Ð½ÑÐ¾Ñ Ð²Ð¸Ð´Ð°Ð¹Ð½ÑÑÑÑ\n\n" + "\n".join(
+        f"{i}. {emoji_by_percent(avg)} {sap} â {name} â {fmt_percent(avg)}% ({cnt} Ð·Ð¼.)"
+        for i, (avg, cnt, sap, name) in enumerate(rows, 1)
     )
 
 
@@ -1722,7 +1707,7 @@ def employee_list_page(rows: list, page: int = 0):
     start = page * EMP_PAGE_SIZE
     end = min(start + EMP_PAGE_SIZE, len(items))
 
-    lines = [f"👥 Всі працівники", f"Сторінка {page + 1}/{total_pages}", "", "Натисни працівника — відкриється картка:", ""]
+    lines = [f"ð¥ ÐÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ¸", f"Ð¡ÑÐ¾ÑÑÐ½ÐºÐ° {page + 1}/{total_pages}", "", "ÐÐ°ÑÐ¸ÑÐ½Ð¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° â Ð²ÑÐ´ÐºÑÐ¸ÑÑÑÑÑ ÐºÐ°ÑÑÐºÐ°:", ""]
     for i in range(start, end):
         lines.append(f"{i + 1}. {emp_display(items[i])}")
     return "\n".join(lines), employee_list_keyboard(items, page)
@@ -1736,12 +1721,12 @@ def employee_list_keyboard(items: list, page: int = 0) -> InlineKeyboardMarkup:
     for i in range(start, end):
         e = items[i]
         key = e.get("sap") or ("name_" + canonical_name_key(e.get("surname", ""))[:32])
-        rows.append([InlineKeyboardButton(f"👤 {e.get('surname','')[:28]}", callback_data=f"emp:card:{key}:{page}")])
+        rows.append([InlineKeyboardButton(f"ð¤ {e.get('surname','')[:28]}", callback_data=f"emp:card:{key}:{page}")])
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("⬅️ Назад", callback_data=f"emp:page:{page-1}"))
+        nav.append(InlineKeyboardButton("â¬ï¸ ÐÐ°Ð·Ð°Ð´", callback_data=f"emp:page:{page-1}"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("➡️ Далі", callback_data=f"emp:page:{page+1}"))
+        nav.append(InlineKeyboardButton("â¡ï¸ ÐÐ°Ð»Ñ", callback_data=f"emp:page:{page+1}"))
     if nav:
         rows.append(nav)
     return InlineKeyboardMarkup(rows)
@@ -1774,9 +1759,9 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         page = parts[3] if len(parts) > 3 else "0"
         emp = employee_find_by_callback_key(key)
         if not emp:
-            await query.edit_message_text("❌ Працівника не знайдено. Онови список 👥 Всі.")
+            await query.edit_message_text("â ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾. ÐÐ½Ð¾Ð²Ð¸ ÑÐ¿Ð¸ÑÐ¾Ðº ð¥ ÐÑÑ.")
             return
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ До списку", callback_data=f"emp:page:{page}")]])
+        kb = InlineKeyboardMarkup([[InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data=f"emp:page:{page}")]])
         await query.edit_message_text(format_employee_card(emp, read_perf(force=True)), reply_markup=kb)
         return
 
@@ -1785,7 +1770,7 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==============================
 
 WEEKLY_PAGE_SIZE = 8
-WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"]
+WEEKDAY_LABELS = ["ÐÐ½", "ÐÑ", "Ð¡Ñ", "Ð§Ñ", "ÐÑ", "Ð¡Ð±", "ÐÐ´"]
 
 def weekday_from_date(date_str: str) -> str:
     dt = parse_ddmmyyyy(date_str)
@@ -1824,19 +1809,19 @@ def weekly_page_text(wp: dict) -> str:
     weekday = wp.get("weekday", "0")
     label = WEEKDAY_LABELS[int(weekday)] if weekday.isdigit() and 0 <= int(weekday) <= 6 else weekday
     lines = [
-        f"📅 Сталі зміни на {label}",
-        f"Сторінка {page + 1}/{total_pages}",
-        f"☀️ Day: {day} | 🌙 Night: {night} | ⬜ Не задано: {none}",
+        f"ð Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸ Ð½Ð° {label}",
+        f"Ð¡ÑÐ¾ÑÑÐ½ÐºÐ° {page + 1}/{total_pages}",
+        f"âï¸ Day: {day} | ð Night: {night} | â¬ ÐÐµ Ð·Ð°Ð´Ð°Ð½Ð¾: {none}",
         "",
-        "Натискай працівника: ⬜ → ☀️ → 🌙 → ⬜",
-        "Це шаблон тижня. На конкретну дату працівника можна перекинути через 🗓 Розподіл day/night.",
+        "ÐÐ°ÑÐ¸ÑÐºÐ°Ð¹ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°: â¬ â âï¸ â ð â â¬",
+        "Ð¦Ðµ ÑÐ°Ð±Ð»Ð¾Ð½ ÑÐ¸Ð¶Ð½Ñ. ÐÐ° ÐºÐ¾Ð½ÐºÑÐµÑÐ½Ñ Ð´Ð°ÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° Ð¼Ð¾Ð¶Ð½Ð° Ð¿ÐµÑÐµÐºÐ¸Ð½ÑÑÐ¸ ÑÐµÑÐµÐ· ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night.",
         "",
     ]
     start = page * WEEKLY_PAGE_SIZE
     end = min(start + WEEKLY_PAGE_SIZE, len(items))
     for i in range(start, end):
         item = items[i]
-        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} — {item['surname']}")
+        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} â {item['surname']}")
     return "\n".join(lines)
 
 def weekly_keyboard(wp: dict) -> InlineKeyboardMarkup:
@@ -1851,12 +1836,12 @@ def weekly_keyboard(wp: dict) -> InlineKeyboardMarkup:
         rows.append([InlineKeyboardButton(f"{roster_status_symbol(item['status'])} {i+1}. {item['surname'][:22]}", callback_data=f"weekly:toggle:{i}")])
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("⬅️ Назад", callback_data="weekly:page:prev"))
+        nav.append(InlineKeyboardButton("â¬ï¸ ÐÐ°Ð·Ð°Ð´", callback_data="weekly:page:prev"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("➡️ Далі", callback_data="weekly:page:next"))
+        nav.append(InlineKeyboardButton("â¡ï¸ ÐÐ°Ð»Ñ", callback_data="weekly:page:next"))
     if nav:
         rows.append(nav)
-    rows.append([InlineKeyboardButton("✅ Зберегти", callback_data="weekly:save"), InlineKeyboardButton("❌ Скасувати", callback_data="weekly:cancel")])
+    rows.append([InlineKeyboardButton("â ÐÐ±ÐµÑÐµÐ³ÑÐ¸", callback_data="weekly:save"), InlineKeyboardButton("â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸", callback_data="weekly:cancel")])
     return InlineKeyboardMarkup(rows)
 
 def apply_weekly_picker(wp: dict) -> dict:
@@ -1918,7 +1903,7 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud = st(context)
     wp = ud.get("weekly_picker") or {}
     if not wp:
-        await query.edit_message_text("Сесія сталих змін застаріла. Натисни 📅 Сталі зміни ще раз.")
+        await query.edit_message_text("Ð¡ÐµÑÑÑ ÑÑÐ°Ð»Ð¸Ñ Ð·Ð¼ÑÐ½ Ð·Ð°ÑÑÐ°ÑÑÐ»Ð°. ÐÐ°ÑÐ¸ÑÐ½Ð¸ ð Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸ ÑÐµ ÑÐ°Ð·.")
         return
     data = query.data or ""
     parts = data.split(":")
@@ -1941,14 +1926,14 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if action == "cancel":
         ud.pop("weekly_picker", None)
-        await query.edit_message_text("❌ Сталі зміни скасовано. Нічого не змінено.")
+        await query.edit_message_text("â Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸ ÑÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾. ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð¾.")
         return
     if action == "save":
         await backup_everywhere(context, update.effective_chat.id, "pre_weekly_save")
         result = apply_weekly_picker(wp)
         await backup_everywhere(context, update.effective_chat.id, "after_weekly_save")
         ud.pop("weekly_picker", None)
-        await query.edit_message_text(f"✅ Сталі зміни збережено\n☀️ Day: {result['day']}\n🌙 Night: {result['night']}")
+        await query.edit_message_text(f"â Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾\nâï¸ Day: {result['day']}\nð Night: {result['night']}")
         return
 
 # ==============================
@@ -1964,10 +1949,10 @@ def roster_session(context):
 
 def roster_status_symbol(status: str) -> str:
     if status == "day":
-        return "☀️"
+        return "âï¸"
     if status == "night":
-        return "🌙"
-    return "⬜"
+        return "ð"
+    return "â¬"
 
 def init_roster_picker(context, date_str: str):
     employees = sorted_active_employees_for_roster()
@@ -2012,12 +1997,12 @@ def roster_page_text(rp: dict) -> str:
     day, night, none = roster_counts(rp)
 
     lines = [
-        f"🗓 Розподіл day/night за {date}",
-        f"Сторінка {page + 1}/{total_pages}",
-        f"☀️ Day: {day} | 🌙 Night: {night} | ⬜ Не вибрано: {none}",
+        f"ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night Ð·Ð° {date}",
+        f"Ð¡ÑÐ¾ÑÑÐ½ÐºÐ° {page + 1}/{total_pages}",
+        f"âï¸ Day: {day} | ð Night: {night} | â¬ ÐÐµ Ð²Ð¸Ð±ÑÐ°Ð½Ð¾: {none}",
         "",
-        "Натискай працівника, щоб перемикати:",
-        "⬜ → ☀️ → 🌙 → ⬜",
+        "ÐÐ°ÑÐ¸ÑÐºÐ°Ð¹ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°, ÑÐ¾Ð± Ð¿ÐµÑÐµÐ¼Ð¸ÐºÐ°ÑÐ¸:",
+        "â¬ â âï¸ â ð â â¬",
         "",
     ]
 
@@ -2025,7 +2010,7 @@ def roster_page_text(rp: dict) -> str:
     end_i = min(start_i + ROSTER_PAGE_SIZE, len(items))
     for i in range(start_i, end_i):
         item = items[i]
-        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} — {item['surname']}")
+        lines.append(f"{i + 1}. {roster_status_symbol(item['status'])} {item['sap']} â {item['surname']}")
 
     return "\n".join(lines)
 
@@ -2045,15 +2030,15 @@ def roster_keyboard(rp: dict) -> InlineKeyboardMarkup:
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("⬅️ Назад", callback_data="roster:page:prev"))
+        nav.append(InlineKeyboardButton("â¬ï¸ ÐÐ°Ð·Ð°Ð´", callback_data="roster:page:prev"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("➡️ Далі", callback_data="roster:page:next"))
+        nav.append(InlineKeyboardButton("â¡ï¸ ÐÐ°Ð»Ñ", callback_data="roster:page:next"))
     if nav:
         rows.append(nav)
 
     rows.append([
-        InlineKeyboardButton("✅ Зберегти", callback_data="roster:save"),
-        InlineKeyboardButton("❌ Скасувати", callback_data="roster:cancel"),
+        InlineKeyboardButton("â ÐÐ±ÐµÑÐµÐ³ÑÐ¸", callback_data="roster:save"),
+        InlineKeyboardButton("â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸", callback_data="roster:cancel"),
     ])
 
     return InlineKeyboardMarkup(rows)
@@ -2116,7 +2101,7 @@ async def roster_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rp = ud.get("roster_picker") or {}
 
     if not rp:
-        await query.edit_message_text("Сесія розподілу застаріла. Почни ще раз: 🗓 Розподіл day/night.")
+        await query.edit_message_text("Ð¡ÐµÑÑÑ ÑÐ¾Ð·Ð¿Ð¾Ð´ÑÐ»Ñ Ð·Ð°ÑÑÐ°ÑÑÐ»Ð°. ÐÐ¾ÑÐ½Ð¸ ÑÐµ ÑÐ°Ð·: ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night.")
         return
 
     parts = data.split(":")
@@ -2155,7 +2140,7 @@ async def roster_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if action == "cancel":
         ud.pop("roster_picker", None)
-        await query.edit_message_text("❌ Розподіл day/night скасовано. Нічого не змінено.")
+        await query.edit_message_text("â Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night ÑÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾. ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð¾.")
         return
 
     if action == "save":
@@ -2169,10 +2154,10 @@ async def roster_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ud.pop("roster_picker", None)
 
         await query.edit_message_text(
-            f"✅ Розподіл збережено за {date}\n"
-            f"☀️ Day: {result['day']}\n"
-            f"🌙 Night: {result['night']}\n\n"
-            "Активна зміна: day. Далі можеш натиснути 🧩 Розподіл по групах."
+            f"â Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾ Ð·Ð° {date}\n"
+            f"âï¸ Day: {result['day']}\n"
+            f"ð Night: {result['night']}\n\n"
+            "ÐÐºÑÐ¸Ð²Ð½Ð° Ð·Ð¼ÑÐ½Ð°: day. ÐÐ°Ð»Ñ Ð¼Ð¾Ð¶ÐµÑ Ð½Ð°ÑÐ¸ÑÐ½ÑÑÐ¸ ð§© Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ Ð³ÑÑÐ¿Ð°Ñ."
         )
         return
 
@@ -2215,7 +2200,7 @@ def init_workplace_picker(context, active: dict):
 def workplace_label(item: dict) -> str:
     if item.get("hala") or item.get("group"):
         return f"{item.get('hala','')}/{item.get('group','')}".strip("/")
-    return "⬜ без групи"
+    return "â¬ Ð±ÐµÐ· Ð³ÑÑÐ¿Ð¸"
 
 def workplace_counts(wp: dict):
     grouped = len([x for x in wp.get("items", []) if x.get("hala") or x.get("group")])
@@ -2229,11 +2214,11 @@ def workplace_page_text(wp: dict) -> str:
     grouped, no_group, total = workplace_counts(wp)
 
     lines = [
-        f"🧩 Робочі місця {wp.get('date')} ({shift_type_label(wp.get('shift_type'))})",
-        f"Сторінка {page + 1}/{total_pages}",
-        f"👥 Всього: {total} | ✅ В групах: {grouped} | ⬜ Без групи: {no_group}",
+        f"ð§© Ð Ð¾Ð±Ð¾ÑÑ Ð¼ÑÑÑÑ {wp.get('date')} ({shift_type_label(wp.get('shift_type'))})",
+        f"Ð¡ÑÐ¾ÑÑÐ½ÐºÐ° {page + 1}/{total_pages}",
+        f"ð¥ ÐÑÑÐ¾Ð³Ð¾: {total} | â Ð Ð³ÑÑÐ¿Ð°Ñ: {grouped} | â¬ ÐÐµÐ· Ð³ÑÑÐ¿Ð¸: {no_group}",
         "",
-        "Натисни працівника, потім обери HALA/G:",
+        "ÐÐ°ÑÐ¸ÑÐ½Ð¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°, Ð¿Ð¾ÑÑÐ¼ Ð¾Ð±ÐµÑÐ¸ HALA/G:",
         "",
     ]
 
@@ -2241,7 +2226,7 @@ def workplace_page_text(wp: dict) -> str:
     end_i = min(start_i + WORKPLACE_PAGE_SIZE, len(items))
     for i in range(start_i, end_i):
         item = items[i]
-        lines.append(f"{i + 1}. {item['sap']} — {item['surname']} — {workplace_label(item)}")
+        lines.append(f"{i + 1}. {item['sap']} â {item['surname']} â {workplace_label(item)}")
 
     return "\n".join(lines)
 
@@ -2257,20 +2242,20 @@ def workplace_keyboard(wp: dict) -> InlineKeyboardMarkup:
     for i in range(start_i, end_i):
         item = items[i]
         grp = workplace_label(item)
-        label = f"{i + 1}. {item['surname'][:18]} — {grp}"
+        label = f"{i + 1}. {item['surname'][:18]} â {grp}"
         rows.append([InlineKeyboardButton(label, callback_data=f"wp:choose:{i}")])
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton("⬅️ Назад", callback_data="wp:page:prev"))
+        nav.append(InlineKeyboardButton("â¬ï¸ ÐÐ°Ð·Ð°Ð´", callback_data="wp:page:prev"))
     if page < total_pages - 1:
-        nav.append(InlineKeyboardButton("➡️ Далі", callback_data="wp:page:next"))
+        nav.append(InlineKeyboardButton("â¡ï¸ ÐÐ°Ð»Ñ", callback_data="wp:page:next"))
     if nav:
         rows.append(nav)
 
     rows.append([
-        InlineKeyboardButton("📦 Огляд груп", callback_data="wp:overview"),
-        InlineKeyboardButton("✅ Готово", callback_data="wp:done"),
+        InlineKeyboardButton("ð¦ ÐÐ³Ð»ÑÐ´ Ð³ÑÑÐ¿", callback_data="wp:overview"),
+        InlineKeyboardButton("â ÐÐ¾ÑÐ¾Ð²Ð¾", callback_data="wp:done"),
     ])
 
     return InlineKeyboardMarkup(rows)
@@ -2278,9 +2263,9 @@ def workplace_keyboard(wp: dict) -> InlineKeyboardMarkup:
 def workplace_select_text(wp: dict, idx: int) -> str:
     item = wp["items"][idx]
     return (
-        f"👤 {item['sap']} — {item['surname']}\n"
-        f"Поточне місце: {workplace_label(item)}\n\n"
-        "Куди відправити?"
+        f"ð¤ {item['sap']} â {item['surname']}\n"
+        f"ÐÐ¾ÑÐ¾ÑÐ½Ðµ Ð¼ÑÑÑÐµ: {workplace_label(item)}\n\n"
+        "ÐÑÐ´Ð¸ Ð²ÑÐ´Ð¿ÑÐ°Ð²Ð¸ÑÐ¸?"
     )
 
 def workplace_select_keyboard(idx: int) -> InlineKeyboardMarkup:
@@ -2295,8 +2280,8 @@ def workplace_select_keyboard(idx: int) -> InlineKeyboardMarkup:
         rows.append(row)
 
     rows.append([
-        InlineKeyboardButton("⬜ Без групи", callback_data=f"wp:set:{idx}::"),
-        InlineKeyboardButton("⬅️ До списку", callback_data="wp:back:list"),
+        InlineKeyboardButton("â¬ ÐÐµÐ· Ð³ÑÑÐ¿Ð¸", callback_data=f"wp:set:{idx}::"),
+        InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data="wp:back:list"),
     ])
     return InlineKeyboardMarkup(rows)
 
@@ -2329,7 +2314,7 @@ def apply_workplace_to_shift(wp: dict, idx: int, hala: str, group: str):
 async def send_workplace_picker(update: Update, context: ContextTypes.DEFAULT_TYPE, active: dict):
     wp = init_workplace_picker(context, active)
     if not wp.get("items"):
-        await update.message.reply_text("У цій зміні ще немає працівників.")
+        await update.message.reply_text("Ð£ ÑÑÐ¹ Ð·Ð¼ÑÐ½Ñ ÑÐµ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ².")
         return
     await update.message.reply_text(workplace_page_text(wp), reply_markup=workplace_keyboard(wp))
 
@@ -2340,7 +2325,7 @@ async def workplace_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ud = st(context)
     wp = ud.get("workplace_picker") or {}
     if not wp:
-        await query.edit_message_text("Сесія робочих місць застаріла. Натисни 🧩 Розподіл по групах ще раз.")
+        await query.edit_message_text("Ð¡ÐµÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸Ñ Ð¼ÑÑÑÑ Ð·Ð°ÑÑÐ°ÑÑÐ»Ð°. ÐÐ°ÑÐ¸ÑÐ½Ð¸ ð§© Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ Ð³ÑÑÐ¿Ð°Ñ ÑÐµ ÑÐ°Ð·.")
         return
 
     data = query.data or ""
@@ -2395,7 +2380,7 @@ async def workplace_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         active = {"date": wp["date"], "shift_type": wp["shift_type"]}
         await query.edit_message_text(
             format_groups_overview(active),
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ До списку", callback_data="wp:back:list")]])
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data="wp:back:list")]])
         )
         return
 
@@ -2403,7 +2388,7 @@ async def workplace_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         active = {"date": wp["date"], "shift_type": wp["shift_type"]}
         ud.pop("workplace_picker", None)
         await query.edit_message_text(
-            "✅ Розподіл по робочих місцях завершено.\n\n" + format_groups_overview(active)
+            "â Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ ÑÐ¾Ð±Ð¾ÑÐ¸Ñ Ð¼ÑÑÑÑÑ Ð·Ð°Ð²ÐµÑÑÐµÐ½Ð¾.\n\n" + format_groups_overview(active)
         )
         return
 
@@ -2429,19 +2414,19 @@ def set_menu(context, menu):
     st(context)["menu"] = menu
 
 def is_cancel(text):
-    return safe_lower(text) in {safe_lower(BTN_CANCEL), "cancel", "скасувати"}
+    return safe_lower(text) in {safe_lower(BTN_CANCEL), "cancel", "ÑÐºÐ°ÑÑÐ²Ð°ÑÐ¸"}
 
-async def show_main_menu(update, context, text="Обери дію 👇"):
+async def show_main_menu(update, context, text="ÐÐ±ÐµÑÐ¸ Ð´ÑÑ ð"):
     await update.message.reply_text(text, reply_markup=MAIN_KB)
 
-async def show_employee_menu(update, context, text="Меню: Працівник 👇"):
+async def show_employee_menu(update, context, text="ÐÐµÐ½Ñ: ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº ð"):
     await update.message.reply_text(text, reply_markup=EMPLOYEE_KB)
 
-async def show_work_menu(update, context, text="Меню: Організація роботи 👇"):
+async def show_work_menu(update, context, text="ÐÐµÐ½Ñ: ÐÑÐ³Ð°Ð½ÑÐ·Ð°ÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸ ð"):
     await update.message.reply_text(text, reply_markup=WORK_KB)
 
 def weekly_weekday_kb():
-    return ReplyKeyboardMarkup([["📅 Пн", "📅 Вт", "📅 Ср"], ["📅 Чт", "📅 Пт", "📅 Сб"], ["📅 Нд"], [BTN_CANCEL]], resize_keyboard=True)
+    return ReplyKeyboardMarkup([["ð ÐÐ½", "ð ÐÑ", "ð Ð¡Ñ"], ["ð Ð§Ñ", "ð ÐÑ", "ð Ð¡Ð±"], ["ð ÐÐ´"], [BTN_CANCEL]], resize_keyboard=True)
 
 # ==============================
 # COMMANDS
@@ -2450,7 +2435,7 @@ def weekly_weekday_kb():
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reset_state(context)
     set_menu(context, "main")
-    await show_main_menu(update, context, "Готово ✅")
+    await show_main_menu(update, context, "ÐÐ¾ÑÐ¾Ð²Ð¾ â")
 
 async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"chat_id = {update.effective_chat.id}")
@@ -2458,7 +2443,7 @@ async def cmd_chatid(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_paths(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = (
-        "📁 Поточні шляхи бази:\n\n"
+        "ð ÐÐ¾ÑÐ¾ÑÐ½Ñ ÑÐ»ÑÑÐ¸ Ð±Ð°Ð·Ð¸:\n\n"
         f"DATA_DIR: {DATA_DIR}\n"
         f"employees: {EMPLOYEES_DB_PATH}\n"
         f"local_data: {OLD_LOCAL_DB_PATH}\n"
@@ -2473,16 +2458,16 @@ async def cmd_ocrtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sample = " ".join(context.args) if context.args else ""
     if not sample:
         await update.message.reply_text(
-            "Встав після команди текст для тесту. Наприклад:\n"
+            "ÐÑÑÐ°Ð² Ð¿ÑÑÐ»Ñ ÐºÐ¾Ð¼Ð°Ð½Ð´Ð¸ ÑÐµÐºÑÑ Ð´Ð»Ñ ÑÐµÑÑÑ. ÐÐ°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´:\n"
             "/ocrtest 156,44% 51009998 135,68% 51010667"
         )
         return
     parsed = parse_sap_percent_from_text(sample)
     if not parsed:
-        await update.message.reply_text("Нічого не розпізнано.")
+        await update.message.reply_text("ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ ÑÐ¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾.")
         return
     lines = [f"{x['sap']} - {fmt_percent(x['percent'])}%" for x in parsed]
-    await update.message.reply_text("Розпізнано:\n" + "\n".join(lines[:50]))
+    await update.message.reply_text("Ð Ð¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾:\n" + "\n".join(lines[:50]))
 
 
 # ==============================
@@ -2495,64 +2480,64 @@ async def employee_flow(update, context, text):
 
     if ud["mode"] == "add_wait_sap":
         if not re.fullmatch(r"\d{6,12}", text):
-            await update.message.reply_text("SAP має бути тільки цифри, наприклад 51011071.")
+            await update.message.reply_text("SAP Ð¼Ð°Ñ Ð±ÑÑÐ¸ ÑÑÐ»ÑÐºÐ¸ ÑÐ¸ÑÑÐ¸, Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ 51011071.")
             return
         if employee_by_sap(rows, text):
-            await update.message.reply_text("❌ Такий SAP вже є в базі.")
+            await update.message.reply_text("â Ð¢Ð°ÐºÐ¸Ð¹ SAP Ð²Ð¶Ðµ Ñ Ð² Ð±Ð°Ð·Ñ.")
             return
         ud["tmp"]["sap"] = text
         ud["mode"] = "add_wait_surname"
-        await update.message.reply_text("Введи прізвище та ім'я:")
+        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ ÑÐ° ÑÐ¼'Ñ:")
         return
 
     if ud["mode"] == "add_wait_surname":
         ud["tmp"]["surname"] = text.upper()
         ud["mode"] = "add_wait_locker"
-        await update.message.reply_text("Шафка або '-' якщо немає:")
+        await update.message.reply_text("Ð¨Ð°ÑÐºÐ° Ð°Ð±Ð¾ '-' ÑÐºÑÐ¾ Ð½ÐµÐ¼Ð°Ñ:")
         return
 
     if ud["mode"] == "add_wait_locker":
         ud["tmp"]["locker"] = "" if text == "-" else text
         ud["mode"] = "add_wait_knife"
-        await update.message.reply_text("Ніж: 1/2 = є, 0 = немає", reply_markup=ReplyKeyboardMarkup([["1", "2", "0"], [BTN_CANCEL]], resize_keyboard=True))
+        await update.message.reply_text("ÐÑÐ¶: 1/2 = Ñ, 0 = Ð½ÐµÐ¼Ð°Ñ", reply_markup=ReplyKeyboardMarkup([["1", "2", "0"], [BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "add_wait_knife":
         if text not in {"0", "1", "2"}:
-            await update.message.reply_text("Введи 1, 2 або 0.")
+            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ 1, 2 Ð°Ð±Ð¾ 0.")
             return
         ud["tmp"]["knife"] = text
         ud["mode"] = "add_wait_shoe_size"
-        await update.message.reply_text("Розмір взуття або '-' якщо не вказано:")
+        await update.message.reply_text("Ð Ð¾Ð·Ð¼ÑÑ Ð²Ð·ÑÑÑÑ Ð°Ð±Ð¾ '-' ÑÐºÑÐ¾ Ð½Ðµ Ð²ÐºÐ°Ð·Ð°Ð½Ð¾:")
         return
 
     if ud["mode"] == "add_wait_shoe_size":
         ud["tmp"]["shoe_size"] = "" if text == "-" else text
         ud["mode"] = "add_wait_shoe_type"
-        await update.message.reply_text("Взуття: own = своє, agency = видано агенцією, unknown = не вказано",
+        await update.message.reply_text("ÐÐ·ÑÑÑÑ: own = ÑÐ²Ð¾Ñ, agency = Ð²Ð¸Ð´Ð°Ð½Ð¾ Ð°Ð³ÐµÐ½ÑÑÑÑ, unknown = Ð½Ðµ Ð²ÐºÐ°Ð·Ð°Ð½Ð¾",
                                         reply_markup=ReplyKeyboardMarkup([["own", "agency", "unknown"], [BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "add_wait_shoe_type":
         if safe_lower(text) not in {"own", "agency", "unknown"}:
-            await update.message.reply_text("Обери own / agency / unknown.")
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ own / agency / unknown.")
             return
         ud["tmp"]["shoe_type"] = safe_lower(text)
         new_emp = ensure_employee_columns(ud["tmp"])
         write_employees(upsert_employee(rows, new_emp))
         await backup_everywhere(context, update.effective_chat.id, "add_employee", emp_display(new_emp))
         reset_state(context)
-        await show_employee_menu(update, context, f"✅ Додано:\n{emp_display(new_emp)}")
+        await show_employee_menu(update, context, f"â ÐÐ¾Ð´Ð°Ð½Ð¾:\n{emp_display(new_emp)}")
         return
 
     if ud["mode"] == "card_wait_query":
         matches = find_employees(rows, text)
         if not matches:
             reset_state(context)
-            await show_employee_menu(update, context, "❌ Не знайдено.")
+            await show_employee_menu(update, context, "â ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾.")
             return
         if len(matches) > 1:
-            await update.message.reply_text("Знайдено кілька. Введи точніше або SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
+            await update.message.reply_text("ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°. ÐÐ²ÐµÐ´Ð¸ ÑÐ¾ÑÐ½ÑÑÐµ Ð°Ð±Ð¾ SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
             return
         reset_state(context)
         await update.message.reply_text(format_employee_card(matches[0], read_perf(force=True)), reply_markup=EMPLOYEE_KB)
@@ -2562,66 +2547,66 @@ async def employee_flow(update, context, text):
         matches = find_employees(rows, text)
         if not matches:
             reset_state(context)
-            await show_employee_menu(update, context, "❌ Не знайдено.")
+            await show_employee_menu(update, context, "â ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾.")
             return
         if len(matches) > 1:
-            await update.message.reply_text("Знайдено кілька. Введи точніше або SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
+            await update.message.reply_text("ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°. ÐÐ²ÐµÐ´Ð¸ ÑÐ¾ÑÐ½ÑÑÐµ Ð°Ð±Ð¾ SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
             return
         emp = matches[0]
         ud["tmp"]["old_sap"] = emp.get("sap", "")
         ud["tmp"]["old_surname"] = emp.get("surname", "")
         ud["tmp"]["sap"] = emp.get("sap", "")
         ud["mode"] = "edit_wait_sap"
-        await update.message.reply_text("Новий SAP або '-' без змін / якщо немає SAP — введи номер:")
+        await update.message.reply_text("ÐÐ¾Ð²Ð¸Ð¹ SAP Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½ / ÑÐºÑÐ¾ Ð½ÐµÐ¼Ð°Ñ SAP â Ð²Ð²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑ:")
         return
 
     if ud["mode"] == "edit_wait_sap":
         if text != "-":
             if not re.fullmatch(r"\d{6,12}", text):
-                await update.message.reply_text("SAP має бути тільки цифри, наприклад 51011071.")
+                await update.message.reply_text("SAP Ð¼Ð°Ñ Ð±ÑÑÐ¸ ÑÑÐ»ÑÐºÐ¸ ÑÐ¸ÑÑÐ¸, Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ 51011071.")
                 return
             # prevent duplicate SAP on another worker
             for e in rows:
                 if e.get("sap") == text and canonical_name_key(e.get("surname","")) != canonical_name_key(ud["tmp"].get("old_surname","")):
-                    await update.message.reply_text("❌ Такий SAP вже є в іншого працівника.")
+                    await update.message.reply_text("â Ð¢Ð°ÐºÐ¸Ð¹ SAP Ð²Ð¶Ðµ Ñ Ð² ÑÐ½ÑÐ¾Ð³Ð¾ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°.")
                     return
             ud["tmp"]["sap"] = text
         ud["mode"] = "edit_wait_surname"
-        await update.message.reply_text("Нове прізвище або '-' без змін:")
+        await update.message.reply_text("ÐÐ¾Ð²Ðµ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½:")
         return
 
     if ud["mode"] == "edit_wait_surname":
         ud["tmp"]["surname"] = ud["tmp"].get("old_surname", "") if text == "-" else text.upper()
         ud["mode"] = "edit_wait_locker"
-        await update.message.reply_text("Нова шафка або '-' без змін:")
+        await update.message.reply_text("ÐÐ¾Ð²Ð° ÑÐ°ÑÐºÐ° Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½:")
         return
 
     if ud["mode"] == "edit_wait_locker":
         ud["tmp"]["locker"] = "" if text == "-" else text
         ud["tmp"]["locker_keep"] = text == "-"
         ud["mode"] = "edit_wait_knife"
-        await update.message.reply_text("Ніж: 1/2/0 або '-' без змін", reply_markup=ReplyKeyboardMarkup([["1", "2", "0", "-"], [BTN_CANCEL]], resize_keyboard=True))
+        await update.message.reply_text("ÐÑÐ¶: 1/2/0 Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½", reply_markup=ReplyKeyboardMarkup([["1", "2", "0", "-"], [BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "edit_wait_knife":
         if text not in {"0", "1", "2", "-"}:
-            await update.message.reply_text("Введи 1, 2, 0 або '-'.")
+            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ 1, 2, 0 Ð°Ð±Ð¾ '-'.")
             return
         ud["tmp"]["knife"] = "" if text == "-" else text
         ud["mode"] = "edit_wait_shoe_size"
-        await update.message.reply_text("Розмір взуття або '-' без змін:")
+        await update.message.reply_text("Ð Ð¾Ð·Ð¼ÑÑ Ð²Ð·ÑÑÑÑ Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½:")
         return
 
     if ud["mode"] == "edit_wait_shoe_size":
         ud["tmp"]["shoe_size"] = "" if text == "-" else text
         ud["mode"] = "edit_wait_shoe_type"
-        await update.message.reply_text("Взуття: own / agency / unknown або '-' без змін",
+        await update.message.reply_text("ÐÐ·ÑÑÑÑ: own / agency / unknown Ð°Ð±Ð¾ '-' Ð±ÐµÐ· Ð·Ð¼ÑÐ½",
                                         reply_markup=ReplyKeyboardMarkup([["own", "agency", "unknown", "-"], [BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "edit_wait_shoe_type":
         if safe_lower(text) not in {"own", "agency", "unknown", "-"}:
-            await update.message.reply_text("Обери own / agency / unknown або '-'.")
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ own / agency / unknown Ð°Ð±Ð¾ '-'.")
             return
         emp = {"sap": ud["tmp"].get("sap", ""), "_old_surname": ud["tmp"].get("old_surname", "")}
         for k in ["surname", "knife", "shoe_size"]:
@@ -2639,17 +2624,17 @@ async def employee_flow(update, context, text):
 
         await backup_everywhere(context, update.effective_chat.id, "edit_employee", f"SAP {emp.get('sap','')}")
         reset_state(context)
-        await show_employee_menu(update, context, f"✅ Зміни збережено.\nОновлено старі записи: зміни {shift_m}, продуктивність {perf_m}")
+        await show_employee_menu(update, context, f"â ÐÐ¼ÑÐ½Ð¸ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.\nÐÐ½Ð¾Ð²Ð»ÐµÐ½Ð¾ ÑÑÐ°ÑÑ Ð·Ð°Ð¿Ð¸ÑÐ¸: Ð·Ð¼ÑÐ½Ð¸ {shift_m}, Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ {perf_m}")
         return
 
     if ud["mode"] == "delete_wait_query":
         matches = find_employees(rows, text)
         if not matches:
             reset_state(context)
-            await show_employee_menu(update, context, "❌ Не знайдено.")
+            await show_employee_menu(update, context, "â ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾.")
             return
         if len(matches) > 1:
-            await update.message.reply_text("Знайдено кілька. Введи точніше або SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
+            await update.message.reply_text("ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°. ÐÐ²ÐµÐ´Ð¸ ÑÐ¾ÑÐ½ÑÑÐµ Ð°Ð±Ð¾ SAP:\n\n" + "\n".join(emp_display(x) for x in matches[:20]))
             return
         deleted = matches[0]
         if deleted.get("sap"):
@@ -2658,7 +2643,7 @@ async def employee_flow(update, context, text):
             write_employees([r for r in rows if canonical_name_key(r.get("surname","")) != canonical_name_key(deleted.get("surname",""))])
         await backup_everywhere(context, update.effective_chat.id, "delete_employee", emp_display(deleted))
         reset_state(context)
-        await show_employee_menu(update, context, f"🗑️ Видалено:\n{emp_display(deleted)}")
+        await show_employee_menu(update, context, f"ðï¸ ÐÐ¸Ð´Ð°Ð»ÐµÐ½Ð¾:\n{emp_display(deleted)}")
         return
 
 # ==============================
@@ -2674,44 +2659,40 @@ async def work_flow(update, context, text):
     if ud["mode"] == "work_create_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "work_create_type"
-        await update.message.reply_text("Тип зміни:", reply_markup=shift_type_kb())
+        await update.message.reply_text("Ð¢Ð¸Ð¿ Ð·Ð¼ÑÐ½Ð¸:", reply_markup=shift_type_kb())
         return
 
     if ud["mode"] == "work_create_type":
         typ = normalize_shift_type(text)
         if not typ:
-            await update.message.reply_text("Обери day або night.", reply_markup=shift_type_kb())
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ day Ð°Ð±Ð¾ night.", reply_markup=shift_type_kb())
             return
         date = ud["tmp"]["date"]
         ud["active_shift"] = {"date": date, "shift_type": typ}
-        result = create_shift_from_weekly(date, typ)
-        if result.get("added"):
-            await backup_everywhere(context, update.effective_chat.id, "create_shift_from_weekly", f"{date} {typ}: +{result['added']}")
         reset_state(context)
-        msg = f"✅ Активна зміна: {date} ({shift_type_label(typ)})"
-        msg += f"\n👥 Додано зі сталого тижневого шаблону: {result.get('added', 0)}"
-        msg += "\n\nЩоб перекинути когось у іншу зміну на цю дату — натисни 🗓 Розподіл day/night."
+        msg = f"â ÐÐºÑÐ¸Ð²Ð½Ð° Ð·Ð¼ÑÐ½Ð°: {date} ({shift_type_label(typ)})"
+        msg += "\n\nÐ¢ÐµÐ¿ÐµÑ Ð½Ð°ÑÐ¸ÑÐ½Ð¸ â ÐÐ¾Ð´Ð°ÑÐ¸ ÑÐ¿Ð¸ÑÐ¾Ðº Ñ Ð·Ð¼ÑÐ½Ñ ÑÐ° Ð²ÑÑÐ°Ð² ÑÑÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² ÑÑÑÑ Ð·Ð¼ÑÐ½Ð¸ Ð¾Ð´Ð½Ð¸Ð¼ ÑÐ¿Ð¸ÑÐºÐ¾Ð¼."
         await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "work_show_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "work_show_type"
-        await update.message.reply_text("Тип зміни:", reply_markup=shift_type_kb())
+        await update.message.reply_text("Ð¢Ð¸Ð¿ Ð·Ð¼ÑÐ½Ð¸:", reply_markup=shift_type_kb())
         return
 
     if ud["mode"] == "work_show_type":
         typ = normalize_shift_type(text)
         if not typ:
-            await update.message.reply_text("Обери day або night.")
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ day Ð°Ð±Ð¾ night.")
             return
         date = ud["tmp"]["date"]
         ud["active_shift"] = {"date": date, "shift_type": typ}
@@ -2722,7 +2703,7 @@ async def work_flow(update, context, text):
     if ud["mode"] == "split_wait_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
             return
 
         reset_state(context)
@@ -2734,7 +2715,7 @@ async def work_flow(update, context, text):
         employees = sorted_active_employees_for_roster()
         selected = parse_number_selection(text, len(employees))
         if not selected:
-            await update.message.reply_text("Не бачу номерів. Приклад: 1,2,5-9")
+            await update.message.reply_text("ÐÐµ Ð±Ð°ÑÑ Ð½Ð¾Ð¼ÐµÑÑÐ². ÐÑÐ¸ÐºÐ»Ð°Ð´: 1,2,5-9")
             return
 
         ud["tmp"]["day_indexes"] = selected
@@ -2742,9 +2723,9 @@ async def work_flow(update, context, text):
 
         await update.message.reply_text(
             format_all_employees_numbered_for_roster(date)
-            + f"\n\n✅ Day вибрано: {len(selected)}"
-            + "\nТепер введи номери працівників для НІЧНОЇ зміни night:"
-            + "\nЯкщо нічної немає — введи 0.",
+            + f"\n\nâ Day Ð²Ð¸Ð±ÑÐ°Ð½Ð¾: {len(selected)}"
+            + "\nÐ¢ÐµÐ¿ÐµÑ Ð²Ð²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð´Ð»Ñ ÐÐÐ§ÐÐÐ Ð·Ð¼ÑÐ½Ð¸ night:"
+            + "\nÐ¯ÐºÑÐ¾ Ð½ÑÑÐ½Ð¾Ñ Ð½ÐµÐ¼Ð°Ñ â Ð²Ð²ÐµÐ´Ð¸ 0.",
             reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
         )
         return
@@ -2753,12 +2734,12 @@ async def work_flow(update, context, text):
         date = ud["tmp"].get("date")
         employees = sorted_active_employees_for_roster()
 
-        if normalize_text(text) in {"0", "-", "нема", "немає"}:
+        if normalize_text(text) in {"0", "-", "Ð½ÐµÐ¼Ð°", "Ð½ÐµÐ¼Ð°Ñ"}:
             night_selected = []
         else:
             night_selected = parse_number_selection(text, len(employees))
             if not night_selected:
-                await update.message.reply_text("Не бачу номерів. Приклад: 1,2,5-9 або 0 якщо нічної немає.")
+                await update.message.reply_text("ÐÐµ Ð±Ð°ÑÑ Ð½Ð¾Ð¼ÐµÑÑÐ². ÐÑÐ¸ÐºÐ»Ð°Ð´: 1,2,5-9 Ð°Ð±Ð¾ 0 ÑÐºÑÐ¾ Ð½ÑÑÐ½Ð¾Ñ Ð½ÐµÐ¼Ð°Ñ.")
                 return
 
         day_selected = ud["tmp"].get("day_indexes", [])
@@ -2779,31 +2760,31 @@ async def work_flow(update, context, text):
         reset_state(context)
 
         msg = (
-            f"✅ Розподіл day/night створено за {date}\n\n"
-            f"Денна зміна: {day_result['selected']}\n"
-            f"Нічна зміна: {night_result['selected']}\n"
+            f"â Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night ÑÑÐ²Ð¾ÑÐµÐ½Ð¾ Ð·Ð° {date}\n\n"
+            f"ÐÐµÐ½Ð½Ð° Ð·Ð¼ÑÐ½Ð°: {day_result['selected']}\n"
+            f"ÐÑÑÐ½Ð° Ð·Ð¼ÑÐ½Ð°: {night_result['selected']}\n"
         )
         if duplicates:
-            msg += f"\n⚠️ {duplicates} працівників були вибрані і в day, і в night — залишив у day."
+            msg += f"\nâ ï¸ {duplicates} Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð±ÑÐ»Ð¸ Ð²Ð¸Ð±ÑÐ°Ð½Ñ Ñ Ð² day, Ñ Ð² night â Ð·Ð°Ð»Ð¸ÑÐ¸Ð² Ñ day."
 
-        msg += "\n\nАктивна зміна зараз: day.\nДалі можеш натиснути 🧩 Розподіл по групах."
+        msg += "\n\nÐÐºÑÐ¸Ð²Ð½Ð° Ð·Ð¼ÑÐ½Ð° Ð·Ð°ÑÐ°Ð·: day.\nÐÐ°Ð»Ñ Ð¼Ð¾Ð¶ÐµÑ Ð½Ð°ÑÐ¸ÑÐ½ÑÑÐ¸ ð§© Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» Ð¿Ð¾ Ð³ÑÑÐ¿Ð°Ñ."
         await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "weekly_wait_weekday":
-        weekday_text = safe_lower(text.replace("📅", ""))
+        weekday_text = safe_lower(text.replace("ð", ""))
         mapping = {
-            "пн": "0", "понеділок": "0", "monday": "0", "0": "0",
-            "вт": "1", "вівторок": "1", "tuesday": "1", "1": "1",
-            "ср": "2", "середа": "2", "wednesday": "2", "2": "2",
-            "чт": "3", "четвер": "3", "thursday": "3", "3": "3",
-            "пт": "4", "пʼятниця": "4", "пятниця": "4", "friday": "4", "4": "4",
-            "сб": "5", "субота": "5", "saturday": "5", "5": "5",
-            "нд": "6", "неділя": "6", "sunday": "6", "6": "6",
+            "Ð¿Ð½": "0", "Ð¿Ð¾Ð½ÐµÐ´ÑÐ»Ð¾Ðº": "0", "monday": "0", "0": "0",
+            "Ð²Ñ": "1", "Ð²ÑÐ²ÑÐ¾ÑÐ¾Ðº": "1", "tuesday": "1", "1": "1",
+            "ÑÑ": "2", "ÑÐµÑÐµÐ´Ð°": "2", "wednesday": "2", "2": "2",
+            "ÑÑ": "3", "ÑÐµÑÐ²ÐµÑ": "3", "thursday": "3", "3": "3",
+            "Ð¿Ñ": "4", "Ð¿Ê¼ÑÑÐ½Ð¸ÑÑ": "4", "Ð¿ÑÑÐ½Ð¸ÑÑ": "4", "friday": "4", "4": "4",
+            "ÑÐ±": "5", "ÑÑÐ±Ð¾ÑÐ°": "5", "saturday": "5", "5": "5",
+            "Ð½Ð´": "6", "Ð½ÐµÐ´ÑÐ»Ñ": "6", "sunday": "6", "6": "6",
         }
         weekday = mapping.get(weekday_text)
         if weekday is None:
-            await update.message.reply_text("Обери день тижня кнопкою.", reply_markup=weekly_weekday_kb())
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´ÐµÐ½Ñ ÑÐ¸Ð¶Ð½Ñ ÐºÐ½Ð¾Ð¿ÐºÐ¾Ñ.", reply_markup=weekly_weekday_kb())
             return
         reset_state(context)
         wp = init_weekly_picker(context, weekday)
@@ -2814,27 +2795,27 @@ async def work_flow(update, context, text):
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Спочатку створи/обери зміну.")
+            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
             return
 
         lines = [normalize_text(x) for x in (update.message.text or "").splitlines() if normalize_text(x)]
         if not lines:
-            await update.message.reply_text("Встав список працівників, кожен з нового рядка.")
+            await update.message.reply_text("ÐÑÑÐ°Ð² ÑÐ¿Ð¸ÑÐ¾Ðº Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ², ÐºÐ¾Ð¶ÐµÐ½ Ð· Ð½Ð¾Ð²Ð¾Ð³Ð¾ ÑÑÐ´ÐºÐ°.")
             return
 
-        result = add_workers_to_shift_unassigned(active, lines, employees)
+        result = add_workers_to_shift_unassigned(active, lines, employees, "")
         await backup_everywhere(context, update.effective_chat.id, "shift_add_list", f"{active['date']} {active['shift_type']} +{result['added']}")
         reset_state(context)
 
-        msg = f"✅ Додано у зміну без групи: {result['added']}"
+        msg = f"â ÐÐ¾Ð´Ð°Ð½Ð¾ Ñ {shift_type_label(active['shift_type'])} Ð·Ð¼ÑÐ½Ñ: {result['added']}"
         if result["already"]:
-            msg += f"\n\nℹ️ Вже були у зміні: {len(result['already'])}"
+            msg += f"\n\nâ¹ï¸ ÐÐ¶Ðµ Ð±ÑÐ»Ð¸ Ñ Ð·Ð¼ÑÐ½Ñ: {len(result['already'])}"
         if result["missing"]:
-            msg += "\n\n⚠️ Не знайдено:\n" + "\n".join(result["missing"][:25])
+            msg += "\n\nâ ï¸ ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾:\n" + "\n".join(result["missing"][:25])
         if result["ambiguous"]:
-            msg += "\n\n⚠️ Знайдено кілька варіантів, уточни SAP:\n" + "\n".join(result["ambiguous"][:15])
+            msg += "\n\nâ ï¸ ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ° Ð²Ð°ÑÑÐ°Ð½ÑÑÐ², ÑÑÐ¾ÑÐ½Ð¸ SAP:\n" + "\n".join(result["ambiguous"][:15])
 
-        msg += "\n\nТепер натисни 🧩 Розподіл по групах."
+        msg += "\n\nÐ¡Ð¿Ð¸ÑÐ¾Ðº Ð·Ð¼ÑÐ½Ð¸ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾. ÐÐ»Ñ Ð´ÑÑÐ³Ð¾Ñ Ð·Ð¼ÑÐ½Ð¸ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Day Ð°Ð±Ð¾ Night Ñ Ð´Ð¾Ð´Ð°Ð¹ ÑÑ ÑÐ¿Ð¸ÑÐ¾Ðº."
         await show_work_menu(update, context, msg)
         return
 
@@ -2842,12 +2823,12 @@ async def work_flow(update, context, text):
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Спочатку створи/обери зміну.")
+            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
             return
 
         group_text = normalize_text(text).upper()
         if not group_text:
-            await update.message.reply_text("Введи групу, наприклад HALA 2/G1 або G1.")
+            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð³ÑÑÐ¿Ñ, Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ HALA 2/G1 Ð°Ð±Ð¾ G1.")
             return
 
         hala = ""
@@ -2868,9 +2849,9 @@ async def work_flow(update, context, text):
 
         await update.message.reply_text(
             format_shift_workers_numbered(active)
-            + "\n\nВведи номери для групи "
+            + "\n\nÐÐ²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑÐ¸ Ð´Ð»Ñ Ð³ÑÑÐ¿Ð¸ "
             + f"{(hala + '/' if hala else '')}{group}\n"
-            + "Приклад: 1,2,5-9",
+            + "ÐÑÐ¸ÐºÐ»Ð°Ð´: 1,2,5-9",
             reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
         )
         return
@@ -2879,18 +2860,18 @@ async def work_flow(update, context, text):
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Спочатку створи/обери зміну.")
+            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
             return
 
         rows = shift_rows_for_active(active, force=True)
         if not rows:
             reset_state(context)
-            await show_work_menu(update, context, "У зміні немає працівників.")
+            await show_work_menu(update, context, "Ð£ Ð·Ð¼ÑÐ½Ñ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ².")
             return
 
         selected = parse_number_selection(text, len(rows))
         if not selected:
-            await update.message.reply_text("Не бачу номерів. Приклад: 1,2,5-9")
+            await update.message.reply_text("ÐÐµ Ð±Ð°ÑÑ Ð½Ð¾Ð¼ÐµÑÑÐ². ÐÑÐ¸ÐºÐ»Ð°Ð´: 1,2,5-9")
             return
 
         hala = ud["tmp"].get("dispatch_hala", "")
@@ -2903,7 +2884,7 @@ async def work_flow(update, context, text):
         await show_work_menu(
             update,
             context,
-            f"✅ Перенесено в {(hala + '/' if hala else '')}{group}: {moved}\n\n"
+            f"â ÐÐµÑÐµÐ½ÐµÑÐµÐ½Ð¾ Ð² {(hala + '/' if hala else '')}{group}: {moved}\n\n"
             + format_groups_overview(active)
         )
         return
@@ -2911,24 +2892,24 @@ async def work_flow(update, context, text):
     if ud["mode"] == "work_add_hala":
         hala = normalize_text(text)
         if hala not in {"HALA 1", "HALA 2", "HALA 3", "HALA 4"}:
-            await update.message.reply_text("Обери HALA 1–4.", reply_markup=hala_kb())
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ HALA 1â4.", reply_markup=hala_kb())
             return
         ud["tmp"]["hala"] = hala
         ud["mode"] = "work_add_group"
-        await update.message.reply_text("Введи групу/робоче місце, наприклад G1 або LINIA 2:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð³ÑÑÐ¿Ñ/ÑÐ¾Ð±Ð¾ÑÐµ Ð¼ÑÑÑÐµ, Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ G1 Ð°Ð±Ð¾ LINIA 2:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
         return
 
     if ud["mode"] == "work_add_group":
         ud["tmp"]["group"] = text
         ud["mode"] = "work_add_list"
-        await update.message.reply_text("Встав список SAP або SAP - PRIZVYSHCHE IMIA, кожен з нового рядка:")
+        await update.message.reply_text("ÐÑÑÐ°Ð² ÑÐ¿Ð¸ÑÐ¾Ðº SAP Ð°Ð±Ð¾ SAP - PRIZVYSHCHE IMIA, ÐºÐ¾Ð¶ÐµÐ½ Ð· Ð½Ð¾Ð²Ð¾Ð³Ð¾ ÑÑÐ´ÐºÐ°:")
         return
 
     if ud["mode"] == "work_add_list":
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Спочатку створи/обери зміну.")
+            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
             return
         emp_by_sap, emp_by_name = build_employee_lookup(employees)
         lines = [normalize_text(x) for x in (update.message.text or "").splitlines() if normalize_text(x)]
@@ -2955,7 +2936,7 @@ async def work_flow(update, context, text):
                     if len(candidates) == 1:
                         emp = candidates[0]
                     elif len(candidates) > 1:
-                        ambiguous.append(line + " → " + ", ".join(emp_display(c) for c in candidates[:5]))
+                        ambiguous.append(line + " â " + ", ".join(emp_display(c) for c in candidates[:5]))
                         continue
 
             if not emp or not emp.get("sap"):
@@ -2992,27 +2973,27 @@ async def work_flow(update, context, text):
         await backup_everywhere(context, update.effective_chat.id, "shift_add_workers", f"+{added}, moved {moved}")
         reset_state(context)
 
-        msg = f"✅ Додано: {added}"
+        msg = f"â ÐÐ¾Ð´Ð°Ð½Ð¾: {added}"
         if moved:
-            msg += f"\n🔁 Перенесено в цю групу: {moved}"
+            msg += f"\nð ÐÐµÑÐµÐ½ÐµÑÐµÐ½Ð¾ Ð² ÑÑ Ð³ÑÑÐ¿Ñ: {moved}"
         if missing:
-            msg += "\n\n⚠️ Не знайдено працівників:\n" + "\n".join(missing[:30])
+            msg += "\n\nâ ï¸ ÐÐµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²:\n" + "\n".join(missing[:30])
         if ambiguous:
-            msg += "\n\n⚠️ Уточни, бо знайдено кілька:\n" + "\n".join(ambiguous[:10])
+            msg += "\n\nâ ï¸ Ð£ÑÐ¾ÑÐ½Ð¸, Ð±Ð¾ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°:\n" + "\n".join(ambiguous[:10])
         await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "import_by_date_wait_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "import_by_date_wait_text"
         await update.message.reply_text(
-            "Встав список SAP - % для цієї дати.\n"
-            "Бот сам знайде SAP у day/night на цю дату і запише у правильну зміну.\n\n"
-            "Приклад:\n51009998 - 156,44\n51010002 - 156,44",
+            "ÐÑÑÐ°Ð² ÑÐ¿Ð¸ÑÐ¾Ðº SAP - % Ð´Ð»Ñ ÑÑÑÑ Ð´Ð°ÑÐ¸.\n"
+            "ÐÐ¾Ñ ÑÐ°Ð¼ Ð·Ð½Ð°Ð¹Ð´Ðµ SAP Ñ day/night Ð½Ð° ÑÑ Ð´Ð°ÑÑ Ñ Ð·Ð°Ð¿Ð¸ÑÐµ Ñ Ð¿ÑÐ°Ð²Ð¸Ð»ÑÐ½Ñ Ð·Ð¼ÑÐ½Ñ.\n\n"
+            "ÐÑÐ¸ÐºÐ»Ð°Ð´:\n51009998 - 156,44\n51010002 - 156,44",
             reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
         )
         return
@@ -3021,7 +3002,7 @@ async def work_flow(update, context, text):
         date = ud["tmp"]["date"]
         parsed = parse_sap_percent_from_text(update.message.text or "")
         if not parsed:
-            await update.message.reply_text("Не знайшов SAP і %. Приклад: 51009998 - 156,44")
+            await update.message.reply_text("ÐÐµ Ð·Ð½Ð°Ð¹ÑÐ¾Ð² SAP Ñ %. ÐÑÐ¸ÐºÐ»Ð°Ð´: 51009998 - 156,44")
             return
         result = import_percent_rows_by_date(date, parsed)
         if result["written_count"]:
@@ -3033,13 +3014,13 @@ async def work_flow(update, context, text):
     if ud["mode"] == "import_photo_wait_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "import_photo_wait_photo"
         await update.message.reply_text(
-            "Надішли фото звіту з SAP і %.\n"
-            "Важливо: люди вже мають бути додані у day/night за цю дату.",
+            "ÐÐ°Ð´ÑÑÐ»Ð¸ ÑÐ¾ÑÐ¾ Ð·Ð²ÑÑÑ Ð· SAP Ñ %.\n"
+            "ÐÐ¾Ñ ÑÐ°Ð¼ ÑÐ¾Ð·Ð½ÐµÑÐµ % Ð¼ÑÐ¶ ÐÐµÐ½Ð½Ð¾Ñ Ñ ÐÑÑÐ½Ð¾Ñ Ð·Ð¼ÑÐ½Ð°Ð¼Ð¸ Ð·Ð° ÑÐ¿Ð¸ÑÐºÐ°Ð¼Ð¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð½Ð° ÑÑ Ð´Ð°ÑÑ.",
             reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
         )
         return
@@ -3048,7 +3029,7 @@ async def work_flow(update, context, text):
         active = ud.get("active_shift")
         if not active:
             reset_state(context)
-            await show_work_menu(update, context, "Спочатку створи/обери зміну.")
+            await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ.")
             return
         emp_by_sap = {e["sap"]: e for e in employees if e["sap"]}
         shift_rows = [r for r in read_shifts(True) if r["date"] == active["date"] and r["shift_type"] == active["shift_type"]]
@@ -3069,7 +3050,7 @@ async def work_flow(update, context, text):
             parsed.append({"date": active["date"], "shift_type": active["shift_type"], "hala": hala, "group": group, "sap": sap, "surname": emp["surname"], "percent": percent})
 
         if not parsed:
-            await update.message.reply_text("Не знайшов рядків формату: 51009998 - 156,44")
+            await update.message.reply_text("ÐÐµ Ð·Ð½Ð°Ð¹ÑÐ¾Ð² ÑÑÐ´ÐºÑÐ² ÑÐ¾ÑÐ¼Ð°ÑÑ: 51009998 - 156,44")
             return
 
         # replace existing same shift + SAP
@@ -3077,40 +3058,40 @@ async def work_flow(update, context, text):
         sap_set = {r["sap"] for r in parsed}
         kept = [r for r in old if not (r["date"] == active["date"] and r["shift_type"] == active["shift_type"] and r["sap"] in sap_set)]
         write_perf(kept + [ensure_perf_columns(r) for r in parsed])
-        await backup_everywhere(context, update.effective_chat.id, "import_percent", f"{active['date']} {active['shift_type']} записів {len(parsed)}")
+        await backup_everywhere(context, update.effective_chat.id, "import_percent", f"{active['date']} {active['shift_type']} Ð·Ð°Ð¿Ð¸ÑÑÐ² {len(parsed)}")
         reset_state(context)
 
-        preview = "\n".join(f"{r['sap']} — {r['surname']} — {fmt_percent(r['percent'])}%" for r in parsed[:25])
-        msg = f"✅ Імпортовано %: {len(parsed)}\n\n{preview}"
+        preview = "\n".join(f"{r['sap']} â {r['surname']} â {fmt_percent(r['percent'])}%" for r in parsed[:25])
+        msg = f"â ÐÐ¼Ð¿Ð¾ÑÑÐ¾Ð²Ð°Ð½Ð¾ %: {len(parsed)}\n\n{preview}"
         if len(parsed) > 25:
-            msg += f"\n... ще {len(parsed)-25}"
+            msg += f"\n... ÑÐµ {len(parsed)-25}"
         if missing:
-            msg += "\n\n⚠️ SAP не знайдено:\n" + "\n".join(missing[:20])
+            msg += "\n\nâ ï¸ SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾:\n" + "\n".join(missing[:20])
         if bad:
-            msg += "\n\n⚠️ Не розпізнано рядки:\n" + "\n".join(bad[:10])
+            msg += "\n\nâ ï¸ ÐÐµ ÑÐ¾Ð·Ð¿ÑÐ·Ð½Ð°Ð½Ð¾ ÑÑÐ´ÐºÐ¸:\n" + "\n".join(bad[:10])
         await show_work_menu(update, context, msg)
         return
 
     if ud["mode"] == "work_set_group_hala":
         hala = normalize_text(text)
         if hala not in {"HALA 1", "HALA 2", "HALA 3", "HALA 4"}:
-            await update.message.reply_text("Обери HALA 1–4.", reply_markup=hala_kb())
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ HALA 1â4.", reply_markup=hala_kb())
             return
         ud["tmp"]["hala"] = hala
         ud["mode"] = "work_set_group_name"
-        await update.message.reply_text("Введи групу/робоче місце:")
+        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð³ÑÑÐ¿Ñ/ÑÐ¾Ð±Ð¾ÑÐµ Ð¼ÑÑÑÐµ:")
         return
 
     if ud["mode"] == "work_set_group_name":
         ud["tmp"]["group"] = text
         ud["mode"] = "work_set_group_percent"
-        await update.message.reply_text("Введи % для всієї групи:")
+        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ % Ð´Ð»Ñ Ð²ÑÑÑÑ Ð³ÑÑÐ¿Ð¸:")
         return
 
     if ud["mode"] == "work_set_group_percent":
         p = safe_float(text)
         if p is None:
-            await update.message.reply_text("Не схоже на число.")
+            await update.message.reply_text("ÐÐµ ÑÑÐ¾Ð¶Ðµ Ð½Ð° ÑÐ¸ÑÐ»Ð¾.")
             return
         active = ud.get("active_shift")
         rows_shift = [r for r in read_shifts(True) if r["date"] == active["date"] and r["shift_type"] == active["shift_type"] and r["hala"] == ud["tmp"]["hala"] and r["group"] == ud["tmp"]["group"]]
@@ -3121,91 +3102,78 @@ async def work_flow(update, context, text):
         write_perf(kept + new)
         await backup_everywhere(context, update.effective_chat.id, "group_percent", f"{ud['tmp']['hala']}/{ud['tmp']['group']}={p}")
         reset_state(context)
-        await show_work_menu(update, context, f"✅ Записано {fmt_percent(p)}% для {len(new)} працівників.")
+        await show_work_menu(update, context, f"â ÐÐ°Ð¿Ð¸ÑÐ°Ð½Ð¾ {fmt_percent(p)}% Ð´Ð»Ñ {len(new)} Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ².")
         return
 
     if ud["mode"] == "ocr_preview_wait_confirm":
-        if is_btn(text, BTN_CONFIRM_SAVE_IMPORT) or safe_lower(text) in {"так", "yes", "save"}:
+        if is_btn(text, BTN_CONFIRM_SAVE_IMPORT) or safe_lower(text) in {"ÑÐ°Ðº", "yes", "save"}:
             pending = ud.get("pending_ocr_import") or {}
             rows_to_save = pending.get("preview") or []
             date = pending.get("date", "")
             if not rows_to_save:
                 reset_state(context)
                 ud.pop("pending_ocr_import", None)
-                await show_work_menu(update, context, "❌ Немає рядків для збереження.")
+                await show_work_menu(update, context, "â ÐÐµÐ¼Ð°Ñ ÑÑÐ´ÐºÑÐ² Ð´Ð»Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð½Ñ.")
                 return
             await backup_everywhere(context, update.effective_chat.id, "pre_ocr_save", f"{date}: before save")
             count = save_import_preview_rows(rows_to_save)
             await backup_everywhere(context, update.effective_chat.id, "after_ocr_save", f"{date}: saved {count}")
             reset_state(context)
             ud.pop("pending_ocr_import", None)
-            await show_work_menu(update, context, f"✅ OCR збережено. Записано: {count}")
+            await show_work_menu(update, context, f"â OCR Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾. ÐÐ°Ð¿Ð¸ÑÐ°Ð½Ð¾: {count}")
             return
 
-        if is_btn(text, BTN_CANCEL_IMPORT) or safe_lower(text) in {"ні", "no", "cancel"}:
+        if is_btn(text, BTN_CANCEL_IMPORT) or safe_lower(text) in {"Ð½Ñ", "no", "cancel"}:
             reset_state(context)
             ud.pop("pending_ocr_import", None)
-            await show_work_menu(update, context, "❌ OCR-імпорт скасовано. Нічого не записано.")
+            await show_work_menu(update, context, "â OCR-ÑÐ¼Ð¿Ð¾ÑÑ ÑÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾. ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ Ð·Ð°Ð¿Ð¸ÑÐ°Ð½Ð¾.")
             return
 
-        await update.message.reply_text("Натисни ✅ Зберегти OCR або ❌ Скасувати OCR.")
+        await update.message.reply_text("ÐÐ°ÑÐ¸ÑÐ½Ð¸ â ÐÐ±ÐµÑÐµÐ³ÑÐ¸ OCR Ð°Ð±Ð¾ â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸ OCR.")
         return
 
     if ud["mode"] == "clear_percent_wait_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "clear_percent_confirm"
-        kb = ReplyKeyboardMarkup([["ТАК, очистити %"], [BTN_CANCEL]], resize_keyboard=True)
+        kb = ReplyKeyboardMarkup([["Ð¢ÐÐ, Ð¾ÑÐ¸ÑÑÐ¸ÑÐ¸ %"], [BTN_CANCEL]], resize_keyboard=True)
         await update.message.reply_text(
-            f"⚠️ Очистити ВСЮ продуктивність за {date} для day і night?\\n"
-            "Зміни/групи залишаться, видаляться тільки %.",
+            f"â ï¸ ÐÑÐ¸ÑÑÐ¸ÑÐ¸ ÐÐ¡Ð® Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ Ð·Ð° {date} Ð´Ð»Ñ day Ñ night?\\n"
+            "Ð¡Ð¿Ð¸ÑÐºÐ¸ ÐÐµÐ½Ð½Ð¾Ñ/ÐÑÑÐ½Ð¾Ñ Ð·Ð¼ÑÐ½Ð¸ Ð·Ð°Ð»Ð¸ÑÐ°ÑÑÑÑ, Ð²Ð¸Ð´Ð°Ð»ÑÑÑÑÑ ÑÑÐ»ÑÐºÐ¸ %.",
             reply_markup=kb
         )
         return
 
     if ud["mode"] == "clear_percent_confirm":
-        if safe_lower(text) != safe_lower("ТАК, очистити %"):
+        if safe_lower(text) != safe_lower("Ð¢ÐÐ, Ð¾ÑÐ¸ÑÑÐ¸ÑÐ¸ %"):
             reset_state(context)
-            await show_work_menu(update, context, "Скасовано ✅")
+            await show_work_menu(update, context, "Ð¡ÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾ â")
             return
         date = ud["tmp"].get("date")
         await backup_everywhere(context, update.effective_chat.id, "pre_clear_percent", f"{date}")
         removed = clear_percent_for_date(date)
         await backup_everywhere(context, update.effective_chat.id, "after_clear_percent", f"{date}: removed {removed}")
         reset_state(context)
-        await show_work_menu(update, context, f"🧹 Очищено % за {date}. Видалено записів: {removed}")
-        return
-
-    if ud["mode"] == "work_sort_month":
-        if text == "-":
-            month = datetime.now().strftime("%m.%Y")
-        else:
-            dt = parse_mmyyyy(text)
-            if not dt:
-                await update.message.reply_text("Формат MM.YYYY або '-'.")
-                return
-            month = dt.strftime("%m.%Y")
-        reset_state(context)
-        await update.message.reply_text(format_sorted_workers(read_perf(True), month), reply_markup=WORK_KB)
+        await show_work_menu(update, context, f"ð§¹ ÐÑÐ¸ÑÐµÐ½Ð¾ % Ð·Ð° {date}. ÐÐ¸Ð´Ð°Ð»ÐµÐ½Ð¾ Ð·Ð°Ð¿Ð¸ÑÑÐ²: {removed}")
         return
 
     if ud["mode"] == "work_export_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "work_export_type"
-        await update.message.reply_text("Тип зміни:", reply_markup=shift_type_kb())
+        await update.message.reply_text("Ð¢Ð¸Ð¿ Ð·Ð¼ÑÐ½Ð¸:", reply_markup=shift_type_kb())
         return
 
     if ud["mode"] == "work_export_type":
         typ = normalize_shift_type(text)
         if not typ:
-            await update.message.reply_text("Обери day або night.")
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ day Ð°Ð±Ð¾ night.")
             return
         date = ud["tmp"]["date"]
         content = format_shift(date, typ, read_shifts(True), read_perf(True), read_summary(True))
@@ -3214,44 +3182,44 @@ async def work_flow(update, context, text):
         with open(path, "w", encoding="utf-8") as f:
             f.write(content + "\n")
         reset_state(context)
-        await context.bot.send_document(update.effective_chat.id, document=InputFile(path, filename=filename), caption="📝 Експорт зміни")
-        await show_work_menu(update, context, "Готово ✅")
+        await context.bot.send_document(update.effective_chat.id, document=InputFile(path, filename=filename), caption="ð ÐÐºÑÐ¿Ð¾ÑÑ Ð·Ð¼ÑÐ½Ð¸")
+        await show_work_menu(update, context, "ÐÐ¾ÑÐ¾Ð²Ð¾ â")
         return
 
     if ud["mode"] == "summary_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
-            await update.message.reply_text("Дата має бути DD.MM.YYYY.", reply_markup=date_kb())
+            await update.message.reply_text("ÐÐ°ÑÐ° Ð¼Ð°Ñ Ð±ÑÑÐ¸ DD.MM.YYYY.", reply_markup=date_kb())
             return
         ud["tmp"]["date"] = date
         ud["mode"] = "summary_type"
-        await update.message.reply_text("Тип зміни:", reply_markup=shift_type_kb())
+        await update.message.reply_text("Ð¢Ð¸Ð¿ Ð·Ð¼ÑÐ½Ð¸:", reply_markup=shift_type_kb())
         return
 
     if ud["mode"] == "summary_type":
         typ = normalize_shift_type(text)
         if not typ:
-            await update.message.reply_text("Обери day або night.")
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ day Ð°Ð±Ð¾ night.")
             return
         ud["tmp"]["shift_type"] = typ
         ud["mode"] = "summary_total"
-        await update.message.reply_text("Введи загальний %:")
+        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð·Ð°Ð³Ð°Ð»ÑÐ½Ð¸Ð¹ %:")
         return
 
     if ud["mode"] == "summary_total":
         p = safe_float(text)
         if p is None:
-            await update.message.reply_text("Не схоже на число.")
+            await update.message.reply_text("ÐÐµ ÑÑÐ¾Ð¶Ðµ Ð½Ð° ÑÐ¸ÑÐ»Ð¾.")
             return
         ud["tmp"]["total_percent"] = str(p)
         ud["mode"] = "summary_agency"
-        await update.message.reply_text("Введи агенційний %:")
+        await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ Ð°Ð³ÐµÐ½ÑÑÐ¹Ð½Ð¸Ð¹ %:")
         return
 
     if ud["mode"] == "summary_agency":
         p = safe_float(text)
         if p is None:
-            await update.message.reply_text("Не схоже на число.")
+            await update.message.reply_text("ÐÐµ ÑÑÐ¾Ð¶Ðµ Ð½Ð° ÑÐ¸ÑÐ»Ð¾.")
             return
         rows = read_summary(True)
         date, typ = ud["tmp"]["date"], ud["tmp"]["shift_type"]
@@ -3260,7 +3228,7 @@ async def work_flow(update, context, text):
         write_summary(rows)
         await backup_everywhere(context, update.effective_chat.id, "summary", f"{date} {typ}")
         reset_state(context)
-        await show_work_menu(update, context, "✅ % по зміні збережено.")
+        await show_work_menu(update, context, "â % Ð¿Ð¾ Ð·Ð¼ÑÐ½Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.")
         return
 
 # ==============================
@@ -3276,15 +3244,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if ud["mode"] and is_cancel(text):
         reset_state(context)
         if ud["menu"] == "employee":
-            await show_employee_menu(update, context, "Скасовано ✅")
+            await show_employee_menu(update, context, "Ð¡ÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾ â")
         elif ud["menu"] == "work":
-            await show_work_menu(update, context, "Скасовано ✅")
+            await show_work_menu(update, context, "Ð¡ÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾ â")
         else:
-            await show_main_menu(update, context, "Скасовано ✅")
+            await show_main_menu(update, context, "Ð¡ÐºÐ°ÑÐ¾Ð²Ð°Ð½Ð¾ â")
         return
 
     if ud["mode"] == "restore_wait_file":
-        await update.message.reply_text("Надішли CSV або ZIP файлом-документом.")
+        await update.message.reply_text("ÐÐ°Ð´ÑÑÐ»Ð¸ CSV Ð°Ð±Ð¾ ZIP ÑÐ°Ð¹Ð»Ð¾Ð¼-Ð´Ð¾ÐºÑÐ¼ÐµÐ½ÑÐ¾Ð¼.")
         return
 
     if ud["mode"]:
@@ -3299,153 +3267,152 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_btn(text, BTN_EMPLOYEE_MENU):
         set_menu(context, "employee")
         reset_state(context)
-        await show_employee_menu(update, context, "Меню: Працівник ✅")
+        await show_employee_menu(update, context, "ÐÐµÐ½Ñ: ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº â")
         return
 
     if is_btn(text, BTN_WORK_MENU):
         set_menu(context, "work")
         reset_state(context)
-        await show_work_menu(update, context, "Меню: Організація роботи ✅")
+        await show_work_menu(update, context, "ÐÐµÐ½Ñ: ÐÑÐ³Ð°Ð½ÑÐ·Ð°ÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸ â")
         return
 
     if is_btn(text, "Backup"):
         paths = await backup_everywhere(context, update.effective_chat.id, "manual")
-        await update.message.reply_text("💾 Backup зроблено:\n" + "\n".join(os.path.basename(p) for p in paths), reply_markup=MAIN_KB)
+        await update.message.reply_text("ð¾ Backup Ð·ÑÐ¾Ð±Ð»ÐµÐ½Ð¾:\n" + "\n".join(os.path.basename(p) for p in paths), reply_markup=MAIN_KB)
         return
 
     if is_btn(text, "Seed SAP"):
         await backup_everywhere(context, update.effective_chat.id, "pre_seed_sap")
         count = merge_seed_sap()
         await backup_everywhere(context, update.effective_chat.id, "after_seed_sap")
-        await show_main_menu(update, context, f"🧬 Seed SAP завершено ✅\nЗаписів у базі: {count}")
+        await show_main_menu(update, context, f"ð§¬ Seed SAP Ð·Ð°Ð²ÐµÑÑÐµÐ½Ð¾ â\nÐÐ°Ð¿Ð¸ÑÑÐ² Ñ Ð±Ð°Ð·Ñ: {count}")
         return
 
-    if is_btn(text, "Відновити"):
+    if is_btn(text, "ÐÑÐ´Ð½Ð¾Ð²Ð¸ÑÐ¸"):
         ud["mode"] = "restore_wait_file"
         ud["tmp"] = {}
         set_menu(context, "main")
-        await update.message.reply_text("Надішли ZIP backup або employees.csv файлом.")
+        await update.message.reply_text("ÐÐ°Ð´ÑÑÐ»Ð¸ ZIP backup Ð°Ð±Ð¾ employees.csv ÑÐ°Ð¹Ð»Ð¾Ð¼.")
         return
 
     # employee menu
     if ud["menu"] == "employee":
         rows = read_employees()
-        if is_btn(text, "Статистика"):
+        if is_btn(text, "Ð¡ÑÐ°ÑÐ¸ÑÑÐ¸ÐºÐ°"):
             await update.message.reply_text(format_stats(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "Всі"):
+        if is_btn(text, "ÐÑÑ"):
             msg, kb = employee_list_page(rows, 0)
             await update.message.reply_text(msg, reply_markup=kb); return
-        if is_btn(text, "Картка"):
+        if is_btn(text, "ÐÐ°ÑÑÐºÐ°"):
             ud["mode"] = "card_wait_query"; ud["tmp"] = {}
-            await update.message.reply_text("Введи SAP або частину прізвища:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
-        if is_btn(text, "Без SAP"):
+            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP Ð°Ð±Ð¾ ÑÐ°ÑÑÐ¸Ð½Ñ Ð¿ÑÑÐ·Ð²Ð¸ÑÐ°:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+        if is_btn(text, "ÐÐµÐ· SAP"):
             await update.message.reply_text(format_no_sap(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "З шафкою"):
+        if is_btn(text, "Ð ÑÐ°ÑÐºÐ¾Ñ"):
             await update.message.reply_text(format_with_locker(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "Без шафки"):
+        if is_btn(text, "ÐÐµÐ· ÑÐ°ÑÐºÐ¸"):
             await update.message.reply_text(format_no_locker(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "З ножем"):
+        if is_btn(text, "Ð Ð½Ð¾Ð¶ÐµÐ¼"):
             await update.message.reply_text(format_with_knife(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "Без ножа"):
+        if is_btn(text, "ÐÐµÐ· Ð½Ð¾Ð¶Ð°"):
             await update.message.reply_text(format_no_knife(rows), reply_markup=EMPLOYEE_KB); return
-        if is_btn(text, "Додати працівника"):
+        if is_btn(text, "ÐÐ¾Ð´Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"):
             ud["mode"] = "add_wait_sap"; ud["tmp"] = {}
-            await update.message.reply_text("Введи SAP:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
-        if is_btn(text, "Редагувати працівника"):
+            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+        if is_btn(text, "Ð ÐµÐ´Ð°Ð³ÑÐ²Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"):
             ud["mode"] = "edit_wait_query"; ud["tmp"] = {}
-            await update.message.reply_text("Введи SAP або частину прізвища:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
-        if is_btn(text, "Видалити працівника"):
+            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP Ð°Ð±Ð¾ ÑÐ°ÑÑÐ¸Ð½Ñ Ð¿ÑÑÐ·Ð²Ð¸ÑÐ°:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+        if is_btn(text, "ÐÐ¸Ð´Ð°Ð»Ð¸ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"):
             ud["mode"] = "delete_wait_query"; ud["tmp"] = {}
-            await update.message.reply_text("Введи SAP або частину прізвища:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
+            await update.message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP Ð°Ð±Ð¾ ÑÐ°ÑÑÐ¸Ð½Ñ Ð¿ÑÑÐ·Ð²Ð¸ÑÐ°:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
         if is_btn(text, BTN_BACK):
             set_menu(context, "main"); reset_state(context)
-            await show_main_menu(update, context, "Назад ✅"); return
+            await show_main_menu(update, context, "ÐÐ°Ð·Ð°Ð´ â"); return
         await show_employee_menu(update, context); return
 
     # work menu
     if ud["menu"] == "work":
-        if is_btn(text, "Розподіл day/night"):
+        if is_btn(text, "Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night"):
             ud["mode"] = "split_wait_date"; ud["tmp"] = {}
-            await update.message.reply_text("Обери дату для розподілу працівників на day/night:", reply_markup=date_kb()); return
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ Ð´Ð»Ñ ÑÐ¾Ð·Ð¿Ð¾Ð´ÑÐ»Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð½Ð° day/night:", reply_markup=date_kb()); return
 
-        if is_btn(text, "Сталі зміни"):
+        if is_btn(text, "Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸"):
             ud["mode"] = "weekly_wait_weekday"; ud["tmp"] = {}
-            await update.message.reply_text("Обери день тижня для сталого шаблону day/night:", reply_markup=weekly_weekday_kb()); return
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´ÐµÐ½Ñ ÑÐ¸Ð¶Ð½Ñ Ð´Ð»Ñ ÑÑÐ°Ð»Ð¾Ð³Ð¾ ÑÐ°Ð±Ð»Ð¾Ð½Ñ day/night:", reply_markup=weekly_weekday_kb()); return
 
-        if is_btn(text, "Створити зміну"):
+        if is_btn(text, "Ð¡ÑÐ²Ð¾ÑÐ¸ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"):
             ud["mode"] = "work_create_date"; ud["tmp"] = {}
-            await update.message.reply_text("Обери дату:", reply_markup=date_kb()); return
-        if is_btn(text, "Показати зміну"):
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
+        if is_btn(text, "ÐÐ¾ÐºÐ°Ð·Ð°ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"):
             ud["mode"] = "work_show_date"; ud["tmp"] = {}
-            await update.message.reply_text("Обери дату:", reply_markup=date_kb()); return
-        if is_btn(text, "Додати список"):
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
+        if is_btn(text, "ÐÐ¾Ð´Ð°ÑÐ¸ ÑÐ¿Ð¸ÑÐ¾Ðº"):
             if not ud.get("active_shift"):
-                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
             ud["mode"] = "shift_add_list_wait_text"; ud["tmp"] = {}
+            active = ud["active_shift"]
             await update.message.reply_text(
-                "Встав список працівників у цю зміну без групи.\\n"
-                "Можна SAP, SAP - імʼя, або тільки прізвище.\\n"
-                "Кожен з нового рядка.",
+                f"ÐÑÑÐ°Ð² ÑÑÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² {shift_type_label(active['shift_type'])} Ð·Ð¼ÑÐ½Ð¸ Ð·Ð° {active['date']}, ÐºÐ¾Ð¶ÐµÐ½ Ð· Ð½Ð¾Ð²Ð¾Ð³Ð¾ ÑÑÐ´ÐºÐ°.\n"
+                "ÐÐ¾Ð¶Ð½Ð° SAP, SAP - ÑÐ¼Ê¼Ñ Ð°Ð±Ð¾ ÑÑÐ»ÑÐºÐ¸ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ.",
                 reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
             ); return
 
-        if is_btn(text, "Список зміни"):
+        if is_btn(text, "Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð·Ð¼ÑÐ½Ð¸"):
             active = ud.get("active_shift")
             if not active:
-                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
             await update.message.reply_text(format_shift_workers_numbered(active), reply_markup=WORK_KB); return
 
-        if is_btn(text, "Розподіл"):
+        if is_btn(text, "Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ»"):
             active = ud.get("active_shift")
             if not active:
-                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
             if not shift_rows_for_active(active, force=True):
-                await show_work_menu(update, context, "У зміні немає працівників. Спочатку зроби 🗓 Розподіл day/night або додай список у зміну."); return
+                await show_work_menu(update, context, "Ð£ Ð·Ð¼ÑÐ½Ñ Ð½ÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ². Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ Ð·ÑÐ¾Ð±Ð¸ ð Ð Ð¾Ð·Ð¿Ð¾Ð´ÑÐ» day/night Ð°Ð±Ð¾ Ð´Ð¾Ð´Ð°Ð¹ ÑÐ¿Ð¸ÑÐ¾Ðº Ñ Ð·Ð¼ÑÐ½Ñ."); return
             reset_state(context)
             await send_workplace_picker(update, context, active); return
 
-        if is_btn(text, "Групи зміни"):
+        if is_btn(text, "ÐÑÑÐ¿Ð¸ Ð·Ð¼ÑÐ½Ð¸"):
             active = ud.get("active_shift")
             if not active:
-                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
             await update.message.reply_text(format_groups_overview(active), reply_markup=WORK_KB); return
 
-        if is_btn(text, "Додати працівників"):
+        if is_btn(text, "ÐÐ¾Ð´Ð°ÑÐ¸ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²"):
             if not ud.get("active_shift"):
-                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
             ud["mode"] = "work_add_hala"; ud["tmp"] = {}
-            await update.message.reply_text("Обери зал:", reply_markup=hala_kb()); return
-        if is_btn(text, "Імпорт %"):
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð·Ð°Ð»:", reply_markup=hala_kb()); return
+        if is_btn(text, "ÐÐ¼Ð¿Ð¾ÑÑ %"):
             ud["mode"] = "import_by_date_wait_date"; ud["tmp"] = {}
-            await update.message.reply_text("Обери дату для імпорту %:", reply_markup=date_kb()); return
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ Ð´Ð»Ñ ÑÐ¼Ð¿Ð¾ÑÑÑ %:", reply_markup=date_kb()); return
 
-        if is_btn(text, "Фото %"):
+        if is_btn(text, "Ð¤Ð¾ÑÐ¾ %"):
             ud["mode"] = "import_photo_wait_date"; ud["tmp"] = {}
-            await update.message.reply_text("Обери дату для фото-імпорту %:", reply_markup=date_kb()); return
-        if is_btn(text, "Внести %"):
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ Ð´Ð»Ñ ÑÐ¾ÑÐ¾-ÑÐ¼Ð¿Ð¾ÑÑÑ %:", reply_markup=date_kb()); return
+        if is_btn(text, "ÐÐ½ÐµÑÑÐ¸ %"):
             if not ud.get("active_shift"):
-                await show_work_menu(update, context, "Спочатку створи/обери зміну."); return
+                await show_work_menu(update, context, "Ð¡Ð¿Ð¾ÑÐ°ÑÐºÑ ÑÑÐ²Ð¾ÑÐ¸/Ð¾Ð±ÐµÑÐ¸ Ð·Ð¼ÑÐ½Ñ."); return
             ud["mode"] = "work_set_group_hala"; ud["tmp"] = {}
-            await update.message.reply_text("Обери зал:", reply_markup=hala_kb()); return
-        if is_btn(text, "Очистити %"):
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð·Ð°Ð»:", reply_markup=hala_kb()); return
+        if is_btn(text, "ÐÑÐ¸ÑÑÐ¸ÑÐ¸ %"):
             ud["mode"] = "clear_percent_wait_date"; ud["tmp"] = {}
-            await update.message.reply_text("Обери дату, за яку очистити тільки %:", reply_markup=date_kb()); return
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ, Ð·Ð° ÑÐºÑ Ð¾ÑÐ¸ÑÑÐ¸ÑÐ¸ ÑÑÐ»ÑÐºÐ¸ %:", reply_markup=date_kb()); return
 
-        if is_btn(text, "% по зміні"):
+        if is_btn(text, "% Ð¿Ð¾ Ð·Ð¼ÑÐ½Ñ"):
             ud["mode"] = "summary_date"; ud["tmp"] = {}
-            await update.message.reply_text("Обери дату:", reply_markup=date_kb()); return
-        if is_btn(text, "Сортування"):
-            ud["mode"] = "work_sort_month"; ud["tmp"] = {}
-            await update.message.reply_text("Введи місяць MM.YYYY або '-' для поточного:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
-        if is_btn(text, "Експорт"):
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
+        if is_btn(text, "Ð¡Ð¾ÑÑÑÐ²Ð°Ð½Ð½Ñ"):
+            await update.message.reply_text(format_sorted_workers(read_perf(True)), reply_markup=WORK_KB); return
+        if is_btn(text, "ÐÐºÑÐ¿Ð¾ÑÑ"):
             ud["mode"] = "work_export_date"; ud["tmp"] = {}
-            await update.message.reply_text("Обери дату:", reply_markup=date_kb()); return
-        if is_btn(text, "Backup зміни"):
+            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
+        if is_btn(text, "Backup Ð·Ð¼ÑÐ½Ð¸"):
             paths = await backup_everywhere(context, update.effective_chat.id, "manual_shift")
-            await update.message.reply_text("💾 Backup зроблено:\n" + "\n".join(os.path.basename(p) for p in paths), reply_markup=WORK_KB); return
+            await update.message.reply_text("ð¾ Backup Ð·ÑÐ¾Ð±Ð»ÐµÐ½Ð¾:\n" + "\n".join(os.path.basename(p) for p in paths), reply_markup=WORK_KB); return
         if is_btn(text, BTN_BACK):
             set_menu(context, "main"); reset_state(context)
-            await show_main_menu(update, context, "Назад ✅"); return
+            await show_main_menu(update, context, "ÐÐ°Ð·Ð°Ð´ â"); return
         await show_work_menu(update, context); return
 
     await show_main_menu(update, context)
@@ -3457,14 +3424,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud = st(context)
     if ud["mode"] != "restore_wait_file":
-        await update.message.reply_text("Файл отримав, але зараз не режим відновлення. Натисни ♻️ Відновити з файлу.")
+        await update.message.reply_text("Ð¤Ð°Ð¹Ð» Ð¾ÑÑÐ¸Ð¼Ð°Ð², Ð°Ð»Ðµ Ð·Ð°ÑÐ°Ð· Ð½Ðµ ÑÐµÐ¶Ð¸Ð¼ Ð²ÑÐ´Ð½Ð¾Ð²Ð»ÐµÐ½Ð½Ñ. ÐÐ°ÑÐ¸ÑÐ½Ð¸ â»ï¸ ÐÑÐ´Ð½Ð¾Ð²Ð¸ÑÐ¸ Ð· ÑÐ°Ð¹Ð»Ñ.")
         return
 
     doc: Document = update.message.document
     fname = doc.file_name or ""
     low = fname.lower()
     if not (low.endswith(".csv") or low.endswith(".zip")):
-        await update.message.reply_text("Потрібен CSV або ZIP.")
+        await update.message.reply_text("ÐÐ¾ÑÑÑÐ±ÐµÐ½ CSV Ð°Ð±Ð¾ ZIP.")
         return
 
     await backup_everywhere(context, update.effective_chat.id, "pre_restore")
@@ -3505,20 +3472,20 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 _employee_cache["mtime"] = _shift_cache["mtime"] = _perf_cache["mtime"] = _summary_cache["mtime"] = None
 
             reset_state(context); set_menu(context, "main")
-            msg = "♻️ Відновлено з ZIP ✅\n" + ", ".join(restored)
+            msg = "â»ï¸ ÐÑÐ´Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ Ð· ZIP â\n" + ", ".join(restored)
             shift_m, perf_m = migrate_rows_surname_to_sap()
             if converted_count:
-                msg += f"\n👤 employees.csv створено/оновлено: {converted_count}"
+                msg += f"\nð¤ employees.csv ÑÑÐ²Ð¾ÑÐµÐ½Ð¾/Ð¾Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾: {converted_count}"
             if merge_info:
-                msg += f"\n🔁 local_data.csv підтягнуто: {merge_info['matched']} працівників"
-                msg += f"\n🗄️ Шафки: {merge_info['locker']} | 🔪 Ножі: {merge_info['knife']}"
+                msg += f"\nð local_data.csv Ð¿ÑÐ´ÑÑÐ³Ð½ÑÑÐ¾: {merge_info['matched']} Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²"
+                msg += f"\nðï¸ Ð¨Ð°ÑÐºÐ¸: {merge_info['locker']} | ðª ÐÐ¾Ð¶Ñ: {merge_info['knife']}"
             if shift_m or perf_m:
-                msg += f"\n🔗 SAP підтягнуто: зміни {shift_m}, продуктивність {perf_m}"
+                msg += f"\nð SAP Ð¿ÑÐ´ÑÑÐ³Ð½ÑÑÐ¾: Ð·Ð¼ÑÐ½Ð¸ {shift_m}, Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ {perf_m}"
             if os.path.basename(OLD_LOCAL_DB_PATH) not in restored:
-                msg += "\n⚠️ У цьому ZIP немає local_data.csv — шафки/ножі з нього відновити неможливо."
+                msg += "\nâ ï¸ Ð£ ÑÑÐ¾Ð¼Ñ ZIP Ð½ÐµÐ¼Ð°Ñ local_data.csv â ÑÐ°ÑÐºÐ¸/Ð½Ð¾Ð¶Ñ Ð· Ð½ÑÐ¾Ð³Ð¾ Ð²ÑÐ´Ð½Ð¾Ð²Ð¸ÑÐ¸ Ð½ÐµÐ¼Ð¾Ð¶Ð»Ð¸Ð²Ð¾."
             await show_main_menu(update, context, msg)
         except Exception as e:
-            await update.message.reply_text(f"❌ Помилка ZIP: {e}")
+            await update.message.reply_text(f"â ÐÐ¾Ð¼Ð¸Ð»ÐºÐ° ZIP: {e}")
         return
 
     text = content.decode("utf-8", errors="replace")
@@ -3542,9 +3509,9 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows.append(emp)
     rows = [r for r in rows if r["surname"] or r["sap"]]
     write_employees(rows)
-    await backup_everywhere(context, update.effective_chat.id, "after_restore", f"Працівників: {len(rows)}")
+    await backup_everywhere(context, update.effective_chat.id, "after_restore", f"ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ²: {len(rows)}")
     reset_state(context); set_menu(context, "main")
-    await show_main_menu(update, context, f"♻️ employees.csv відновлено ✅\nЗаписів: {len(rows)}")
+    await show_main_menu(update, context, f"â»ï¸ employees.csv Ð²ÑÐ´Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ â\nÐÐ°Ð¿Ð¸ÑÑÐ²: {len(rows)}")
 
 # ==============================
 # PHOTO PLACEHOLDER
@@ -3554,27 +3521,27 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ud = st(context)
     if ud.get("mode") != "import_photo_wait_photo":
         await update.message.reply_text(
-            "📸 Фото отримав, але зараз не режим фото-імпорту.\n"
-            "Натисни: 🏭 Організація роботи → 📸 Фото % за датою"
+            "ð¸ Ð¤Ð¾ÑÐ¾ Ð¾ÑÑÐ¸Ð¼Ð°Ð², Ð°Ð»Ðµ Ð·Ð°ÑÐ°Ð· Ð½Ðµ ÑÐµÐ¶Ð¸Ð¼ ÑÐ¾ÑÐ¾-ÑÐ¼Ð¿Ð¾ÑÑÑ.\n"
+            "ÐÐ°ÑÐ¸ÑÐ½Ð¸: ð­ ÐÑÐ³Ð°Ð½ÑÐ·Ð°ÑÑÑ ÑÐ¾Ð±Ð¾ÑÐ¸ â ð¸ Ð¤Ð¾ÑÐ¾ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ"
         )
         return
 
     date = ud["tmp"].get("date")
     if not date:
         reset_state(context)
-        await show_work_menu(update, context, "❌ Дата не вибрана. Почни фото-імпорт ще раз.")
+        await show_work_menu(update, context, "â ÐÐ°ÑÐ° Ð½Ðµ Ð²Ð¸Ð±ÑÐ°Ð½Ð°. ÐÐ¾ÑÐ½Ð¸ ÑÐ¾ÑÐ¾-ÑÐ¼Ð¿Ð¾ÑÑ ÑÐµ ÑÐ°Ð·.")
         return
 
     if not OCR_SPACE_API_KEY:
         await update.message.reply_text(
-            "⚠️ Фото-імпорт потребує OCR_SPACE_API_KEY у Render Environment.\n\n"
-            "Поки зроби так: відкрий фото → скопіюй/набери рядки SAP - % і використай 📥 Імпорт % за датою.\n"
-            "Приклад:\n51009998 - 156,44"
+            "â ï¸ Ð¤Ð¾ÑÐ¾-ÑÐ¼Ð¿Ð¾ÑÑ Ð¿Ð¾ÑÑÐµÐ±ÑÑ OCR_SPACE_API_KEY Ñ Render Environment.\n\n"
+            "ÐÐ¾ÐºÐ¸ Ð·ÑÐ¾Ð±Ð¸ ÑÐ°Ðº: Ð²ÑÐ´ÐºÑÐ¸Ð¹ ÑÐ¾ÑÐ¾ â ÑÐºÐ¾Ð¿ÑÑÐ¹/Ð½Ð°Ð±ÐµÑÐ¸ ÑÑÐ´ÐºÐ¸ SAP - % Ñ Ð²Ð¸ÐºÐ¾ÑÐ¸ÑÑÐ°Ð¹ ð¥ ÐÐ¼Ð¿Ð¾ÑÑ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ.\n"
+            "ÐÑÐ¸ÐºÐ»Ð°Ð´:\n51009998 - 156,44"
         )
         return
 
     try:
-        await update.message.reply_text("📸 Фото отримав. Розпізнаю OCR...")
+        await update.message.reply_text("ð¸ Ð¤Ð¾ÑÐ¾ Ð¾ÑÑÐ¸Ð¼Ð°Ð². Ð Ð¾Ð·Ð¿ÑÐ·Ð½Ð°Ñ OCR...")
         photo = update.message.photo[-1]
         tg_file = await photo.get_file()
         content = await tg_file.download_as_bytearray()
@@ -3586,10 +3553,10 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if len(preview) > 700:
                 preview = preview[:700] + "\n..."
             await update.message.reply_text(
-                "❌ OCR не знайшов SAP і %.\n\n"
-                "Фрагмент OCR-тексту:\n"
-                f"{preview or '(порожньо)'}\n\n"
-                "Спробуй ще раз або встав текстом через 📥 Імпорт % за датою."
+                "â OCR Ð½Ðµ Ð·Ð½Ð°Ð¹ÑÐ¾Ð² SAP Ñ %.\n\n"
+                "Ð¤ÑÐ°Ð³Ð¼ÐµÐ½Ñ OCR-ÑÐµÐºÑÑÑ:\n"
+                f"{preview or '(Ð¿Ð¾ÑÐ¾Ð¶Ð½ÑÐ¾)'}\n\n"
+                "Ð¡Ð¿ÑÐ¾Ð±ÑÐ¹ ÑÐµ ÑÐ°Ð· Ð°Ð±Ð¾ Ð²ÑÑÐ°Ð² ÑÐµÐºÑÑÐ¾Ð¼ ÑÐµÑÐµÐ· ð¥ ÐÐ¼Ð¿Ð¾ÑÑ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ."
             )
             return
 
@@ -3606,7 +3573,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(format_import_preview_report(preview_result), reply_markup=kb)
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Помилка OCR: {e}\n\nМожеш вставити ці дані текстом через 📥 Імпорт % за датою.")
+        await update.message.reply_text(f"â ÐÐ¾Ð¼Ð¸Ð»ÐºÐ° OCR: {e}\n\nÐÐ¾Ð¶ÐµÑ Ð²ÑÑÐ°Ð²Ð¸ÑÐ¸ ÑÑ Ð´Ð°Ð½Ñ ÑÐµÐºÑÑÐ¾Ð¼ ÑÐµÑÐµÐ· ð¥ ÐÐ¼Ð¿Ð¾ÑÑ % Ð·Ð° Ð´Ð°ÑÐ¾Ñ.")
 
 # ==============================
 # MAIN

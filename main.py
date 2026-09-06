@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import csv
 import re
@@ -332,7 +333,8 @@ def fmt_percent(p):
     return f"{val:.2f}".replace(".", ",")
 
 def emoji_by_percent(p: float) -> str:
-    if p >= 100:
+    # User rule: green only above 100%; 90â100% inclusive is yellow; below 90% is red.
+    if p > 100:
         return "ð¢"
     if p >= 90:
         return "ð¡"
@@ -1666,10 +1668,14 @@ def format_shift(date_str, st, shifts_rows, perf_rows, summary_rows):
     return (header + "\n" + "\n".join(lines)).strip()
 
 
-def compute_worker_averages(perf_rows):
-    """Average productivity per SAP across all saved performance records."""
+def compute_worker_averages(perf_rows, month: str = ""):
+    """Average productivity per SAP, optionally limited to MM.YYYY."""
     sums, cnts, names = {}, {}, {}
     for r in perf_rows:
+        if month:
+            dt = parse_ddmmyyyy(r.get("date", ""))
+            if not dt or dt.strftime("%m.%Y") != month:
+                continue
         p = safe_float(r.get("percent", ""))
         sap = normalize_text(r.get("sap", ""))
         if p is None or not sap:
@@ -1679,15 +1685,18 @@ def compute_worker_averages(perf_rows):
         names[sap] = normalize_text(r.get("surname", "")).upper()
     return {sap: (sums[sap] / cnts[sap], cnts[sap], names.get(sap, "")) for sap in sums}
 
-def format_sorted_workers(perf_rows):
-    avgs = compute_worker_averages(perf_rows)
+def format_sorted_workers(perf_rows, month: str = ""):
+    avgs = compute_worker_averages(perf_rows, month)
     if not avgs:
-        return "ÐÐµÐ¼Ð°Ñ Ð·Ð°Ð¿Ð¸ÑÑÐ² Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½Ð¾ÑÑÑ Ð´Ð»Ñ ÑÐ¾ÑÑÑÐ²Ð°Ð½Ð½Ñ."
+        suffix = f" Ð·Ð° {month}" if month else ""
+        return f"ÐÐµÐ¼Ð°Ñ Ð·Ð°Ð¿Ð¸ÑÑÐ² Ð¿ÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½Ð¾ÑÑÑ Ð´Ð»Ñ ÑÐ¾ÑÑÑÐ²Ð°Ð½Ð½Ñ{suffix}."
     rows = sorted(
         [(avg, cnt, sap, name) for sap, (avg, cnt, name) in avgs.items()],
         key=lambda x: (-x[0], -x[1], safe_lower(x[3]), x[2])
     )
-    return "ð ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ¸ Ð·Ð° ÑÐµÑÐµÐ´Ð½ÑÐ¾Ñ Ð²Ð¸Ð´Ð°Ð¹Ð½ÑÑÑÑ\n\n" + "\n".join(
+    title = "ð ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ¸ Ð·Ð° ÑÐµÑÐµÐ´Ð½ÑÐ¾Ñ Ð²Ð¸Ð´Ð°Ð¹Ð½ÑÑÑÑ" + (f" â {month}" if month else "")
+    legend = "ð¢ >100%   ð¡ 90â100%   ð´ <90%"
+    return title + "\n" + legend + "\n\n" + "\n".join(
         f"{i}. {emoji_by_percent(avg)} {sap} â {name} â {fmt_percent(avg)}% ({cnt} Ð·Ð¼.)"
         for i, (avg, cnt, sap, name) in enumerate(rows, 1)
     )
@@ -3160,6 +3169,19 @@ async def work_flow(update, context, text):
         await show_work_menu(update, context, f"ð§¹ ÐÑÐ¸ÑÐµÐ½Ð¾ % Ð·Ð° {date}. ÐÐ¸Ð´Ð°Ð»ÐµÐ½Ð¾ Ð·Ð°Ð¿Ð¸ÑÑÐ²: {removed}")
         return
 
+    if ud["mode"] == "work_sort_month":
+        if text == "-":
+            month = datetime.now().strftime("%m.%Y")
+        else:
+            dt = parse_mmyyyy(text)
+            if not dt:
+                await update.message.reply_text("Ð¤Ð¾ÑÐ¼Ð°Ñ MM.YYYY Ð°Ð±Ð¾ '-'.")
+                return
+            month = dt.strftime("%m.%Y")
+        reset_state(context)
+        await update.message.reply_text(format_sorted_workers(read_perf(True), month), reply_markup=WORK_KB)
+        return
+
     if ud["mode"] == "work_export_date":
         date = extract_date_from_btn(text)
         if not parse_ddmmyyyy(date):
@@ -3336,10 +3358,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ud["mode"] = "split_wait_date"; ud["tmp"] = {}
             await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ Ð´Ð»Ñ ÑÐ¾Ð·Ð¿Ð¾Ð´ÑÐ»Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð½Ð° day/night:", reply_markup=date_kb()); return
 
-        if is_btn(text, "Ð¡ÑÐ°Ð»Ñ Ð·Ð¼ÑÐ½Ð¸"):
-            ud["mode"] = "weekly_wait_weekday"; ud["tmp"] = {}
-            await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´ÐµÐ½Ñ ÑÐ¸Ð¶Ð½Ñ Ð´Ð»Ñ ÑÑÐ°Ð»Ð¾Ð³Ð¾ ÑÐ°Ð±Ð»Ð¾Ð½Ñ day/night:", reply_markup=weekly_weekday_kb()); return
-
         if is_btn(text, "Ð¡ÑÐ²Ð¾ÑÐ¸ÑÐ¸ Ð·Ð¼ÑÐ½Ñ"):
             ud["mode"] = "work_create_date"; ud["tmp"] = {}
             await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
@@ -3403,7 +3421,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ud["mode"] = "summary_date"; ud["tmp"] = {}
             await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
         if is_btn(text, "Ð¡Ð¾ÑÑÑÐ²Ð°Ð½Ð½Ñ"):
-            await update.message.reply_text(format_sorted_workers(read_perf(True)), reply_markup=WORK_KB); return
+            ud["mode"] = "work_sort_month"; ud["tmp"] = {}
+            await update.message.reply_text(
+                "ÐÐ²ÐµÐ´Ð¸ Ð¼ÑÑÑÑÑ MM.YYYY Ð°Ð±Ð¾ '-' Ð´Ð»Ñ Ð¿Ð¾ÑÐ¾ÑÐ½Ð¾Ð³Ð¾:",
+                reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
+            ); return
         if is_btn(text, "ÐÐºÑÐ¿Ð¾ÑÑ"):
             ud["mode"] = "work_export_date"; ud["tmp"] = {}
             await update.message.reply_text("ÐÐ±ÐµÑÐ¸ Ð´Ð°ÑÑ:", reply_markup=date_kb()); return
@@ -3607,4 +3629,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

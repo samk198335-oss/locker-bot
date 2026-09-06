@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-09-06-day-night-sort-v2"
+BOT_BUILD = "2026-09-06-monitoring-dynamics-v3"
 import os
 import csv
 import re
@@ -174,6 +174,8 @@ BTN_NO_KNIFE = "\U0001f6ab \u0411\u0435\u0437 \u043d\u043e\u0436\u0430"
 BTN_ADD = "\u2795 \u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
 BTN_EDIT = "\u270f\ufe0f \u0420\u0435\u0434\u0430\u0433\u0443\u0432\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
 BTN_DELETE = "\U0001f5d1\ufe0f \u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"
+BTN_LOW_WEEK = "ð ÐÐ¸Ð·ÑÐºÐ° Ð²Ð¸Ð´Ð°Ð¹Ð½ÑÑÑÑ 7 Ð´Ð½ÑÐ²"
+BTN_INACTIVE_30 = "ð ÐÐµÐ°ÐºÑÐ¸Ð²Ð½Ñ 30+ Ð´Ð½ÑÐ²"
 
 EMPLOYEE_KB = ReplyKeyboardMarkup(
     [
@@ -181,6 +183,7 @@ EMPLOYEE_KB = ReplyKeyboardMarkup(
         [BTN_CARD, BTN_NO_SAP],
         [BTN_WITH_LOCKER, BTN_NO_LOCKER],
         [BTN_WITH_KNIFE, BTN_NO_KNIFE],
+        [BTN_LOW_WEEK, BTN_INACTIVE_30],
         [BTN_ADD, BTN_EDIT],
         [BTN_DELETE],
         [BTN_BACK],
@@ -207,6 +210,7 @@ BTN_EXPORT_TXT = "\U0001f4dd \u0415\u043a\u0441\u043f\u043e\u0440\u0442 \u0437\u
 BTN_SHIFT_SUMMARY = "\U0001f4ca % \u043f\u043e \u0437\u043c\u0456\u043d\u0456"
 BTN_SHIFT_BACKUP = "\U0001f4be Backup \u0437\u043c\u0456\u043d\u0438"
 BTN_WEEKLY_SHIFTS = "\U0001f4c5 \u0421\u0442\u0430\u043b\u0456 \u0437\u043c\u0456\u043d\u0438"
+BTN_AGENCY_DYNAMICS = "ð ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° Ð°Ð³ÐµÐ½ÑÑÑ"
 
 WORK_KB = ReplyKeyboardMarkup(
     [
@@ -215,6 +219,7 @@ WORK_KB = ReplyKeyboardMarkup(
         [BTN_IMPORT_PERCENT, BTN_IMPORT_PHOTO],
         [BTN_CLEAR_PERCENT_DATE],
         [BTN_SHIFT_SUMMARY, BTN_SORT_WORKERS],
+        [BTN_AGENCY_DYNAMICS],
         [BTN_EXPORT_TXT, BTN_SHIFT_BACKUP],
         [BTN_BACK],
     ],
@@ -1656,8 +1661,12 @@ def format_no_knife(rows):
     items = [emp_display(r) for r in rows if r["surname"] and not knife_has(r["knife"])]
     return "\U0001f6ab \u0411\u0435\u0437 \u043d\u043e\u0436\u0430:\n\n" + ("\n".join(sorted(items, key=safe_lower)) if items else "\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445")
 
+def active_employee_rows(rows):
+    return [r for r in rows if r.get("surname") and safe_lower(r.get("status", "active")) == "active"]
+
+
 def format_stats(rows):
-    only = [r for r in rows if r["surname"]]
+    only = active_employee_rows(rows)
     return (
         "\U0001f4ca \u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430:\n\n"
         f"\u0412\u0441\u044c\u043e\u0433\u043e: {len(only)}\n"
@@ -1734,6 +1743,130 @@ def format_sorted_workers(perf_rows, month: str = ""):
         for i, (avg, cnt, sap, name) in enumerate(rows, 1)
     )
 
+
+
+def _perf_records_between(perf_rows, start_date, end_date, active_saps=None):
+    out = []
+    for r in perf_rows:
+        dt = parse_ddmmyyyy(r.get("date", "")); p = safe_float(r.get("percent", "")); sap = normalize_text(r.get("sap", ""))
+        if not dt or p is None or not sap: continue
+        d = dt.date()
+        if not (start_date <= d <= end_date): continue
+        if active_saps is not None and sap not in active_saps: continue
+        out.append((sap, r, p, d))
+    return out
+
+
+def format_low_productivity_week(employees, perf_rows, today=None, min_shifts=3, threshold=90.0):
+    today = today or datetime.now().date(); cur_start = today - timedelta(days=6)
+    prev_end = cur_start - timedelta(days=1); prev_start = prev_end - timedelta(days=6)
+    active = {e.get("sap"): e for e in active_employee_rows(employees) if e.get("sap")}
+    cur_map, prev_map = {}, {}
+    for sap, r, p, d in _perf_records_between(perf_rows, cur_start, today, set(active)):
+        cur_map.setdefault(sap, {})[(d, normalize_shift_type(r.get("shift_type", "")) or safe_lower(r.get("shift_type", "")))] = p
+    for sap, r, p, d in _perf_records_between(perf_rows, prev_start, prev_end, set(active)):
+        prev_map.setdefault(sap, {})[(d, normalize_shift_type(r.get("shift_type", "")) or safe_lower(r.get("shift_type", "")))] = p
+    rows=[]
+    for sap, recs in cur_map.items():
+        vals=list(recs.values())
+        if len(vals) < min_shifts: continue
+        avg=sum(vals)/len(vals)
+        if avg >= threshold: continue
+        pv=list(prev_map.get(sap, {}).values()); prev_avg=(sum(pv)/len(pv)) if pv else None
+        rows.append((avg,len(vals),sap,active[sap].get("surname",""),prev_avg))
+    rows.sort(key=lambda x:(x[0],-x[1],safe_lower(x[3])))
+    title=f"ð ÐÐ¸Ð·ÑÐºÐ° Ð²Ð¸Ð´Ð°Ð¹Ð½ÑÑÑÑ Ð·Ð° 7 Ð´Ð½ÑÐ² ({cur_start.strftime('%d.%m')}â{today.strftime('%d.%m')})"
+    if not rows: return title + f"\n\nâ ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² ÑÐ· ÑÐµÑÐµÐ´Ð½ÑÐ¾Ñ Ð½Ð¸Ð¶ÑÐµ {fmt_percent(threshold)}% Ð¿ÑÐ¸ Ð¼ÑÐ½ÑÐ¼ÑÐ¼ {min_shifts} Ð·Ð¼ÑÐ½Ð°Ñ."
+    lines=[title,f"Ð£Ð¼Ð¾Ð²Ð°: ÑÐµÑÐµÐ´Ð½Ñ <{fmt_percent(threshold)}%, Ð¼ÑÐ½ÑÐ¼ÑÐ¼ {min_shifts} Ð·Ð¼ÑÐ½Ð¸.",""]
+    for i,(avg,cnt,sap,name,prev_avg) in enumerate(rows,1):
+        if prev_avg is None: dyn="â Ð¿Ð¾Ð¿ÐµÑÐµÐ´Ð½ÑÐ¹ ÑÐ¸Ð¶Ð´ÐµÐ½Ñ: Ð½ÐµÐ¼Ð°Ñ Ð´Ð°Ð½Ð¸Ñ"
+        else:
+            diff=avg-prev_avg; arrow="â" if diff>0.05 else "â" if diff<-0.05 else "â"; sign="+" if diff>0 else ""
+            dyn=f"â {arrow} {sign}{fmt_percent(diff)} Ð¿.Ð¿. Ð´Ð¾ Ð¿Ð¾Ð¿ÐµÑ. ÑÐ¸Ð¶Ð½Ñ"
+        lines.append(f"{i}. ð´ {sap} â {name} â {fmt_percent(avg)}% ({cnt} Ð·Ð¼.) {dyn}")
+    return "\n".join(lines)
+
+
+def inactive_employee_candidates(employees, shifts, today=None, days=30):
+    today=today or datetime.now().date(); cutoff=today-timedelta(days=days); current_month=(today.year,today.month)
+    last_by_sap={}; current_month_saps=set()
+    for r in shifts:
+        sap=normalize_text(r.get("sap","")); dt=parse_ddmmyyyy(r.get("date",""))
+        if not sap or not dt: continue
+        d=dt.date()
+        if (d.year,d.month)==current_month: current_month_saps.add(sap)
+        if sap not in last_by_sap or d>last_by_sap[sap]: last_by_sap[sap]=d
+    out=[]
+    for e in active_employee_rows(employees):
+        sap=normalize_text(e.get("sap","")); last=last_by_sap.get(sap)
+        if not sap or sap in current_month_saps or last is None or last>cutoff: continue
+        out.append({"employee":e,"last":last,"days":(today-last).days})
+    out.sort(key=lambda x:(-x["days"],safe_lower(x["employee"].get("surname",""))))
+    return out
+
+
+def format_inactive_30(employees, shifts, today=None):
+    rows=inactive_employee_candidates(employees,shifts,today=today,days=30)
+    if not rows: return "ð ÐÐµÐ°ÐºÑÐ¸Ð²Ð½Ñ 30+ Ð´Ð½ÑÐ²\n\nâ ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ´ÑÐ²ÐµÑÐ´Ð¶ÐµÐ½Ð¸Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ð±ÐµÐ· Ð·Ð¼ÑÐ½ 30+ Ð´Ð½ÑÐ²."
+    lines=["ð ÐÐµÐ°ÐºÑÐ¸Ð²Ð½Ñ 30+ Ð´Ð½ÑÐ²","ÐÐµÐ¼Ð°Ñ Ð·Ð¼ÑÐ½Ð¸ Ð² Ð¿Ð¾ÑÐ¾ÑÐ½Ð¾Ð¼Ñ Ð¼ÑÑÑÑÑ + Ð¾ÑÑÐ°Ð½Ð½Ñ Ð·Ð¼ÑÐ½Ð° 30+ Ð´Ð½ÑÐ² ÑÐ¾Ð¼Ñ.",""]
+    for i,item in enumerate(rows,1):
+        e=item["employee"]; lines.append(f"{i}. {e.get('sap','')} â {e.get('surname','')} â Ð¾ÑÑÐ°Ð½Ð½Ñ {item['last'].strftime('%d.%m.%Y')} ({item['days']} Ð´Ð½.)")
+    lines += ["","ÐÐ²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑ, SAP Ð°Ð±Ð¾ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ â Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸Ðº ÑÑÐ°Ð½Ðµ inactive. ÐÑÑÐ¾ÑÑÑ Ð·Ð¼ÑÐ½ Ñ % Ð·Ð°Ð»Ð¸ÑÐ¸ÑÑÑÑ."]
+    return "\n".join(lines)
+
+
+def set_employee_inactive(employees, employee):
+    target=normalize_text(employee.get("sap","")); out=[]; changed=False
+    for e in employees:
+        e2=dict(e)
+        if target and normalize_text(e2.get("sap",""))==target: e2["status"]="inactive"; changed=True
+        out.append(e2)
+    return out,changed
+
+
+UA_MONTHS={1:"Ð¡ÑÑÐµÐ½Ñ",2:"ÐÑÑÐ¸Ð¹",3:"ÐÐµÑÐµÐ·ÐµÐ½Ñ",4:"ÐÐ²ÑÑÐµÐ½Ñ",5:"Ð¢ÑÐ°Ð²ÐµÐ½Ñ",6:"Ð§ÐµÑÐ²ÐµÐ½Ñ",7:"ÐÐ¸Ð¿ÐµÐ½Ñ",8:"Ð¡ÐµÑÐ¿ÐµÐ½Ñ",9:"ÐÐµÑÐµÑÐµÐ½Ñ",10:"ÐÐ¾Ð²ÑÐµÐ½Ñ",11:"ÐÐ¸ÑÑÐ¾Ð¿Ð°Ð´",12:"ÐÑÑÐ´ÐµÐ½Ñ"}
+
+def _shift_back_months(d,n):
+    y=d.year; m=d.month-n
+    while m<=0: y-=1; m+=12
+    return d.replace(year=y,month=m,day=1)
+
+
+def compute_agency_monthly(summary_rows, perf_rows, shifts_rows):
+    perf_counts={}; shift_counts={}
+    for r in perf_rows:
+        if safe_float(r.get("percent","")) is None: continue
+        k=(r.get("date",""),normalize_shift_type(r.get("shift_type","")) or safe_lower(r.get("shift_type",""))); perf_counts[k]=perf_counts.get(k,0)+1
+    for r in shifts_rows:
+        k=(r.get("date",""),normalize_shift_type(r.get("shift_type","")) or safe_lower(r.get("shift_type",""))); shift_counts[k]=shift_counts.get(k,0)+1
+    months={}
+    for r in summary_rows:
+        agency=safe_float(r.get("agency_percent","")); dt=parse_ddmmyyyy(r.get("date",""))
+        if agency is None or not dt: continue
+        st=normalize_shift_type(r.get("shift_type","")) or safe_lower(r.get("shift_type","")); k=(r.get("date",""),st)
+        weight=perf_counts.get(k) or shift_counts.get(k) or 1; mk=(dt.year,dt.month)
+        b=months.setdefault(mk,{"weighted":0.0,"weight":0}); b["weighted"]+=agency*weight; b["weight"]+=weight
+    for b in months.values(): b["avg"]=b["weighted"]/b["weight"] if b["weight"] else None
+    return months
+
+
+def format_agency_dynamics(summary_rows, perf_rows, shifts_rows, today=None, completed_months=6):
+    today=today or datetime.now().date(); months=compute_agency_monthly(summary_rows,perf_rows,shifts_rows)
+    lines=["ð ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° ÑÐµÑÐµÐ´Ð½ÑÐ¾Ñ Ð°Ð³ÐµÐ½ÑÑÐ¹Ð½Ð¾Ñ Ð²Ð¸Ð´Ð°Ð¹Ð½Ð¾ÑÑÑ","Ð¡ÐµÑÐµÐ´Ð½Ñ Ð·Ð²Ð°Ð¶ÐµÐ½Ð° Ð·Ð° ÐºÑÐ»ÑÐºÑÑÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ² Ñ Ð·Ð¼ÑÐ½Ð°Ñ.",""]
+    cur=months.get((today.year,today.month))
+    if cur and cur.get("avg") is not None: lines += [f"ÐÐ¾ÑÐ¾ÑÐ½Ð¸Ð¹ Ð¼ÑÑÑÑÑ (Ð½ÐµÐ¿Ð¾Ð²Ð½Ð¸Ð¹): {UA_MONTHS[today.month]} â {fmt_percent(cur['avg'])}%",""]
+    completed=[]
+    for n in range(1,18):
+        d=_shift_back_months(today.replace(day=1),n); b=months.get((d.year,d.month))
+        if b and b.get("avg") is not None: completed.append((d,b["avg"])); lines.append(f"{UA_MONTHS[d.month]} {d.year} â {fmt_percent(b['avg'])}%")
+        if len(completed)>=completed_months: break
+    if completed:
+        lines += ["","ÐÐ¼ÑÐ½Ð° Ð´Ð¾ Ð¿Ð¾Ð¿ÐµÑÐµÐ´Ð½ÑÐ¾Ð³Ð¾ Ð¼ÑÑÑÑÑ:"]
+        for i in range(len(completed)-1):
+            nd,nv=completed[i]; od,ov=completed[i+1]; diff=nv-ov; arrow="â" if diff>0.05 else "â" if diff<-0.05 else "â"; sign="+" if diff>0 else ""
+            lines.append(f"{UA_MONTHS[nd.month]} vs {UA_MONTHS[od.month]}: {arrow} {sign}{fmt_percent(diff)} Ð¿.Ð¿.")
+    if not completed and not cur: return "ð ÐÐ¸Ð½Ð°Ð¼ÑÐºÐ° Ð°Ð³ÐµÐ½ÑÑÑ\n\nÐÐµÐ¼Ð°Ñ Ð·Ð°Ð¿Ð¾Ð²Ð½ÐµÐ½Ð¸Ñ Ð·Ð½Ð°ÑÐµÐ½Ñ Â«ÐÐ³ÐµÐ½ÑÑÑ %Â» Ñ ÑÑÐ°ÑÐ¸ÑÑÐ¸ÑÑ Ð·Ð¼ÑÐ½."
+    return "\n".join(lines)
 
 
 # ==============================
@@ -2669,6 +2802,25 @@ async def employee_flow(update, context, text):
         await show_employee_menu(update, context, f"\u2705 \u0417\u043c\u0456\u043d\u0438 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e.\n\u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u0441\u0442\u0430\u0440\u0456 \u0437\u0430\u043f\u0438\u0441\u0438: \u0437\u043c\u0456\u043d\u0438 {shift_m}, \u043f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c {perf_m}")
         return
 
+    if ud["mode"] == "inactive_archive_wait_query":
+        candidates = inactive_employee_candidates(rows, read_shifts(force=True))
+        if not candidates:
+            reset_state(context); await show_employee_menu(update, context, "â Ð¡Ð¿Ð¸ÑÐ¾Ðº Ð½ÐµÐ°ÐºÑÐ¸Ð²Ð½Ð¸Ñ ÑÐ¶Ðµ Ð¿Ð¾ÑÐ¾Ð¶Ð½ÑÐ¹."); return
+        chosen=None; raw=normalize_text(text)
+        if raw.isdigit() and 1 <= int(raw) <= len(candidates): chosen=candidates[int(raw)-1]["employee"]
+        else:
+            q=safe_lower(raw); matches=[]
+            for item in candidates:
+                e=item["employee"]
+                if raw==normalize_text(e.get("sap","")) or (q and q in safe_lower(e.get("surname",""))): matches.append(e)
+            if len(matches)==1: chosen=matches[0]
+            elif len(matches)>1: await update.message.reply_text("ÐÐ½Ð°Ð¹Ð´ÐµÐ½Ð¾ ÐºÑÐ»ÑÐºÐ°. ÐÐ²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑ Ð·Ñ ÑÐ¿Ð¸ÑÐºÑ Ð°Ð±Ð¾ ÑÐ¾ÑÐ½Ð¸Ð¹ SAP."); return
+        if not chosen: await update.message.reply_text("ÐÐµ Ð·Ð½Ð°Ð¹ÑÐ¾Ð² Ñ ÑÐ¿Ð¸ÑÐºÑ Ð½ÐµÐ°ÐºÑÐ¸Ð²Ð½Ð¸Ñ. ÐÐ²ÐµÐ´Ð¸ Ð½Ð¾Ð¼ÐµÑ, SAP Ð°Ð±Ð¾ ÑÐ¾ÑÐ½ÑÑÐµ Ð¿ÑÑÐ·Ð²Ð¸ÑÐµ."); return
+        new_rows,changed=set_employee_inactive(rows,chosen)
+        if changed:
+            write_employees(new_rows); await backup_everywhere(context, update.effective_chat.id, "archive_inactive_employee", emp_display(chosen))
+        reset_state(context); await show_employee_menu(update, context, f"ð¦ ÐÐµÑÐµÐ½ÐµÑÐµÐ½Ð¾ Ð² inactive:\n{emp_display(chosen)}\n\nÐÑÑÐ¾ÑÑÑ Ð·Ð¼ÑÐ½ Ñ % Ð½Ðµ Ð²Ð¸Ð´Ð°Ð»ÐµÐ½Ð°."); return
+
     if ud["mode"] == "delete_wait_query":
         matches = find_employees(rows, text)
         if not matches:
@@ -3353,24 +3505,34 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # employee menu
     if ud["menu"] == "employee":
         rows = read_employees()
+        active_rows = active_employee_rows(rows)
         if is_btn(text, "\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430"):
             await update.message.reply_text(format_stats(rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0412\u0441\u0456"):
-            msg, kb = employee_list_page(rows, 0)
+            msg, kb = employee_list_page(active_rows, 0)
             await update.message.reply_text(msg, reply_markup=kb); return
         if is_btn(text, "\u041a\u0430\u0440\u0442\u043a\u0430"):
             ud["mode"] = "card_wait_query"; ud["tmp"] = {}
             await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 SAP \u0430\u0431\u043e \u0447\u0430\u0441\u0442\u0438\u043d\u0443 \u043f\u0440\u0456\u0437\u0432\u0438\u0449\u0430:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
         if is_btn(text, "\u0411\u0435\u0437 SAP"):
-            await update.message.reply_text(format_no_sap(rows), reply_markup=EMPLOYEE_KB); return
+            await update.message.reply_text(format_no_sap(active_rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0417 \u0448\u0430\u0444\u043a\u043e\u044e"):
-            await send_long_text(update, format_with_locker(rows), reply_markup=EMPLOYEE_KB); return
+            await send_long_text(update, format_with_locker(active_rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0411\u0435\u0437 \u0448\u0430\u0444\u043a\u0438"):
-            await send_long_text(update, format_no_locker(rows), reply_markup=EMPLOYEE_KB); return
+            await send_long_text(update, format_no_locker(active_rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0417 \u043d\u043e\u0436\u0435\u043c"):
-            await send_long_text(update, format_with_knife(rows), reply_markup=EMPLOYEE_KB); return
+            await send_long_text(update, format_with_knife(active_rows), reply_markup=EMPLOYEE_KB); return
         if is_btn(text, "\u0411\u0435\u0437 \u043d\u043e\u0436\u0430"):
-            await send_long_text(update, format_no_knife(rows), reply_markup=EMPLOYEE_KB); return
+            await send_long_text(update, format_no_knife(active_rows), reply_markup=EMPLOYEE_KB); return
+        if is_btn(text, BTN_LOW_WEEK):
+            await send_long_text(update, format_low_productivity_week(rows, read_perf(force=True)), reply_markup=EMPLOYEE_KB); return
+        if is_btn(text, BTN_INACTIVE_30):
+            shifts_now = read_shifts(force=True)
+            candidates = inactive_employee_candidates(rows, shifts_now)
+            await send_long_text(update, format_inactive_30(rows, shifts_now), reply_markup=EMPLOYEE_KB if not candidates else ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True))
+            if candidates:
+                ud["mode"] = "inactive_archive_wait_query"; ud["tmp"] = {}
+            return
         if is_btn(text, "\u0414\u043e\u0434\u0430\u0442\u0438 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430"):
             ud["mode"] = "add_wait_sap"; ud["tmp"] = {}
             await update.message.reply_text("\u0412\u0432\u0435\u0434\u0438 SAP:", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)); return
@@ -3459,6 +3621,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "\u0412\u0432\u0435\u0434\u0438 \u043c\u0456\u0441\u044f\u0446\u044c MM.YYYY \u0430\u0431\u043e '-' \u0434\u043b\u044f \u043f\u043e\u0442\u043e\u0447\u043d\u043e\u0433\u043e:",
                 reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL]], resize_keyboard=True)
             ); return
+        if is_btn(text, BTN_AGENCY_DYNAMICS):
+            await send_long_text(update, format_agency_dynamics(read_summary(True), read_perf(True), read_shifts(True)), reply_markup=WORK_KB); return
         if is_btn(text, "\u0415\u043a\u0441\u043f\u043e\u0440\u0442"):
             ud["mode"] = "work_export_date"; ud["tmp"] = {}
             await update.message.reply_text("\u041e\u0431\u0435\u0440\u0438 \u0434\u0430\u0442\u0443:", reply_markup=date_kb()); return

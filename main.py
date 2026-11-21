@@ -1645,17 +1645,17 @@ def format_employee_card(emp, perf_rows):
     month_label = UA_MONTHS[today.month].lower()
 
     return (
-        "ð¤ ÐÐ°ÑÑÐºÐ° Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°\n\n"
+        "\U0001f464 \u041a\u0430\u0440\u0442\u043a\u0430 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430\n\n"
         f"SAP: {emp['sap'] or '-'}\n"
-        f"ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº: {emp['surname'] or '-'}\n"
-        f"Ð¨Ð°ÑÐºÐ°: {emp['locker'] or '-'}\n"
-        f"ÐÑÐ¶: {'Ñ' if knife_has(emp['knife']) else 'Ð½ÐµÐ¼Ð°Ñ'}\n"
-        f"ÐÐ·ÑÑÑÑ: {shoe_display(emp)}\n"
-        f"Ð¡ÑÐ°ÑÑÑ: {emp['status'] or 'active'}\n\n"
-        "ð ÐÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ:\n"
-        f"ÐÑÑÐ°Ð½Ð½Ñ: {(last['date'] + ' â ' + fmt_percent(last['percent']) + '%') if last else '-'}\n"
-        f"Ð¡ÐµÑÐµÐ´Ð½Ñ Ð·Ð° {month_label} {today.year}: {(fmt_percent(avg) + '%') if avg is not None else '-'}\n"
-        f"ÐÐ¼ÑÐ½ Ð²ÑÐ°ÑÐ¾Ð²Ð°Ð½Ð¾: {len(month_values)}"
+        f"\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a: {emp['surname'] or '-'}\n"
+        f"\u0428\u0430\u0444\u043a\u0430: {emp['locker'] or '-'}\n"
+        f"\u041d\u0456\u0436: {'\u0454' if knife_has(emp['knife']) else '\u043d\u0435\u043c\u0430\u0454'}\n"
+        f"\u0412\u0437\u0443\u0442\u0442\u044f: {shoe_display(emp)}\n"
+        f"\u0421\u0442\u0430\u0442\u0443\u0441: {emp['status'] or 'active'}\n\n"
+        "\U0001f4ca \u041f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c:\n"
+        f"\u041e\u0441\u0442\u0430\u043d\u043d\u044f: {(last['date'] + ' \u2014 ' + fmt_percent(last['percent']) + '%') if last else '-'}\n"
+        f"\u0421\u0435\u0440\u0435\u0434\u043d\u044f \u0437\u0430 {month_label} {today.year}: {(fmt_percent(avg) + '%') if avg is not None else '-'}\n"
+        f"\u0417\u043c\u0456\u043d \u0432\u0440\u0430\u0445\u043e\u0432\u0430\u043d\u043e: {len(month_values)}"
     )
 
 def format_all(rows):
@@ -3993,6 +3993,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 

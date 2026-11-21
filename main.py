@@ -4,6 +4,9 @@ import os
 import csv
 import re
 import zipfile
+import tempfile
+import shutil
+import uuid
 import threading
 from datetime import datetime, timedelta
 from io import StringIO
@@ -1564,9 +1567,9 @@ def fetch_google_csv_rows():
 
 def make_backup_zip(reason: str) -> str:
     ensure_all_files()
-    path = os.path.join(BACKUP_DIR, f"backup_{now_ts()}_{reason}.zip")
+    path = os.path.join(BACKUP_DIR, f"backup_{now_ts()}_{reason}_{uuid.uuid4().hex[:8]}.zip")
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as z:
-        for p in [EMPLOYEES_DB_PATH, SHIFTS_DB_PATH, PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH, WEEKLY_SHIFT_DB_PATH]:
+        for p in [EMPLOYEES_DB_PATH, OLD_LOCAL_DB_PATH, SHIFTS_DB_PATH, PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH, WEEKLY_SHIFT_DB_PATH]:
             if os.path.exists(p):
                 z.write(p, arcname=os.path.basename(p))
     return path
@@ -3770,36 +3773,70 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if low.endswith(".zip"):
         try:
+            # Validate the complete archive before touching the live database.
+            wanted_paths = [EMPLOYEES_DB_PATH, OLD_LOCAL_DB_PATH, SHIFTS_DB_PATH,
+                            PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH, WEEKLY_SHIFT_DB_PATH]
             with zipfile.ZipFile(io.BytesIO(bytes(content))) as z:
-                restored = []
-                wanted = [
-                    os.path.basename(EMPLOYEES_DB_PATH),
-                    os.path.basename(OLD_LOCAL_DB_PATH),
-                    os.path.basename(SHIFTS_DB_PATH),
-                    os.path.basename(PERF_DB_PATH),
-                    os.path.basename(SHIFT_SUMMARY_DB_PATH),
-                    os.path.basename(WEEKLY_SHIFT_DB_PATH),
-                ]
-                for target in wanted:
-                    if extract_named_file_from_zip(z, target, DATA_DIR):
-                        restored.append(target)
+                if z.testzip() is not None:
+                    raise ValueError("ZIP Ð¿Ð¾ÑÐºÐ¾Ð´Ð¶ÐµÐ½Ð¾ (CRC). ÐÐ°Ð·Ð¸ Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð¾.")
+                entries = {}
+                for member in z.infolist():
+                    basename = os.path.basename(member.filename)
+                    if basename in [os.path.basename(p) for p in wanted_paths]:
+                        if basename in entries:
+                            raise ValueError(f"ÐÐ¾Ð²ÑÐ¾ÑÐµÐ½Ð¸Ð¹ ÑÐ°Ð¹Ð» Ñ ZIP: {basename}")
+                        if member.file_size > 30 * 1024 * 1024:
+                            raise ValueError(f"ÐÐ°Ð²ÐµÐ»Ð¸ÐºÐ¸Ð¹ ÑÐ°Ð¹Ð»: {basename}")
+                        entries[basename] = z.read(member)
+                if not entries:
+                    raise ValueError("ZIP Ð½Ðµ Ð¼ÑÑÑÐ¸ÑÑ Ð±Ð°Ð· Ð´Ð°Ð½Ð¸Ñ. ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð¾.")
+                for name, raw in entries.items():
+                    if not raw.strip():
+                        raise ValueError(f"ÐÐ¾ÑÐ¾Ð¶Ð½Ñ Ð±Ð°Ð·Ð°: {name}")
+                    decoded = raw.decode("utf-8-sig")
+                    reader = csv.DictReader(StringIO(decoded))
+                    if not reader.fieldnames or not any(x.strip() for x in reader.fieldnames):
+                        raise ValueError(f"ÐÐµÐ¼Ð°Ñ Ð·Ð°Ð³Ð¾Ð»Ð¾Ð²ÐºÑÐ² CSV: {name}")
+                    if any(None in row for row in reader):
+                        raise ValueError(f"ÐÐ¾ÑÐºÐ¾Ð´Ð¶ÐµÐ½Ñ ÐºÐ¾Ð»Ð¾Ð½ÐºÐ¸ CSV: {name}")
 
-                converted_count = 0
-                merge_info = None
-
-                # If local_data.csv exists in ZIP, it is the source of truth for locker/knife.
-                if os.path.basename(OLD_LOCAL_DB_PATH) in restored:
-                    if os.path.basename(EMPLOYEES_DB_PATH) not in restored:
-                        converted_count = convert_local_data_to_employees_if_possible()
-                    merge_info = merge_local_data_into_employees_if_possible()
-                elif os.path.basename(EMPLOYEES_DB_PATH) not in restored:
-                    converted_count = convert_local_data_to_employees_if_possible()
-
-                # If ZIP had neither useful employees.csv nor local_data.csv, at least seed SAP list.
-                if not os.path.exists(EMPLOYEES_DB_PATH) or len(read_employees(force=True)) == 0:
-                    converted_count = merge_seed_sap()
-
-                _employee_cache["mtime"] = _shift_cache["mtime"] = _perf_cache["mtime"] = _summary_cache["mtime"] = None
+                # Restore is all-or-nothing for the original CSV files.
+                with WRITE_LOCK:
+                    original = {p: (open(p, "rb").read() if os.path.exists(p) else None)
+                                for p in wanted_paths}
+                    try:
+                        for path in wanted_paths:
+                            raw = entries.get(os.path.basename(path))
+                            if raw is None:
+                                continue
+                            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+                            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".restore_")
+                            try:
+                                with os.fdopen(fd, "wb") as f:
+                                    f.write(raw)
+                                    f.flush()
+                                    os.fsync(f.fileno())
+                                os.replace(tmp, path)
+                            finally:
+                                if os.path.exists(tmp):
+                                    os.unlink(tmp)
+                        restored = list(entries)
+                        converted_count = 0
+                        merge_info = None
+                        # Never overwrite a restored employees.csv with stale local_data.csv.
+                        if os.path.basename(EMPLOYEES_DB_PATH) not in entries and os.path.basename(OLD_LOCAL_DB_PATH) in entries:
+                            converted_count = convert_local_data_to_employees_if_possible()
+                        _employee_cache["mtime"] = _shift_cache["mtime"] = _perf_cache["mtime"] = _summary_cache["mtime"] = _weekly_cache["mtime"] = None
+                    except Exception:
+                        for path, raw in original.items():
+                            if raw is None:
+                                if os.path.exists(path):
+                                    os.unlink(path)
+                            else:
+                                with open(path, "wb") as f:
+                                    f.write(raw)
+                        _employee_cache["mtime"] = _shift_cache["mtime"] = _perf_cache["mtime"] = _summary_cache["mtime"] = _weekly_cache["mtime"] = None
+                        raise
 
             reset_state(context); set_menu(context, "main")
             msg = "\u267b\ufe0f \u0412\u0456\u0434\u043d\u043e\u0432\u043b\u0435\u043d\u043e \u0437 ZIP \u2705\n" + ", ".join(restored)
@@ -3838,6 +3875,9 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
             emp = ensure_employee_columns(base)
         rows.append(emp)
     rows = [r for r in rows if r["surname"] or r["sap"]]
+    if not rows:
+        await update.message.reply_text("â CSV Ð½Ðµ Ð¼ÑÑÑÐ¸ÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ². ÐÐ¾ÑÐ¾ÑÐ½Ð° Ð±Ð°Ð·Ð° Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð°.")
+        return
     write_employees(rows)
     await backup_everywhere(context, update.effective_chat.id, "after_restore", f"\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432: {len(rows)}")
     reset_state(context); set_menu(context, "main")

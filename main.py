@@ -1,4 +1,4 @@
- -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 BOT_BUILD = "2026-09-06-monitoring-dynamics-v3"
 import os
 import csv

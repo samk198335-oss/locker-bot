@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-21-workpuls-reviewed-v15"
+BOT_BUILD = "2026-11-21-workpuls-reviewed-v16"
 import os
 import csv
 import re
@@ -14,7 +14,7 @@ import io
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import requests
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Document, InputFile, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Document, InputFile, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove, BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -4076,11 +4076,11 @@ async def _group_entry(update, context):
             registry = json.load(f)
     except (OSError, ValueError, TypeError):
         registry = {}
-    message_text = ("WorkPuls | ÐÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ / Personal account\n"
-                    "ÐÐ°ÑÐ¸ÑÐ½ÑÑÑ ÐºÐ½Ð¾Ð¿ÐºÑ Ð½Ð¸Ð¶ÑÐµ. / Tap the button below.\n"
-                    f"ÐÐµÑÑÑÑ / Build: {BOT_BUILD}")
+    message_text = ("WorkPuls | Personal account\n"
+                    "ÐÑÐ´ÐºÑÐ¸Ð¹ÑÐµ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ ÐºÐ½Ð¾Ð¿ÐºÐ¾Ñ Ð½Ð¸Ð¶ÑÐµ.\n"
+                    "Open your private account using the button below.")
     markup = InlineKeyboardMarkup([[
-        InlineKeyboardButton("ÐÑÐ´ÐºÑÐ¸ÑÐ¸ WorkPuls / Open", url=url)
+        InlineKeyboardButton("WorkPuls | Open", url=url)
     ]])
     previous_id = registry.get(str(chat_id))
     if previous_id:
@@ -4103,16 +4103,26 @@ async def _group_entry(update, context):
         os.replace(temp, registry_path)
 
 
+async def _delete_group_command(update, context):
+    """Delete command messages if the bot is a group admin with delete rights."""
+    try:
+        await update.effective_message.delete()
+    except Exception as exc:
+        print(f"Group command could not be deleted: {exc}", flush=True)
+
+
 async def cmd_group_open(update, context):
     if update.effective_chat.type != "private":
-        if not is_admin(update):
-            return
-        return await _group_entry(update, context)
+        await _delete_group_command(update, context)
+        if is_admin(update):
+            await _group_entry(update, context)
+        return
     return await safe_start(update, context)
 
 
 async def safe_start(update, context):
     if update.effective_chat.type != "private":
+        await _delete_group_command(update, context)
         return
     if is_admin(update):
         context.user_data.pop("wp_mode", None)
@@ -4378,7 +4388,19 @@ def main():
         print(f"Migration warning: {e}")
 
     print(f"WORKPULS STARTUP: build={BOT_BUILD}, source={__file__}, admins={len(ADMIN_USER_IDS)}", flush=True)
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    async def _post_init(application):
+        # Telegram command suggestions: none in groups; only private commands.
+        try:
+            await application.bot.set_my_commands([], scope=BotCommandScopeAllGroupChats())
+            await application.bot.set_my_commands([
+                BotCommand("start", "Open WorkPuls"),
+                BotCommand("version", "Bot version"),
+                BotCommand("employee", "Personal menu"),
+            ], scope=BotCommandScopeAllPrivateChats())
+        except Exception as exc:
+            print(f"Command menu setup failed: {exc}", flush=True)
+
+    app = ApplicationBuilder().token(BOT_TOKEN).post_init(_post_init).build()
     app.add_handler(CommandHandler("start", safe_start))
     app.add_handler(CommandHandler("open", cmd_group_open))
     app.add_handler(CommandHandler("employee", cmd_employee))

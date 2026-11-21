@@ -4061,16 +4061,40 @@ async def _employee_home(update, context):
 
 
 async def _group_entry(update, context):
-    """Public group entry; pin this message for a permanent group button."""
+    """Create one reusable group entry; edit the existing message on subsequent /open."""
     me = await context.bot.get_me()
     url = f"https://t.me/{me.username}?start=workpuls"
-    await update.effective_message.reply_text(
-        "WorkPuls | ÐÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ / Personal account\n"
-        "ÐÐ°ÑÐ¸ÑÐ½ÑÑÑ ÐºÐ½Ð¾Ð¿ÐºÑ Ð½Ð¸Ð¶ÑÐµ. / Tap the button below.",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("ÐÑÐ´ÐºÑÐ¸ÑÐ¸ WorkPuls / Open", url=url)
-        ]]),
-    )
+    chat_id = update.effective_chat.id
+    registry_path = os.path.join(DATA_DIR, "workpuls_group_entry.json")
+    try:
+        with open(registry_path, encoding="utf-8") as f:
+            registry = json.load(f)
+    except (OSError, ValueError, TypeError):
+        registry = {}
+    message_text = ("WorkPuls | ÐÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ / Personal account\n"
+                    "ÐÐ°ÑÐ¸ÑÐ½ÑÑÑ ÐºÐ½Ð¾Ð¿ÐºÑ Ð½Ð¸Ð¶ÑÐµ. / Tap the button below.")
+    markup = InlineKeyboardMarkup([[
+        InlineKeyboardButton("ÐÑÐ´ÐºÑÐ¸ÑÐ¸ WorkPuls / Open", url=url)
+    ]])
+    previous_id = registry.get(str(chat_id))
+    if previous_id:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id, message_id=int(previous_id),
+                text=message_text, reply_markup=markup)
+            return
+        except Exception as exc:
+            # 'Message is not modified' is a successful no-op.
+            if "not modified" in str(exc).lower():
+                return
+            print(f"Group entry edit failed: {exc}")
+    sent = await context.bot.send_message(chat_id, message_text, reply_markup=markup)
+    registry[str(chat_id)] = sent.message_id
+    with WRITE_LOCK:
+        temp = registry_path + ".tmp"
+        with open(temp, "w", encoding="utf-8") as f:
+            json.dump(registry, f)
+        os.replace(temp, registry_path)
 
 
 async def cmd_group_open(update, context):

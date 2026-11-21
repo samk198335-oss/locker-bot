@@ -3799,27 +3799,27 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH, WEEKLY_SHIFT_DB_PATH]
             with zipfile.ZipFile(io.BytesIO(bytes(content))) as z:
                 if z.testzip() is not None:
-                    raise ValueError("ZIP ÃÂ¿ÃÂ¾ÃÂÃÂºÃÂ¾ÃÂ´ÃÂ¶ÃÂµÃÂ½ÃÂ¾ (CRC). ÃÂÃÂ°ÃÂ·ÃÂ¸ ÃÂ½ÃÂµ ÃÂ·ÃÂ¼ÃÂÃÂ½ÃÂµÃÂ½ÃÂ¾.")
+                    raise ValueError("ZIP ÃÂÃÂ¿ÃÂÃÂ¾ÃÂÃÂÃÂÃÂºÃÂÃÂ¾ÃÂÃÂ´ÃÂÃÂ¶ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ¾ (CRC). ÃÂÃÂÃÂÃÂ°ÃÂÃÂ·ÃÂÃÂ¸ ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ·ÃÂÃÂ¼ÃÂÃÂÃÂÃÂ½ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ¾.")
                 entries = {}
                 for member in z.infolist():
                     basename = os.path.basename(member.filename)
                     if basename in [os.path.basename(p) for p in wanted_paths]:
                         if basename in entries:
-                            raise ValueError(f"ÃÂÃÂ¾ÃÂ²ÃÂÃÂ¾ÃÂÃÂµÃÂ½ÃÂ¸ÃÂ¹ ÃÂÃÂ°ÃÂ¹ÃÂ» ÃÂ ZIP: {basename}")
+                            raise ValueError(f"ÃÂÃÂÃÂÃÂ¾ÃÂÃÂ²ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂµÃÂÃÂ½ÃÂÃÂ¸ÃÂÃÂ¹ ÃÂÃÂÃÂÃÂ°ÃÂÃÂ¹ÃÂÃÂ» ÃÂÃÂ ZIP: {basename}")
                         if member.file_size > 30 * 1024 * 1024:
-                            raise ValueError(f"ÃÂÃÂ°ÃÂ²ÃÂµÃÂ»ÃÂ¸ÃÂºÃÂ¸ÃÂ¹ ÃÂÃÂ°ÃÂ¹ÃÂ»: {basename}")
+                            raise ValueError(f"ÃÂÃÂÃÂÃÂ°ÃÂÃÂ²ÃÂÃÂµÃÂÃÂ»ÃÂÃÂ¸ÃÂÃÂºÃÂÃÂ¸ÃÂÃÂ¹ ÃÂÃÂÃÂÃÂ°ÃÂÃÂ¹ÃÂÃÂ»: {basename}")
                         entries[basename] = z.read(member)
                 if not entries:
-                    raise ValueError("ZIP ÃÂ½ÃÂµ ÃÂ¼ÃÂÃÂÃÂÃÂ¸ÃÂÃÂ ÃÂ±ÃÂ°ÃÂ· ÃÂ´ÃÂ°ÃÂ½ÃÂ¸ÃÂ. ÃÂÃÂÃÂÃÂ¾ÃÂ³ÃÂ¾ ÃÂ½ÃÂµ ÃÂ·ÃÂ¼ÃÂÃÂ½ÃÂµÃÂ½ÃÂ¾.")
+                    raise ValueError("ZIP ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ ÃÂÃÂ±ÃÂÃÂ°ÃÂÃÂ· ÃÂÃÂ´ÃÂÃÂ°ÃÂÃÂ½ÃÂÃÂ¸ÃÂÃÂ. ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂ³ÃÂÃÂ¾ ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ·ÃÂÃÂ¼ÃÂÃÂÃÂÃÂ½ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ¾.")
                 for name, raw in entries.items():
                     if not raw.strip():
-                        raise ValueError(f"ÃÂÃÂ¾ÃÂÃÂ¾ÃÂ¶ÃÂ½ÃÂ ÃÂ±ÃÂ°ÃÂ·ÃÂ°: {name}")
+                        raise ValueError(f"ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ¾ÃÂÃÂ¶ÃÂÃÂ½ÃÂÃÂ ÃÂÃÂ±ÃÂÃÂ°ÃÂÃÂ·ÃÂÃÂ°: {name}")
                     decoded = raw.decode("utf-8-sig")
                     reader = csv.DictReader(StringIO(decoded))
                     if not reader.fieldnames or not any(x.strip() for x in reader.fieldnames):
-                        raise ValueError(f"ÃÂÃÂµÃÂ¼ÃÂ°ÃÂ ÃÂ·ÃÂ°ÃÂ³ÃÂ¾ÃÂ»ÃÂ¾ÃÂ²ÃÂºÃÂÃÂ² CSV: {name}")
+                        raise ValueError(f"ÃÂÃÂÃÂÃÂµÃÂÃÂ¼ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ·ÃÂÃÂ°ÃÂÃÂ³ÃÂÃÂ¾ÃÂÃÂ»ÃÂÃÂ¾ÃÂÃÂ²ÃÂÃÂºÃÂÃÂÃÂÃÂ² CSV: {name}")
                     if any(None in row for row in reader):
-                        raise ValueError(f"ÃÂÃÂ¾ÃÂÃÂºÃÂ¾ÃÂ´ÃÂ¶ÃÂµÃÂ½ÃÂ ÃÂºÃÂ¾ÃÂ»ÃÂ¾ÃÂ½ÃÂºÃÂ¸ CSV: {name}")
+                        raise ValueError(f"ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂºÃÂÃÂ¾ÃÂÃÂ´ÃÂÃÂ¶ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ ÃÂÃÂºÃÂÃÂ¾ÃÂÃÂ»ÃÂÃÂ¾ÃÂÃÂ½ÃÂÃÂºÃÂÃÂ¸ CSV: {name}")
 
                 # Restore is all-or-nothing for the original CSV files.
                 with WRITE_LOCK:
@@ -3897,7 +3897,7 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows.append(emp)
     rows = [r for r in rows if r["surname"] or r["sap"]]
     if not rows:
-        await update.message.reply_text("Ã¢ÂÂ CSV ÃÂ½ÃÂµ ÃÂ¼ÃÂÃÂÃÂÃÂ¸ÃÂÃÂ ÃÂ¿ÃÂÃÂ°ÃÂÃÂÃÂ²ÃÂ½ÃÂ¸ÃÂºÃÂÃÂ². ÃÂÃÂ¾ÃÂÃÂ¾ÃÂÃÂ½ÃÂ° ÃÂ±ÃÂ°ÃÂ·ÃÂ° ÃÂ½ÃÂµ ÃÂ·ÃÂ¼ÃÂÃÂ½ÃÂµÃÂ½ÃÂ°.")
+        await update.message.reply_text("ÃÂ¢ÃÂÃÂ CSV ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ ÃÂÃÂ¿ÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ²ÃÂÃÂ½ÃÂÃÂ¸ÃÂÃÂºÃÂÃÂÃÂÃÂ². ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ½ÃÂÃÂ° ÃÂÃÂ±ÃÂÃÂ°ÃÂÃÂ·ÃÂÃÂ° ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ·ÃÂÃÂ¼ÃÂÃÂÃÂÃÂ½ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ°.")
         return
     write_employees(rows)
     await backup_everywhere(context, update.effective_chat.id, "after_restore", f"\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432: {len(rows)}")
@@ -3967,48 +3967,72 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"\u274c \u041f\u043e\u043c\u0438\u043b\u043a\u0430 OCR: {e}\n\n\u041c\u043e\u0436\u0435\u0448 \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0446\u0456 \u0434\u0430\u043d\u0456 \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0447\u0435\u0440\u0435\u0437 \U0001f4e5 \u0406\u043c\u043f\u043e\u0440\u0442 % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e.")
 
 # ==============================
-# ACCESS CONTROL (test branch)
+# ACCESS CONTROL AND SEPARATE MENUS
 # ==============================
+BTN_MY_CARD = "ð¤ ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°"
+EMPLOYEE_PRIVATE_KB = ReplyKeyboardMarkup(
+    [[BTN_MY_CARD]], resize_keyboard=True, is_persistent=True
+)
+
 def is_admin(update):
     user = update.effective_user
     return bool(user and user.id in ADMIN_USER_IDS)
 
 async def employee_private_access(update, context):
-    """SAP lookup only in private chats. No writes."""
+    """Read-only SAP lookup in private chat; no write handlers reachable."""
     message = update.effective_message
-    if not message or update.effective_chat.type != "private":
-        if message:
-            await message.reply_text("ÐÑÐ¾Ð±Ð¸ÑÑÑ ÐºÐ°ÑÑÐºÑ Ð¼Ð¾Ð¶Ð½Ð° Ð¿ÐµÑÐµÐ³Ð»ÑÐ½ÑÑÐ¸ Ð»Ð¸ÑÐµ Ð² Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¾Ð¼Ñ ÑÐ°ÑÑ Ð· Ð±Ð¾ÑÐ¾Ð¼.")
+    if not message:
+        return
+    if update.effective_chat.type != "private":
+        await message.reply_text("ÐÑÐ¾Ð±Ð¸ÑÑÑ ÐºÐ°ÑÑÐºÑ Ð¼Ð¾Ð¶Ð½Ð° Ð¿ÐµÑÐµÐ³Ð»ÑÐ½ÑÑÐ¸ Ð»Ð¸ÑÐµ Ð² Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¾Ð¼Ñ ÑÐ°ÑÑ Ð· Ð±Ð¾ÑÐ¾Ð¼.")
         return
     sap = (message.text or "").strip()
-    if not sap.isdigit() or not (8 <= len(sap) <= 12):
-        await message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ) Ð°Ð±Ð¾ /start.")
+    if sap == BTN_MY_CARD:
+        await message.reply_text("ÐÐ²ÐµÐ´Ð¸ ÑÐ²ÑÐ¹ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ).", reply_markup=EMPLOYEE_PRIVATE_KB)
+        return
+    if not sap.isascii() or not sap.isdigit() or not (8 <= len(sap) <= 12):
+        await message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ) Ð°Ð±Ð¾ Ð½Ð°ÑÐ¸ÑÐ½Ð¸ Â«ð¤ ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°Â».", reply_markup=EMPLOYEE_PRIVATE_KB)
         return
     matches = [e for e in read_employees() if normalize_text(e.get("sap", "")) == sap]
     if len(matches) != 1:
-        await message.reply_text("SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ Ð°Ð±Ð¾ Ð²ÑÐ½ Ð½ÐµÐ¾Ð´Ð½Ð¾Ð·Ð½Ð°ÑÐ½Ð¸Ð¹. ÐÐ²ÐµÑÐ½Ð¸ÑÑ Ð´Ð¾ ÐºÐ¾Ð¾ÑÐ´Ð¸Ð½Ð°ÑÐ¾ÑÐ°.")
+        await message.reply_text("SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ Ð°Ð±Ð¾ Ð²ÑÐ½ Ð½ÐµÐ¾Ð´Ð½Ð¾Ð·Ð½Ð°ÑÐ½Ð¸Ð¹. ÐÐ²ÐµÑÐ½Ð¸ÑÑ Ð´Ð¾ ÐºÐ¾Ð¾ÑÐ´Ð¸Ð½Ð°ÑÐ¾ÑÐ°.", reply_markup=EMPLOYEE_PRIVATE_KB)
         return
-    await message.reply_text(format_employee_card(matches[0], read_perf()))
+    await message.reply_text(format_employee_card(matches[0], read_perf()), reply_markup=EMPLOYEE_PRIVATE_KB)
 
 async def guarded_admin(handler, update, context):
     if not is_admin(update):
         message = update.effective_message
         if message:
-            await message.reply_text("ÐÐ¾ÑÑÑÐ¿ Ð·Ð°Ð±Ð¾ÑÐ¾Ð½ÐµÐ½Ð¾. ÐÐ»Ñ ÑÐ²Ð¾ÑÑ ÐºÐ°ÑÑÐºÐ¸ Ð²Ð²ÐµÐ´Ð¸ SAP Ñ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¾Ð¼Ñ ÑÐ°ÑÑ.")
+            await message.reply_text(
+                "ÐÐ¾ÑÑÑÐ¿ Ð·Ð°Ð±Ð¾ÑÐ¾Ð½ÐµÐ½Ð¾. ÐÐ»Ñ Ð¿ÐµÑÐµÐ³Ð»ÑÐ´Ñ ÐºÐ°ÑÑÐºÐ¸ Ð²ÑÐ´ÐºÑÐ¸Ð¹ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¸Ð¹ ÑÐ°Ñ ÑÐ· Ð±Ð¾ÑÐ¾Ð¼.",
+                reply_markup=EMPLOYEE_PRIVATE_KB if update.effective_chat.type == "private" else None,
+            )
+        elif update.callback_query:
+            await update.callback_query.answer("ÐÐ¾ÑÑÑÐ¿ Ð·Ð°Ð±Ð¾ÑÐ¾Ð½ÐµÐ½Ð¾", show_alert=True)
         return
     return await handler(update, context)
 
 async def safe_start(update, context):
-    if is_admin(update):
+    if is_admin(update) and update.effective_chat.type == "private":
         return await cmd_start(update, context)
     if update.effective_chat.type != "private":
-        await update.effective_message.reply_text("ÐÐ°Ð¿Ð¸ÑÐ¸ Ð±Ð¾ÑÑ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¾, ÑÐ¾Ð± Ð¿ÐµÑÐµÐ³Ð»ÑÐ½ÑÑÐ¸ ÑÐ²Ð¾Ñ ÐºÐ°ÑÑÐºÑ.")
+        await update.effective_message.reply_text(
+            "ÐÐ»Ñ Ð¿ÐµÑÐµÐ³Ð»ÑÐ´Ñ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¾Ñ ÐºÐ°ÑÑÐºÐ¸ Ð²ÑÐ´ÐºÑÐ¸Ð¹ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¸Ð¹ ÑÐ°Ñ ÑÐ· Ð±Ð¾ÑÐ¾Ð¼ Ñ Ð½Ð°ÑÐ¸ÑÐ½Ð¸ /start."
+        )
     else:
-        await update.effective_message.reply_text("ÐÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ: Ð²Ð²ÐµÐ´Ð¸ ÑÐ²ÑÐ¹ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ). ÐÐµÑÐµÐ³Ð»ÑÐ´ Ð±ÐµÐ· ÑÐµÐ´Ð°Ð³ÑÐ²Ð°Ð½Ð½Ñ.")
+        reset_state(context)
+        await update.effective_message.reply_text(
+            "ð¤ ÐÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ\n\nÐÐ°ÑÐ¸ÑÐ½Ð¸ Â«ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°Â» ÑÐ° Ð²Ð²ÐµÐ´Ð¸ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ). ÐÐµÑÐµÐ³Ð»ÑÐ´ Ð±ÐµÐ· ÑÐµÐ´Ð°Ð³ÑÐ²Ð°Ð½Ð½Ñ.",
+            reply_markup=EMPLOYEE_PRIVATE_KB,
+        )
 
 async def safe_text(update, context):
-    if is_admin(update):
+    if is_admin(update) and update.effective_chat.type == "private":
         return await on_text(update, context)
+    if is_admin(update):
+        return  # No admin commands or menus inside groups.
+    if update.effective_chat.type != "private":
+        return  # Ignore ordinary group conversations.
     return await employee_private_access(update, context)
 
 # ==============================
@@ -4044,6 +4068,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 

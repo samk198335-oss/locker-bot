@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-21-workpuls-roles-utf8-v13"
+BOT_BUILD = "2026-11-21-workpuls-reviewed-v14"
 import os
 import csv
 import re
@@ -4083,7 +4083,7 @@ async def cmd_group_open(update, context):
 
 async def safe_start(update, context):
     if update.effective_chat.type != "private":
-        return await _group_entry(update, context)
+        return
     if is_admin(update):
         context.user_data.pop("wp_mode", None)
         await update.effective_message.reply_text(
@@ -4096,7 +4096,7 @@ async def safe_start(update, context):
 
 async def cmd_employee(update, context):
     if update.effective_chat.type != "private":
-        return await _group_entry(update, context)
+        return
     await _employee_home(update, context)
 
 
@@ -4124,16 +4124,18 @@ async def cmd_driverreport(update, context):
     if update.effective_chat.type != "private" or not is_admin(update):
         return
     month = context.args[0] if context.args else datetime.now().strftime("%Y-%m")
-    if not re.fullmatch(r"\d{4}-\d{2}", month):
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
         await update.message.reply_text("Ð¤Ð¾ÑÐ¼Ð°Ñ: /driverreport 2026-11")
         return
     rows = []
     try:
         with open(TRIPS_FILE, encoding="utf-8") as f:
             rows = [json.loads(line) for line in f if line.strip()]
-    except FileNotFoundError:
-        pass
-    rows = [r for r in rows if str(r.get("date", "")).startswith(month)]
+    except (FileNotFoundError, ValueError, TypeError) as e:
+        if not isinstance(e, FileNotFoundError):
+            await update.message.reply_text("ÐÐ¾Ð¼Ð¸Ð»ÐºÐ° ÑÐ¸ÑÐ°Ð½Ð½Ñ Ð¶ÑÑÐ½Ð°Ð»Ñ Ð¿Ð¾ÑÐ·Ð´Ð¾Ðº. ÐÐµÑÐµÐ²ÑÑÑÐµ ÑÐ°Ð¹Ð» Ð´Ð°Ð½Ð¸Ñ.")
+            return
+    rows = [r for r in rows if isinstance(r, dict) and str(r.get("date", "")).startswith(month)]
     if not rows:
         await update.message.reply_text("ÐÐ¾ÑÐ·Ð´Ð¾Ðº Ð·Ð° ÑÐµÐ¹ Ð¼ÑÑÑÑÑ Ð½ÐµÐ¼Ð°Ñ.")
         return
@@ -4163,7 +4165,7 @@ async def employee_private_access(update, context):
     text = (message.text or "").strip()
     ud = context.user_data
     mode = ud.get("wp_mode")
-    if text in (BTN_CANCEL_WP, "/cancel"):
+    if text in (BTN_CANCEL_WP, "â Cancel", "/cancel"):
         return await _employee_home(update, context)
     if text == BTN_LANGUAGE:
         ud["wp_lang"] = "en" if _lang(context) == "uk" else "uk"
@@ -4172,10 +4174,12 @@ async def employee_private_access(update, context):
         return await _employee_home(update, context)
     if text == BTN_ADMIN_MENU and is_admin(update):
         ud.pop("wp_mode", None)
+        ud.pop("wp_trip", None)
         await message.reply_text("ð  ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ", reply_markup=MAIN_KB)
         return
     if _button_match(text, BTN_DRIVER, "ð Driver") and (is_driver(update) or is_admin(update)):
         ud.pop("wp_mode", None)
+        ud.pop("wp_trip", None)
         await message.reply_text("ð ÐÐµÐ½Ñ Ð²Ð¾Ð´ÑÑ", reply_markup=_driver_kb(context))
         return
     if text == BTN_MY_TRIPS and (is_driver(update) or is_admin(update)):
@@ -4307,7 +4311,7 @@ async def safe_text(update, context):
         BTN_EMP_MENU, BTN_ADMIN_MENU, BTN_MY_CARD, "ð¤ My card",
         BTN_LANGUAGE, BTN_DRIVER, "ð Driver", BTN_TRIP, BTN_MY_TRIPS,
         BTN_COMPLAINT, "ð¨ Complaint", BTN_SUGGESTION, "ð¡ Suggestion",
-        BTN_DAYOFF, "ð Day off request", BTN_CANCEL_WP,
+        BTN_DAYOFF, "ð Day off request", BTN_CANCEL_WP, "â Cancel",
     }
     # An active personal flow takes priority over the legacy admin workflow.
     if ud.get("wp_mode") or text in personal_buttons:
@@ -4356,5 +4360,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

@@ -48,6 +48,8 @@ threading.Thread(target=run_http_server, daemon=True).start()
 # ==============================
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
+ADMIN_USER_IDS = {int(x.strip()) for x in os.getenv("ADMIN_USER_IDS", "6130006353,7293288896").split(",") if x.strip().isdigit()}
+
 OCR_SPACE_API_KEY = os.getenv("OCR_SPACE_API_KEY", "").strip()
 CSV_URL = os.getenv(
     "CSV_URL",
@@ -1728,21 +1730,25 @@ def format_shift(date_str, st, shifts_rows, perf_rows, summary_rows):
 
 
 def compute_worker_averages(perf_rows, month: str = ""):
-    """Average productivity per SAP, optionally limited to MM.YYYY."""
-    sums, cnts, names = {}, {}, {}
+    """Last imported entry per SAP/date/shift; no future records."""
+    latest = {}
+    today = datetime.now().date()
     for r in perf_rows:
-        if month:
-            dt = parse_ddmmyyyy(r.get("date", ""))
-            if not dt or dt.strftime("%m.%Y") != month:
-                continue
-        p = safe_float(r.get("percent", ""))
-        sap = normalize_text(r.get("sap", ""))
-        if p is None or not sap:
+        dt = parse_ddmmyyyy(r.get("date", ""))
+        if dt is None or dt.date() > today:
             continue
-        sums[sap] = sums.get(sap, 0.0) + p
-        cnts[sap] = cnts.get(sap, 0) + 1
-        names[sap] = normalize_text(r.get("surname", "")).upper()
-    return {sap: (sums[sap] / cnts[sap], cnts[sap], names.get(sap, "")) for sap in sums}
+        if month and dt.strftime("%m.%Y") != month:
+            continue
+        sap = normalize_text(r.get("sap", ""))
+        pct = safe_float(r.get("percent", ""))
+        if not sap or pct is None:
+            continue
+        shift = normalize_shift_type(r.get("shift_type", "")) or safe_lower(r.get("shift_type", ""))
+        latest[(sap, dt.date(), shift)] = (pct, normalize_text(r.get("surname", "")).upper())
+    grouped = {}
+    for (sap, _, _), (pct, name) in latest.items():
+        grouped.setdefault(sap, []).append((pct, name))
+    return {sap: (sum(v for v, _ in vals) / len(vals), len(vals), next((n for _, n in reversed(vals) if n), "")) for sap, vals in grouped.items()}
 
 def format_sorted_workers(perf_rows, month: str = ""):
     avgs = compute_worker_averages(perf_rows, month)
@@ -3793,27 +3799,27 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH, WEEKLY_SHIFT_DB_PATH]
             with zipfile.ZipFile(io.BytesIO(bytes(content))) as z:
                 if z.testzip() is not None:
-                    raise ValueError("ZIP Ð¿Ð¾ÑÐºÐ¾Ð´Ð¶ÐµÐ½Ð¾ (CRC). ÐÐ°Ð·Ð¸ Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð¾.")
+                    raise ValueError("ZIP ÃÂ¿ÃÂ¾ÃÂÃÂºÃÂ¾ÃÂ´ÃÂ¶ÃÂµÃÂ½ÃÂ¾ (CRC). ÃÂÃÂ°ÃÂ·ÃÂ¸ ÃÂ½ÃÂµ ÃÂ·ÃÂ¼ÃÂÃÂ½ÃÂµÃÂ½ÃÂ¾.")
                 entries = {}
                 for member in z.infolist():
                     basename = os.path.basename(member.filename)
                     if basename in [os.path.basename(p) for p in wanted_paths]:
                         if basename in entries:
-                            raise ValueError(f"ÐÐ¾Ð²ÑÐ¾ÑÐµÐ½Ð¸Ð¹ ÑÐ°Ð¹Ð» Ñ ZIP: {basename}")
+                            raise ValueError(f"ÃÂÃÂ¾ÃÂ²ÃÂÃÂ¾ÃÂÃÂµÃÂ½ÃÂ¸ÃÂ¹ ÃÂÃÂ°ÃÂ¹ÃÂ» ÃÂ ZIP: {basename}")
                         if member.file_size > 30 * 1024 * 1024:
-                            raise ValueError(f"ÐÐ°Ð²ÐµÐ»Ð¸ÐºÐ¸Ð¹ ÑÐ°Ð¹Ð»: {basename}")
+                            raise ValueError(f"ÃÂÃÂ°ÃÂ²ÃÂµÃÂ»ÃÂ¸ÃÂºÃÂ¸ÃÂ¹ ÃÂÃÂ°ÃÂ¹ÃÂ»: {basename}")
                         entries[basename] = z.read(member)
                 if not entries:
-                    raise ValueError("ZIP Ð½Ðµ Ð¼ÑÑÑÐ¸ÑÑ Ð±Ð°Ð· Ð´Ð°Ð½Ð¸Ñ. ÐÑÑÐ¾Ð³Ð¾ Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð¾.")
+                    raise ValueError("ZIP ÃÂ½ÃÂµ ÃÂ¼ÃÂÃÂÃÂÃÂ¸ÃÂÃÂ ÃÂ±ÃÂ°ÃÂ· ÃÂ´ÃÂ°ÃÂ½ÃÂ¸ÃÂ. ÃÂÃÂÃÂÃÂ¾ÃÂ³ÃÂ¾ ÃÂ½ÃÂµ ÃÂ·ÃÂ¼ÃÂÃÂ½ÃÂµÃÂ½ÃÂ¾.")
                 for name, raw in entries.items():
                     if not raw.strip():
-                        raise ValueError(f"ÐÐ¾ÑÐ¾Ð¶Ð½Ñ Ð±Ð°Ð·Ð°: {name}")
+                        raise ValueError(f"ÃÂÃÂ¾ÃÂÃÂ¾ÃÂ¶ÃÂ½ÃÂ ÃÂ±ÃÂ°ÃÂ·ÃÂ°: {name}")
                     decoded = raw.decode("utf-8-sig")
                     reader = csv.DictReader(StringIO(decoded))
                     if not reader.fieldnames or not any(x.strip() for x in reader.fieldnames):
-                        raise ValueError(f"ÐÐµÐ¼Ð°Ñ Ð·Ð°Ð³Ð¾Ð»Ð¾Ð²ÐºÑÐ² CSV: {name}")
+                        raise ValueError(f"ÃÂÃÂµÃÂ¼ÃÂ°ÃÂ ÃÂ·ÃÂ°ÃÂ³ÃÂ¾ÃÂ»ÃÂ¾ÃÂ²ÃÂºÃÂÃÂ² CSV: {name}")
                     if any(None in row for row in reader):
-                        raise ValueError(f"ÐÐ¾ÑÐºÐ¾Ð´Ð¶ÐµÐ½Ñ ÐºÐ¾Ð»Ð¾Ð½ÐºÐ¸ CSV: {name}")
+                        raise ValueError(f"ÃÂÃÂ¾ÃÂÃÂºÃÂ¾ÃÂ´ÃÂ¶ÃÂµÃÂ½ÃÂ ÃÂºÃÂ¾ÃÂ»ÃÂ¾ÃÂ½ÃÂºÃÂ¸ CSV: {name}")
 
                 # Restore is all-or-nothing for the original CSV files.
                 with WRITE_LOCK:
@@ -3891,7 +3897,7 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows.append(emp)
     rows = [r for r in rows if r["surname"] or r["sap"]]
     if not rows:
-        await update.message.reply_text("â CSV Ð½Ðµ Ð¼ÑÑÑÐ¸ÑÑ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÑÐ². ÐÐ¾ÑÐ¾ÑÐ½Ð° Ð±Ð°Ð·Ð° Ð½Ðµ Ð·Ð¼ÑÐ½ÐµÐ½Ð°.")
+        await update.message.reply_text("Ã¢ÂÂ CSV ÃÂ½ÃÂµ ÃÂ¼ÃÂÃÂÃÂÃÂ¸ÃÂÃÂ ÃÂ¿ÃÂÃÂ°ÃÂÃÂÃÂ²ÃÂ½ÃÂ¸ÃÂºÃÂÃÂ². ÃÂÃÂ¾ÃÂÃÂ¾ÃÂÃÂ½ÃÂ° ÃÂ±ÃÂ°ÃÂ·ÃÂ° ÃÂ½ÃÂµ ÃÂ·ÃÂ¼ÃÂÃÂ½ÃÂµÃÂ½ÃÂ°.")
         return
     write_employees(rows)
     await backup_everywhere(context, update.effective_chat.id, "after_restore", f"\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432: {len(rows)}")
@@ -3961,6 +3967,51 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"\u274c \u041f\u043e\u043c\u0438\u043b\u043a\u0430 OCR: {e}\n\n\u041c\u043e\u0436\u0435\u0448 \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0446\u0456 \u0434\u0430\u043d\u0456 \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0447\u0435\u0440\u0435\u0437 \U0001f4e5 \u0406\u043c\u043f\u043e\u0440\u0442 % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e.")
 
 # ==============================
+# ACCESS CONTROL (test branch)
+# ==============================
+def is_admin(update):
+    user = update.effective_user
+    return bool(user and user.id in ADMIN_USER_IDS)
+
+async def employee_private_access(update, context):
+    """SAP lookup only in private chats. No writes."""
+    message = update.effective_message
+    if not message or update.effective_chat.type != "private":
+        if message:
+            await message.reply_text("ÐÑÐ¾Ð±Ð¸ÑÑÑ ÐºÐ°ÑÑÐºÑ Ð¼Ð¾Ð¶Ð½Ð° Ð¿ÐµÑÐµÐ³Ð»ÑÐ½ÑÑÐ¸ Ð»Ð¸ÑÐµ Ð² Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¾Ð¼Ñ ÑÐ°ÑÑ Ð· Ð±Ð¾ÑÐ¾Ð¼.")
+        return
+    sap = (message.text or "").strip()
+    if not sap.isdigit() or not (8 <= len(sap) <= 12):
+        await message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ) Ð°Ð±Ð¾ /start.")
+        return
+    matches = [e for e in read_employees() if normalize_text(e.get("sap", "")) == sap]
+    if len(matches) != 1:
+        await message.reply_text("SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ Ð°Ð±Ð¾ Ð²ÑÐ½ Ð½ÐµÐ¾Ð´Ð½Ð¾Ð·Ð½Ð°ÑÐ½Ð¸Ð¹. ÐÐ²ÐµÑÐ½Ð¸ÑÑ Ð´Ð¾ ÐºÐ¾Ð¾ÑÐ´Ð¸Ð½Ð°ÑÐ¾ÑÐ°.")
+        return
+    await message.reply_text(format_employee_card(matches[0], read_perf()))
+
+async def guarded_admin(handler, update, context):
+    if not is_admin(update):
+        message = update.effective_message
+        if message:
+            await message.reply_text("ÐÐ¾ÑÑÑÐ¿ Ð·Ð°Ð±Ð¾ÑÐ¾Ð½ÐµÐ½Ð¾. ÐÐ»Ñ ÑÐ²Ð¾ÑÑ ÐºÐ°ÑÑÐºÐ¸ Ð²Ð²ÐµÐ´Ð¸ SAP Ñ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¾Ð¼Ñ ÑÐ°ÑÑ.")
+        return
+    return await handler(update, context)
+
+async def safe_start(update, context):
+    if is_admin(update):
+        return await cmd_start(update, context)
+    if update.effective_chat.type != "private":
+        await update.effective_message.reply_text("ÐÐ°Ð¿Ð¸ÑÐ¸ Ð±Ð¾ÑÑ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¾, ÑÐ¾Ð± Ð¿ÐµÑÐµÐ³Ð»ÑÐ½ÑÑÐ¸ ÑÐ²Ð¾Ñ ÐºÐ°ÑÑÐºÑ.")
+    else:
+        await update.effective_message.reply_text("ÐÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ: Ð²Ð²ÐµÐ´Ð¸ ÑÐ²ÑÐ¹ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ). ÐÐµÑÐµÐ³Ð»ÑÐ´ Ð±ÐµÐ· ÑÐµÐ´Ð°Ð³ÑÐ²Ð°Ð½Ð½Ñ.")
+
+async def safe_text(update, context):
+    if is_admin(update):
+        return await on_text(update, context)
+    return await employee_private_access(update, context)
+
+# ==============================
 # MAIN
 # ==============================
 
@@ -3977,21 +4028,22 @@ def main():
         print(f"Migration warning: {e}")
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("chatid", cmd_chatid))
-    app.add_handler(CommandHandler("paths", cmd_paths))
-    app.add_handler(CommandHandler("ocrtest", cmd_ocrtest))
-    app.add_handler(CallbackQueryHandler(employee_callback, pattern=r"^emp:"))
-    app.add_handler(CallbackQueryHandler(inactive_callback, pattern=r"^inactive:"))
-    app.add_handler(CallbackQueryHandler(weekly_callback, pattern=r"^weekly:"))
-    app.add_handler(CallbackQueryHandler(roster_callback, pattern=r"^roster:"))
-    app.add_handler(CallbackQueryHandler(workplace_callback, pattern=r"^wp:"))
-    app.add_handler(MessageHandler(filters.Document.ALL, on_document))
-    app.add_handler(MessageHandler(filters.PHOTO, on_photo))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
+    app.add_handler(CommandHandler("start", safe_start))
+    app.add_handler(CommandHandler("chatid", lambda u, c: guarded_admin(cmd_chatid, u, c)))
+    app.add_handler(CommandHandler("paths", lambda u, c: guarded_admin(cmd_paths, u, c)))
+    app.add_handler(CommandHandler("ocrtest", lambda u, c: guarded_admin(cmd_ocrtest, u, c)))
+    app.add_handler(CallbackQueryHandler(lambda u, c: guarded_admin(employee_callback, u, c), pattern=r"^emp:"))
+    app.add_handler(CallbackQueryHandler(lambda u, c: guarded_admin(inactive_callback, u, c), pattern=r"^inactive:"))
+    app.add_handler(CallbackQueryHandler(lambda u, c: guarded_admin(weekly_callback, u, c), pattern=r"^weekly:"))
+    app.add_handler(CallbackQueryHandler(lambda u, c: guarded_admin(roster_callback, u, c), pattern=r"^roster:"))
+    app.add_handler(CallbackQueryHandler(lambda u, c: guarded_admin(workplace_callback, u, c), pattern=r"^wp:"))
+    app.add_handler(MessageHandler(filters.Document.ALL, lambda u, c: guarded_admin(on_document, u, c)))
+    app.add_handler(MessageHandler(filters.PHOTO, lambda u, c: guarded_admin(on_photo, u, c)))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, safe_text))
     app.run_polling(close_loop=False)
 
 if __name__ == "__main__":
     main()
+
 
 

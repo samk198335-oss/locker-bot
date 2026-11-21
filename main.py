@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ -*- coding: utf-8 -*-
 BOT_BUILD = "2026-09-06-monitoring-dynamics-v3"
 import os
 import csv
@@ -1622,25 +1622,40 @@ def shoe_display(e):
     return label
 
 def format_employee_card(emp, perf_rows):
-    vals = [r for r in perf_rows if r["sap"] == emp["sap"] and safe_float(r["percent"]) is not None]
-    vals_sorted = sorted(vals, key=lambda r: (parse_ddmmyyyy(r["date"]) or datetime.min), reverse=True)
-    last = vals_sorted[0] if vals_sorted else None
-    avg = None
-    if vals:
-        nums = [safe_float(r["percent"]) for r in vals]
-        avg = sum(nums) / len(nums)
+    """Current-month average, one latest entry per employee/date/shift."""
+    today = datetime.now().date()
+    sap = normalize_text(emp.get("sap", ""))
+    unique = {}
+    for r in perf_rows:
+        if normalize_text(r.get("sap", "")) != sap:
+            continue
+        dt = parse_ddmmyyyy(r.get("date", ""))
+        pct = safe_float(r.get("percent", ""))
+        if dt is None or pct is None or dt.date() > today:
+            continue
+        shift = normalize_shift_type(r.get("shift_type", "")) or safe_lower(r.get("shift_type", ""))
+        # Later imports replace earlier records for the same shift.
+        unique[(dt.date(), shift)] = (pct, r)
+
+    ordered = sorted(unique.items(), key=lambda item: item[0], reverse=True)
+    last = ordered[0][1][1] if ordered else None
+    month_values = [value[0] for (date, _), value in unique.items()
+                    if date.year == today.year and date.month == today.month]
+    avg = sum(month_values) / len(month_values) if month_values else None
+    month_label = UA_MONTHS[today.month].lower()
 
     return (
-        "\U0001f464 \u041a\u0430\u0440\u0442\u043a\u0430 \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430\n\n"
+        "ð¤ ÐÐ°ÑÑÐºÐ° Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°\n\n"
         f"SAP: {emp['sap'] or '-'}\n"
-        f"\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a: {emp['surname'] or '-'}\n"
-        f"\u0428\u0430\u0444\u043a\u0430: {emp['locker'] or '-'}\n"
-        f"\u041d\u0456\u0436: {'\u0454' if knife_has(emp['knife']) else '\u043d\u0435\u043c\u0430\u0454'}\n"
-        f"\u0412\u0437\u0443\u0442\u0442\u044f: {shoe_display(emp)}\n"
-        f"\u0421\u0442\u0430\u0442\u0443\u0441: {emp['status'] or 'active'}\n\n"
-        "\U0001f4ca \u041f\u0440\u043e\u0434\u0443\u043a\u0442\u0438\u0432\u043d\u0456\u0441\u0442\u044c:\n"
-        f"\u041e\u0441\u0442\u0430\u043d\u043d\u044f: {(last['date'] + ' \u2014 ' + fmt_percent(last['percent']) + '%') if last else '-'}\n"
-        f"\u0421\u0435\u0440\u0435\u0434\u043d\u044f: {(fmt_percent(avg) + '%') if avg is not None else '-'}"
+        f"ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº: {emp['surname'] or '-'}\n"
+        f"Ð¨Ð°ÑÐºÐ°: {emp['locker'] or '-'}\n"
+        f"ÐÑÐ¶: {'Ñ' if knife_has(emp['knife']) else 'Ð½ÐµÐ¼Ð°Ñ'}\n"
+        f"ÐÐ·ÑÑÑÑ: {shoe_display(emp)}\n"
+        f"Ð¡ÑÐ°ÑÑÑ: {emp['status'] or 'active'}\n\n"
+        "ð ÐÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ:\n"
+        f"ÐÑÑÐ°Ð½Ð½Ñ: {(last['date'] + ' â ' + fmt_percent(last['percent']) + '%') if last else '-'}\n"
+        f"Ð¡ÐµÑÐµÐ´Ð½Ñ Ð·Ð° {month_label} {today.year}: {(fmt_percent(avg) + '%') if avg is not None else '-'}\n"
+        f"ÐÐ¼ÑÐ½ Ð²ÑÐ°ÑÐ¾Ð²Ð°Ð½Ð¾: {len(month_values)}"
     )
 
 def format_all(rows):

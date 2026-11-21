@@ -3799,27 +3799,27 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             PERF_DB_PATH, SHIFT_SUMMARY_DB_PATH, WEEKLY_SHIFT_DB_PATH]
             with zipfile.ZipFile(io.BytesIO(bytes(content))) as z:
                 if z.testzip() is not None:
-                    raise ValueError("ZIP ÃÂÃÂ¿ÃÂÃÂ¾ÃÂÃÂÃÂÃÂºÃÂÃÂ¾ÃÂÃÂ´ÃÂÃÂ¶ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ¾ (CRC). ÃÂÃÂÃÂÃÂ°ÃÂÃÂ·ÃÂÃÂ¸ ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ·ÃÂÃÂ¼ÃÂÃÂÃÂÃÂ½ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ¾.")
+                    raise ValueError("ZIP ÃÂÃÂÃÂÃÂ¿ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂºÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ´ÃÂÃÂÃÂÃÂ¶ÃÂÃÂÃÂÃÂµÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ¾ (CRC). ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ·ÃÂÃÂÃÂÃÂ¸ ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂµ ÃÂÃÂÃÂÃÂ·ÃÂÃÂÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂµÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ¾.")
                 entries = {}
                 for member in z.infolist():
                     basename = os.path.basename(member.filename)
                     if basename in [os.path.basename(p) for p in wanted_paths]:
                         if basename in entries:
-                            raise ValueError(f"ÃÂÃÂÃÂÃÂ¾ÃÂÃÂ²ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂµÃÂÃÂ½ÃÂÃÂ¸ÃÂÃÂ¹ ÃÂÃÂÃÂÃÂ°ÃÂÃÂ¹ÃÂÃÂ» ÃÂÃÂ ZIP: {basename}")
+                            raise ValueError(f"ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ²ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂµÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ¹ ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ¹ÃÂÃÂÃÂÃÂ» ÃÂÃÂÃÂÃÂ ZIP: {basename}")
                         if member.file_size > 30 * 1024 * 1024:
-                            raise ValueError(f"ÃÂÃÂÃÂÃÂ°ÃÂÃÂ²ÃÂÃÂµÃÂÃÂ»ÃÂÃÂ¸ÃÂÃÂºÃÂÃÂ¸ÃÂÃÂ¹ ÃÂÃÂÃÂÃÂ°ÃÂÃÂ¹ÃÂÃÂ»: {basename}")
+                            raise ValueError(f"ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ²ÃÂÃÂÃÂÃÂµÃÂÃÂÃÂÃÂ»ÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂºÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ¹ ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ¹ÃÂÃÂÃÂÃÂ»: {basename}")
                         entries[basename] = z.read(member)
                 if not entries:
-                    raise ValueError("ZIP ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ ÃÂÃÂ±ÃÂÃÂ°ÃÂÃÂ· ÃÂÃÂ´ÃÂÃÂ°ÃÂÃÂ½ÃÂÃÂ¸ÃÂÃÂ. ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂ³ÃÂÃÂ¾ ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ·ÃÂÃÂ¼ÃÂÃÂÃÂÃÂ½ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ¾.")
+                    raise ValueError("ZIP ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂµ ÃÂÃÂÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ±ÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ· ÃÂÃÂÃÂÃÂ´ÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ. ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ³ÃÂÃÂÃÂÃÂ¾ ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂµ ÃÂÃÂÃÂÃÂ·ÃÂÃÂÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂµÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ¾.")
                 for name, raw in entries.items():
                     if not raw.strip():
-                        raise ValueError(f"ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ¾ÃÂÃÂ¶ÃÂÃÂ½ÃÂÃÂ ÃÂÃÂ±ÃÂÃÂ°ÃÂÃÂ·ÃÂÃÂ°: {name}")
+                        raise ValueError(f"ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ¶ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ±ÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ·ÃÂÃÂÃÂÃÂ°: {name}")
                     decoded = raw.decode("utf-8-sig")
                     reader = csv.DictReader(StringIO(decoded))
                     if not reader.fieldnames or not any(x.strip() for x in reader.fieldnames):
-                        raise ValueError(f"ÃÂÃÂÃÂÃÂµÃÂÃÂ¼ÃÂÃÂ°ÃÂÃÂ ÃÂÃÂ·ÃÂÃÂ°ÃÂÃÂ³ÃÂÃÂ¾ÃÂÃÂ»ÃÂÃÂ¾ÃÂÃÂ²ÃÂÃÂºÃÂÃÂÃÂÃÂ² CSV: {name}")
+                        raise ValueError(f"ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂµÃÂÃÂÃÂÃÂ¼ÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ·ÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ³ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ»ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ²ÃÂÃÂÃÂÃÂºÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ² CSV: {name}")
                     if any(None in row for row in reader):
-                        raise ValueError(f"ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂºÃÂÃÂ¾ÃÂÃÂ´ÃÂÃÂ¶ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ ÃÂÃÂºÃÂÃÂ¾ÃÂÃÂ»ÃÂÃÂ¾ÃÂÃÂ½ÃÂÃÂºÃÂÃÂ¸ CSV: {name}")
+                        raise ValueError(f"ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂºÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ´ÃÂÃÂÃÂÃÂ¶ÃÂÃÂÃÂÃÂµÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂºÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ»ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂºÃÂÃÂÃÂÃÂ¸ CSV: {name}")
 
                 # Restore is all-or-nothing for the original CSV files.
                 with WRITE_LOCK:
@@ -3897,7 +3897,7 @@ async def on_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows.append(emp)
     rows = [r for r in rows if r["surname"] or r["sap"]]
     if not rows:
-        await update.message.reply_text("ÃÂ¢ÃÂÃÂ CSV ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂ ÃÂÃÂ¿ÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂ²ÃÂÃÂ½ÃÂÃÂ¸ÃÂÃÂºÃÂÃÂÃÂÃÂ². ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂ½ÃÂÃÂ° ÃÂÃÂ±ÃÂÃÂ°ÃÂÃÂ·ÃÂÃÂ° ÃÂÃÂ½ÃÂÃÂµ ÃÂÃÂ·ÃÂÃÂ¼ÃÂÃÂÃÂÃÂ½ÃÂÃÂµÃÂÃÂ½ÃÂÃÂ°.")
+        await update.message.reply_text("ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ CSV ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂµ ÃÂÃÂÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ ÃÂÃÂÃÂÃÂ¿ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ²ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ¸ÃÂÃÂÃÂÃÂºÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ². ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¾ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ° ÃÂÃÂÃÂÃÂ±ÃÂÃÂÃÂÃÂ°ÃÂÃÂÃÂÃÂ·ÃÂÃÂÃÂÃÂ° ÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂµ ÃÂÃÂÃÂÃÂ·ÃÂÃÂÃÂÃÂ¼ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂµÃÂÃÂÃÂÃÂ½ÃÂÃÂÃÂÃÂ°.")
         return
     write_employees(rows)
     await backup_everywhere(context, update.effective_chat.id, "after_restore", f"\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0456\u0432: {len(rows)}")
@@ -3967,72 +3967,331 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"\u274c \u041f\u043e\u043c\u0438\u043b\u043a\u0430 OCR: {e}\n\n\u041c\u043e\u0436\u0435\u0448 \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0446\u0456 \u0434\u0430\u043d\u0456 \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0447\u0435\u0440\u0435\u0437 \U0001f4e5 \u0406\u043c\u043f\u043e\u0440\u0442 % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e.")
 
 # ==============================
-# ACCESS CONTROL AND SEPARATE MENUS
+# WORKPULS ROLE MENUS / REQUESTS / DRIVER LOG
 # ==============================
-BTN_MY_CARD = "ð¤ ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°"
-EMPLOYEE_PRIVATE_KB = ReplyKeyboardMarkup(
-    [[BTN_MY_CARD]], resize_keyboard=True, is_persistent=True
-)
+import json
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+
+ROLE_FILE = os.path.join(DATA_DIR, "workpuls_drivers.json")
+REQUESTS_FILE = os.path.join(DATA_DIR, "workpuls_requests.jsonl")
+TRIPS_FILE = os.path.join(DATA_DIR, "workpuls_trips.jsonl")
+
+
+def _driver_ids():
+    try:
+        with open(ROLE_FILE, encoding="utf-8") as f:
+            return set(map(int, json.load(f)))
+    except (FileNotFoundError, ValueError, TypeError):
+        return set()
+
+
+def _save_driver_ids(ids):
+    with WRITE_LOCK:
+        temp = ROLE_FILE + ".tmp"
+        with open(temp, "w", encoding="utf-8") as f:
+            json.dump(sorted(ids), f)
+        os.replace(temp, ROLE_FILE)
+
+
+def _append_jsonl(path, data):
+    with WRITE_LOCK:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(data, ensure_ascii=False) + "\n")
+
 
 def is_admin(update):
-    user = update.effective_user
-    return bool(user and user.id in ADMIN_USER_IDS)
+    return bool(update.effective_user and update.effective_user.id in ADMIN_USER_IDS)
+
+
+def is_driver(update):
+    return bool(update.effective_user and update.effective_user.id in _driver_ids())
+
+
+def _lang(context):
+    return context.user_data.get("wp_lang", "uk")
+
+
+def _tr(context, uk, en):
+    return en if _lang(context) == "en" else uk
+
+
+BTN_MY_CARD = "ð¤ ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°"
+BTN_COMPLAINT = "ð¨ Ð¡ÐºÐ°ÑÐ³Ð°"
+BTN_SUGGESTION = "ð¡ ÐÑÐ¾Ð¿Ð¾Ð·Ð¸ÑÑÑ"
+BTN_DAYOFF = "ð ÐÐ°Ð¿Ð¸Ñ Ð²Ð¸ÑÑÐ´Ð½Ð¾Ð³Ð¾"
+BTN_LANGUAGE = "ð Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ° / English"
+BTN_DRIVER = "ð ÐÐ¾Ð´ÑÐ¹"
+BTN_TRIP = "â ÐÐ°Ð¿Ð¸ÑÐ°ÑÐ¸ Ð¿Ð¾ÑÐ·Ð´ÐºÑ"
+BTN_MY_TRIPS = "ð ÐÐ¾Ñ Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸"
+BTN_EMP_MENU = "ð¤ ÐÐµÐ½Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
+BTN_ADMIN_MENU = "ð  ÐÐ´Ð¼ÑÐ½-Ð¼ÐµÐ½Ñ"
+BTN_CANCEL_WP = "â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸"
+
+
+def _employee_kb(context, driver=False, admin=False):
+    en = _lang(context) == "en"
+    rows = [
+        [["ð¤ My card", BTN_MY_CARD][not en]],
+        [["ð¨ Complaint", BTN_COMPLAINT][not en], ["ð¡ Suggestion", BTN_SUGGESTION][not en]],
+        [["ð Day off request", BTN_DAYOFF][not en]],
+    ]
+    if driver:
+        rows.append([["ð Driver", BTN_DRIVER][not en]])
+    if admin:
+        rows.append([BTN_ADMIN_MENU])
+    rows.append([BTN_LANGUAGE])
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
+
+
+def _driver_kb(context):
+    return ReplyKeyboardMarkup([[BTN_TRIP], [BTN_MY_TRIPS], [BTN_EMP_MENU], [BTN_LANGUAGE]], resize_keyboard=True)
+
+
+def _button_match(text, uk, en):
+    return text in (uk, en)
+
+
+async def _employee_home(update, context):
+    context.user_data.pop("wp_mode", None)
+    context.user_data.pop("wp_trip", None)
+    await update.effective_message.reply_text(
+        _tr(context, "ð¤ ÐÑÐ¾Ð±Ð¸ÑÑÐµ Ð¼ÐµÐ½Ñ WorkPuls", "ð¤ WorkPuls personal menu"),
+        reply_markup=_employee_kb(context, is_driver(update), is_admin(update)),
+    )
+
+
+async def _group_entry(update, context):
+    me = await context.bot.get_me()
+    url = f"https://t.me/{me.username}?start=workpuls"
+    await update.effective_message.reply_text(
+        "ð WorkPuls: Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ / personal account.\n"
+        "ÐÐ°ÑÐ¸ÑÐ½ÑÑÑ ÐºÐ½Ð¾Ð¿ÐºÑ, ÑÐ¾Ð± Ð²ÑÐ´ÐºÑÐ¸ÑÐ¸ Ð±Ð¾ÑÐ° Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¾. / Tap to open the bot privately.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ð¤ ÐÑÐ´ÐºÑÐ¸ÑÐ¸ WorkPuls / Open", url=url)]]),
+    )
+
+
+async def safe_start(update, context):
+    if update.effective_chat.type != "private":
+        return await _group_entry(update, context)
+    if is_admin(update):
+        context.user_data.pop("wp_mode", None)
+        await update.effective_message.reply_text(
+            "ð  WorkPuls: Ð°Ð´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ. ÐÐ»Ñ Ð¼ÐµÐ½Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°: /employee",
+            reply_markup=MAIN_KB,
+        )
+        return
+    await _employee_home(update, context)
+
+
+async def cmd_employee(update, context):
+    if update.effective_chat.type != "private":
+        return await _group_entry(update, context)
+    await _employee_home(update, context)
+
+
+async def cmd_driver_admin(update, context):
+    if update.effective_chat.type != "private" or not is_admin(update):
+        return
+    args = context.args
+    if len(args) != 2 or args[0] not in ("add", "remove") or not args[1].isdigit():
+        await update.message.reply_text("ÐÐ¸ÐºÐ¾ÑÐ¸ÑÑÐ°Ð½Ð½Ñ: /driver add TELEGRAM_ID Ð°Ð±Ð¾ /driver remove TELEGRAM_ID")
+        return
+    uid = int(args[1])
+    if uid in ADMIN_USER_IDS:
+        await update.message.reply_text("ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¾Ñ ÑÐ¶Ðµ Ð¼Ð°Ñ Ð¿Ð¾Ð²Ð½Ð¸Ð¹ Ð´Ð¾ÑÑÑÐ¿; Ð¾ÐºÑÐµÐ¼Ðµ Ð¿ÑÐ¸Ð·Ð½Ð°ÑÐµÐ½Ð½Ñ Ð½Ðµ Ð¿Ð¾ÑÑÑÐ±Ð½Ðµ.")
+        return
+    ids = _driver_ids()
+    if args[0] == "add":
+        ids.add(uid)
+    else:
+        ids.discard(uid)
+    _save_driver_ids(ids)
+    await update.message.reply_text(f"ÐÐ¾Ð´ÑÐ¹ {uid}: {'Ð´Ð¾Ð´Ð°Ð½Ð¾' if args[0] == 'add' else 'Ð²Ð¸Ð´Ð°Ð»ÐµÐ½Ð¾'}.")
+
+
+async def cmd_driverreport(update, context):
+    if update.effective_chat.type != "private" or not is_admin(update):
+        return
+    month = context.args[0] if context.args else datetime.now().strftime("%Y-%m")
+    if not re.fullmatch(r"\d{4}-\d{2}", month):
+        await update.message.reply_text("Ð¤Ð¾ÑÐ¼Ð°Ñ: /driverreport 2026-11")
+        return
+    rows = []
+    try:
+        with open(TRIPS_FILE, encoding="utf-8") as f:
+            rows = [json.loads(line) for line in f if line.strip()]
+    except FileNotFoundError:
+        pass
+    rows = [r for r in rows if str(r.get("date", "")).startswith(month)]
+    if not rows:
+        await update.message.reply_text("ÐÐ¾ÑÐ·Ð´Ð¾Ðº Ð·Ð° ÑÐµÐ¹ Ð¼ÑÑÑÑÑ Ð½ÐµÐ¼Ð°Ñ.")
+        return
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Telegram ID", "Driver", "Vehicle", "Route", "Start km", "End km", "Distance km"])
+    for r in sorted(rows, key=lambda x: (x.get("user_id", 0), x.get("date", ""))):
+        writer.writerow([r.get("date"), r.get("user_id"), r.get("driver"), r.get("vehicle"), r.get("route"),
+                         r.get("start_km"), r.get("end_km"), int(r.get("end_km", 0))-int(r.get("start_km", 0))])
+    data = io.BytesIO(("\ufeff" + output.getvalue()).encode("utf-8"))
+    data.name = f"workpuls_drivers_{month}.csv"
+    await update.message.reply_document(document=data, filename=data.name)
+
+
+async def cmd_myid(update, context):
+    if update.effective_chat.type == "private":
+        await update.message.reply_text(f"Telegram ID: {update.effective_user.id}")
+
 
 async def employee_private_access(update, context):
-    """Read-only SAP lookup in private chat; no write handlers reachable."""
     message = update.effective_message
-    if not message:
+    text = (message.text or "").strip()
+    ud = context.user_data
+    mode = ud.get("wp_mode")
+    if text in (BTN_CANCEL_WP, "/cancel"):
+        return await _employee_home(update, context)
+    if text == BTN_LANGUAGE:
+        ud["wp_lang"] = "en" if _lang(context) == "uk" else "uk"
+        return await _employee_home(update, context)
+    if text == BTN_EMP_MENU:
+        return await _employee_home(update, context)
+    if text == BTN_ADMIN_MENU and is_admin(update):
+        ud.pop("wp_mode", None)
+        await message.reply_text("ð  ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ", reply_markup=MAIN_KB)
         return
-    if update.effective_chat.type != "private":
-        await message.reply_text("ÐÑÐ¾Ð±Ð¸ÑÑÑ ÐºÐ°ÑÑÐºÑ Ð¼Ð¾Ð¶Ð½Ð° Ð¿ÐµÑÐµÐ³Ð»ÑÐ½ÑÑÐ¸ Ð»Ð¸ÑÐµ Ð² Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¾Ð¼Ñ ÑÐ°ÑÑ Ð· Ð±Ð¾ÑÐ¾Ð¼.")
+    if text == BTN_DRIVER and (is_driver(update) or is_admin(update)):
+        ud.pop("wp_mode", None)
+        await message.reply_text("ð ÐÐµÐ½Ñ Ð²Ð¾Ð´ÑÑ", reply_markup=_driver_kb(context))
         return
-    sap = (message.text or "").strip()
-    if sap == BTN_MY_CARD:
-        await message.reply_text("ÐÐ²ÐµÐ´Ð¸ ÑÐ²ÑÐ¹ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ).", reply_markup=EMPLOYEE_PRIVATE_KB)
+    if text == BTN_MY_TRIPS and (is_driver(update) or is_admin(update)):
+        trips = []
+        try:
+            with open(TRIPS_FILE, encoding="utf-8") as f:
+                for line in f:
+                    item = json.loads(line)
+                    if item.get("user_id") == update.effective_user.id:
+                        trips.append(item)
+        except FileNotFoundError:
+            pass
+        if not trips:
+            await message.reply_text("ÐÐ°Ð¿Ð¸ÑÑÐ² Ð¿Ð¾ÐºÐ¸ Ð½ÐµÐ¼Ð°Ñ. / No trips yet.")
+        else:
+            lines = [f"{t['date']} | {t['vehicle']} | {t['route']} | {t['start_km']}â{t['end_km']} ÐºÐ¼" for t in trips[-15:]]
+            await message.reply_text("ð ÐÑÑÐ°Ð½Ð½Ñ Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸:\n" + "\n".join(lines))
         return
-    if not sap.isascii() or not sap.isdigit() or not (8 <= len(sap) <= 12):
-        await message.reply_text("ÐÐ²ÐµÐ´Ð¸ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ) Ð°Ð±Ð¾ Ð½Ð°ÑÐ¸ÑÐ½Ð¸ Â«ð¤ ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°Â».", reply_markup=EMPLOYEE_PRIVATE_KB)
+    if text == BTN_TRIP and (is_driver(update) or is_admin(update)):
+        ud["wp_mode"] = "trip_date"
+        ud["wp_trip"] = {}
+        await message.reply_text("ÐÐ°ÑÐ° Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸ (Ð Ð Ð Ð -ÐÐ-ÐÐ):", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL_WP]], resize_keyboard=True))
         return
-    matches = [e for e in read_employees() if normalize_text(e.get("sap", "")) == sap]
-    if len(matches) != 1:
-        await message.reply_text("SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾ Ð°Ð±Ð¾ Ð²ÑÐ½ Ð½ÐµÐ¾Ð´Ð½Ð¾Ð·Ð½Ð°ÑÐ½Ð¸Ð¹. ÐÐ²ÐµÑÐ½Ð¸ÑÑ Ð´Ð¾ ÐºÐ¾Ð¾ÑÐ´Ð¸Ð½Ð°ÑÐ¾ÑÐ°.", reply_markup=EMPLOYEE_PRIVATE_KB)
+    request_types = {
+        BTN_COMPLAINT: ("complaint", "ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐµÐºÑÑ ÑÐºÐ°ÑÐ³Ð¸:", "Write your complaint:"),
+        "ð¨ Complaint": ("complaint", "ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐµÐºÑÑ ÑÐºÐ°ÑÐ³Ð¸:", "Write your complaint:"),
+        BTN_SUGGESTION: ("suggestion", "ÐÐ°Ð¿Ð¸ÑÑÑÑ Ð¿ÑÐ¾Ð¿Ð¾Ð·Ð¸ÑÑÑ:", "Write your suggestion:"),
+        "ð¡ Suggestion": ("suggestion", "ÐÐ°Ð¿Ð¸ÑÑÑÑ Ð¿ÑÐ¾Ð¿Ð¾Ð·Ð¸ÑÑÑ:", "Write your suggestion:"),
+        BTN_DAYOFF: ("dayoff", "ÐÐºÐ°Ð¶ÑÑÑ Ð´Ð°ÑÑ Ð²Ð¸ÑÑÐ´Ð½Ð¾Ð³Ð¾ (Ð Ð Ð Ð -ÐÐ-ÐÐ) ÑÐ° Ð¿ÑÐ¸ÑÐ¸Ð½Ñ:", "Enter requested day off (YYYY-MM-DD) and reason:"),
+        "ð Day off request": ("dayoff", "ÐÐºÐ°Ð¶ÑÑÑ Ð´Ð°ÑÑ Ð²Ð¸ÑÑÐ´Ð½Ð¾Ð³Ð¾ (Ð Ð Ð Ð -ÐÐ-ÐÐ) ÑÐ° Ð¿ÑÐ¸ÑÐ¸Ð½Ñ:", "Enter requested day off (YYYY-MM-DD) and reason:"),
+    }
+    if text in request_types:
+        typ, uk, en = request_types[text]
+        ud["wp_mode"] = "request_" + typ
+        await message.reply_text(_tr(context, uk, en), reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL_WP]], resize_keyboard=True))
         return
-    await message.reply_text(format_employee_card(matches[0], read_perf()), reply_markup=EMPLOYEE_PRIVATE_KB)
+    if text in (BTN_MY_CARD, "ð¤ My card"):
+        ud["wp_mode"] = "sap"
+        await message.reply_text(_tr(context, "ÐÐ²ÐµÐ´ÑÑÑ ÑÐ²ÑÐ¹ SAP-Ð½Ð¾Ð¼ÐµÑ:", "Enter your SAP number:"), reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL_WP]], resize_keyboard=True))
+        return
+    if mode and mode.startswith("request_"):
+        if not text:
+            return
+        item = {"created_at": datetime.now().isoformat(timespec="seconds"), "user_id": update.effective_user.id,
+                "name": update.effective_user.full_name, "type": mode[8:], "text": text}
+        _append_jsonl(REQUESTS_FILE, item)
+        delivered = 0
+        for admin_id in ADMIN_USER_IDS:
+            try:
+                await context.bot.send_message(admin_id, f"ð© WorkPuls: {item['type']}\nÐÑÐ´: {item['name']} (ID {item['user_id']})\n{text}")
+                delivered += 1
+            except Exception as e:
+                print(f"Admin notification failed {admin_id}: {e}")
+        await _employee_home(update, context)
+        await message.reply_text(_tr(context, "â ÐÐ²ÐµÑÐ½ÐµÐ½Ð½Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾. ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¾ÑÑÐ² Ð¿Ð¾Ð²ÑÐ´Ð¾Ð¼Ð»ÐµÐ½Ð¾: " + str(delivered) + "/" + str(len(ADMIN_USER_IDS)),
+                                            "â Request saved. Administrators notified: " + str(delivered) + "/" + str(len(ADMIN_USER_IDS))))
+        return
+    fields = [("trip_date", "date", "ÐÐ°ÑÐºÐ°, Ð¼Ð¾Ð´ÐµÐ»Ñ ÑÐ° Ð½Ð¾Ð¼ÐµÑ Ð°Ð²ÑÐ¾:"),
+              ("trip_vehicle", "vehicle", "ÐÐ°ÑÑÑÑÑ (Ð·Ð²ÑÐ´ÐºÐ¸ â ÐºÑÐ´Ð¸):"),
+              ("trip_route", "route", "ÐÑÐ¾Ð±ÑÐ³ Ð½Ð° Ð¿Ð¾ÑÐ°ÑÐºÑ (ÐºÐ¼):"),
+              ("trip_start", "start_km", "ÐÑÐ¾Ð±ÑÐ³ Ñ ÐºÑÐ½ÑÑ (ÐºÐ¼):")]
+    for current, key, next_prompt in fields:
+        if mode == current and (is_driver(update) or is_admin(update)):
+            if current == "trip_date":
+                try:
+                    datetime.strptime(text, "%Y-%m-%d")
+                except ValueError:
+                    await message.reply_text("ÐÐµÐ¿ÑÐ°Ð²Ð¸Ð»ÑÐ½Ð° Ð´Ð°ÑÐ°. ÐÑÐ¸ÐºÐ»Ð°Ð´: 2026-11-21")
+                    return
+            if current == "trip_start":
+                try:
+                    value = int(text)
+                    if value < 0: raise ValueError()
+                except ValueError:
+                    await message.reply_text("ÐÐ²ÐµÐ´ÑÑÑ ÑÑÐ»Ðµ Ð½ÐµÐ²ÑÐ´âÑÐ¼Ð½Ðµ ÑÐ¸ÑÐ»Ð¾.")
+                    return
+                text = value
+            ud["wp_trip"][key] = text
+            ud["wp_mode"] = {"trip_date":"trip_vehicle", "trip_vehicle":"trip_route", "trip_route":"trip_start", "trip_start":"trip_end"}[current]
+            await message.reply_text(next_prompt)
+            return
+    if mode == "trip_end" and (is_driver(update) or is_admin(update)):
+        try:
+            end = int(text)
+            start = ud["wp_trip"]["start_km"]
+            if end < start: raise ValueError()
+        except ValueError:
+            await message.reply_text("ÐÑÐ½ÑÐµÐ²Ð¸Ð¹ Ð¿ÑÐ¾Ð±ÑÐ³ Ð¼Ð°Ñ Ð±ÑÑÐ¸ ÑÐ¸ÑÐ»Ð¾Ð¼ Ð½Ðµ Ð¼ÐµÐ½ÑÐ¸Ð¼ Ð·Ð° Ð¿Ð¾ÑÐ°ÑÐºÐ¾Ð²Ð¸Ð¹.")
+            return
+        item = dict(ud["wp_trip"], end_km=end, user_id=update.effective_user.id,
+                    driver=update.effective_user.full_name, created_at=datetime.now().isoformat(timespec="seconds"))
+        _append_jsonl(TRIPS_FILE, item)
+        ud.pop("wp_mode", None)
+        ud.pop("wp_trip", None)
+        await message.reply_text(f"â ÐÐ¾ÑÐ·Ð´ÐºÑ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾: {end-start} ÐºÐ¼", reply_markup=_driver_kb(context))
+        return
+    if mode == "sap" or (not mode and text.isascii() and text.isdigit()):
+        if not text.isascii() or not text.isdigit() or not (8 <= len(text) <= 12):
+            await message.reply_text("SAP: 8â12 ÑÐ¸ÑÑ.")
+            return
+        matches = [e for e in read_employees() if normalize_text(e.get("sap", "")) == text]
+        if len(matches) != 1:
+            await message.reply_text("SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾. / SAP not found.")
+            return
+        ud.pop("wp_mode", None)
+        await message.reply_text(format_employee_card(matches[0], read_perf()), reply_markup=_employee_kb(context, is_driver(update), is_admin(update)))
+        return
+    await _employee_home(update, context)
+
 
 async def guarded_admin(handler, update, context):
-    if not is_admin(update):
-        message = update.effective_message
-        if message:
-            await message.reply_text(
-                "ÐÐ¾ÑÑÑÐ¿ Ð·Ð°Ð±Ð¾ÑÐ¾Ð½ÐµÐ½Ð¾. ÐÐ»Ñ Ð¿ÐµÑÐµÐ³Ð»ÑÐ´Ñ ÐºÐ°ÑÑÐºÐ¸ Ð²ÑÐ´ÐºÑÐ¸Ð¹ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¸Ð¹ ÑÐ°Ñ ÑÐ· Ð±Ð¾ÑÐ¾Ð¼.",
-                reply_markup=EMPLOYEE_PRIVATE_KB if update.effective_chat.type == "private" else None,
-            )
+    if not is_admin(update) or update.effective_chat.type != "private":
+        if update.effective_chat.type == "private" and update.effective_message:
+            await update.effective_message.reply_text("â ÐÐ¾ÑÑÑÐ¿ Ð»Ð¸ÑÐµ Ð´Ð»Ñ Ð°Ð´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¾ÑÐ°.")
         elif update.callback_query:
             await update.callback_query.answer("ÐÐ¾ÑÑÑÐ¿ Ð·Ð°Ð±Ð¾ÑÐ¾Ð½ÐµÐ½Ð¾", show_alert=True)
         return
     return await handler(update, context)
 
-async def safe_start(update, context):
-    if is_admin(update) and update.effective_chat.type == "private":
-        return await cmd_start(update, context)
-    if update.effective_chat.type != "private":
-        await update.effective_message.reply_text(
-            "ÐÐ»Ñ Ð¿ÐµÑÐµÐ³Ð»ÑÐ´Ñ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¾Ñ ÐºÐ°ÑÑÐºÐ¸ Ð²ÑÐ´ÐºÑÐ¸Ð¹ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¸Ð¹ ÑÐ°Ñ ÑÐ· Ð±Ð¾ÑÐ¾Ð¼ Ñ Ð½Ð°ÑÐ¸ÑÐ½Ð¸ /start."
-        )
-    else:
-        reset_state(context)
-        await update.effective_message.reply_text(
-            "ð¤ ÐÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ\n\nÐÐ°ÑÐ¸ÑÐ½Ð¸ Â«ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°Â» ÑÐ° Ð²Ð²ÐµÐ´Ð¸ SAP-Ð½Ð¾Ð¼ÐµÑ (8â12 ÑÐ¸ÑÑ). ÐÐµÑÐµÐ³Ð»ÑÐ´ Ð±ÐµÐ· ÑÐµÐ´Ð°Ð³ÑÐ²Ð°Ð½Ð½Ñ.",
-            reply_markup=EMPLOYEE_PRIVATE_KB,
-        )
 
 async def safe_text(update, context):
-    if is_admin(update) and update.effective_chat.type == "private":
-        return await on_text(update, context)
-    if is_admin(update):
-        return  # No admin commands or menus inside groups.
     if update.effective_chat.type != "private":
-        return  # Ignore ordinary group conversations.
+        return
+    text = (update.effective_message.text or "").strip()
+    if text == BTN_ADMIN_MENU and is_admin(update):
+        return await employee_private_access(update, context)
+    if is_admin(update) and not context.user_data.get("wp_mode") and text not in (
+        BTN_EMP_MENU, BTN_MY_CARD, "ð¤ My card", BTN_LANGUAGE, BTN_DRIVER, BTN_TRIP,
+        BTN_MY_TRIPS, BTN_COMPLAINT, "ð¨ Complaint", BTN_SUGGESTION, "ð¡ Suggestion",
+        BTN_DAYOFF, "ð Day off request", BTN_CANCEL_WP,
+    ):
+        return await on_text(update, context)
     return await employee_private_access(update, context)
 
 # ==============================
@@ -4053,6 +4312,11 @@ def main():
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", safe_start))
+    app.add_handler(CommandHandler("employee", cmd_employee))
+    app.add_handler(CommandHandler("menu", safe_start))
+    app.add_handler(CommandHandler("myid", cmd_myid))
+    app.add_handler(CommandHandler("driver", cmd_driver_admin))
+    app.add_handler(CommandHandler("driverreport", cmd_driverreport))
     app.add_handler(CommandHandler("chatid", lambda u, c: guarded_admin(cmd_chatid, u, c)))
     app.add_handler(CommandHandler("paths", lambda u, c: guarded_admin(cmd_paths, u, c)))
     app.add_handler(CommandHandler("ocrtest", lambda u, c: guarded_admin(cmd_ocrtest, u, c)))
@@ -4068,5 +4332,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 

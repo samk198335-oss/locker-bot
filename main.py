@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-21-workpuls-reviewed-v14"
+BOT_BUILD = "2026-11-21-workpuls-reviewed-v15"
 import os
 import csv
 import re
@@ -14,7 +14,7 @@ import io
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 import requests
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Document, InputFile, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Document, InputFile, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -29,6 +29,11 @@ from telegram.ext import (
 # ==============================
 
 class HealthHandler(BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain; charset=utf-8")
+        self.end_headers()
+
     def do_GET(self):
         self.send_response(200)
         self.send_header("Content-type", "text/plain; charset=utf-8")
@@ -4072,7 +4077,8 @@ async def _group_entry(update, context):
     except (OSError, ValueError, TypeError):
         registry = {}
     message_text = ("WorkPuls | ÐÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ / Personal account\n"
-                    "ÐÐ°ÑÐ¸ÑÐ½ÑÑÑ ÐºÐ½Ð¾Ð¿ÐºÑ Ð½Ð¸Ð¶ÑÐµ. / Tap the button below.")
+                    "ÐÐ°ÑÐ¸ÑÐ½ÑÑÑ ÐºÐ½Ð¾Ð¿ÐºÑ Ð½Ð¸Ð¶ÑÐµ. / Tap the button below.\n"
+                    f"ÐÐµÑÑÑÑ / Build: {BOT_BUILD}")
     markup = InlineKeyboardMarkup([[
         InlineKeyboardButton("ÐÑÐ´ÐºÑÐ¸ÑÐ¸ WorkPuls / Open", url=url)
     ]])
@@ -4177,6 +4183,17 @@ async def cmd_driverreport(update, context):
 async def cmd_version(update, context):
     if update.effective_chat.type == "private":
         await update.effective_message.reply_text(f"WorkPuls build: {BOT_BUILD}\nRole: {'admin' if is_admin(update) else 'driver' if is_driver(update) else 'employee'}")
+
+
+async def cmd_resetkeyboard(update, context):
+    """Clear a stale Telegram reply keyboard in the current private chat."""
+    if update.effective_chat.type != "private":
+        return
+    await update.effective_message.reply_text(
+        "Ð¡ÑÐ°ÑÑ ÐºÐ»Ð°Ð²ÑÐ°ÑÑÑÑ Ð¿ÑÐ¸Ð±ÑÐ°Ð½Ð¾. / Old keyboard cleared.",
+        reply_markup=ReplyKeyboardRemove(),
+    )
+    await safe_start(update, context)
 
 
 async def cmd_myid(update, context):
@@ -4360,6 +4377,7 @@ def main():
     except Exception as e:
         print(f"Migration warning: {e}")
 
+    print(f"WORKPULS STARTUP: build={BOT_BUILD}, source={__file__}, admins={len(ADMIN_USER_IDS)}", flush=True)
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", safe_start))
     app.add_handler(CommandHandler("open", cmd_group_open))
@@ -4367,6 +4385,7 @@ def main():
     app.add_handler(CommandHandler("menu", safe_start))
     app.add_handler(CommandHandler("myid", cmd_myid))
     app.add_handler(CommandHandler("version", cmd_version))
+    app.add_handler(CommandHandler("resetkeyboard", cmd_resetkeyboard))
     app.add_handler(CommandHandler("driver", cmd_driver_admin))
     app.add_handler(CommandHandler("driverreport", cmd_driverreport))
     app.add_handler(CommandHandler("chatid", lambda u, c: guarded_admin(cmd_chatid, u, c)))
@@ -4380,7 +4399,7 @@ def main():
     app.add_handler(MessageHandler(filters.Document.ALL, lambda u, c: guarded_admin(on_document, u, c)))
     app.add_handler(MessageHandler(filters.PHOTO, lambda u, c: guarded_admin(on_photo, u, c)))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, safe_text))
-    app.run_polling(close_loop=False)
+    app.run_polling(close_loop=False, drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()

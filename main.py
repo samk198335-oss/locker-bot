@@ -4323,7 +4323,7 @@ async def guarded_admin(handler,update,context):
 async def safe_text(update,context):
     if update.effective_chat.type!="private": return
     text=(update.effective_message.text or "").strip()
-        ud=context.user_data
+    ud=context.user_data
     if ud.get("wp_mode") or _action(text) or text in ("ðºð¦ Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ°","ð¬ð§ English","ðªð¸ EspaÃ±ol"):
         return await employee_private_access(update,context)
     if is_admin(update): return await on_text(update,context)

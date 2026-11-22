@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-22-workpuls-v24-reviewed"
+BOT_BUILD = "2026-11-22-driver-utf8-escaped-v25"
 import os
 import csv
 import re
@@ -2031,23 +2031,23 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sap = parts[2] if len(parts) > 2 else ""
         page = parts[3] if len(parts) > 3 else "0"
         if len(parts) < 5 or parts[4] not in ("0", "1"):
-            await query.edit_message_text("ÐÐµÐºÐ¾ÑÐµÐºÑÐ½Ð° ÐºÐ¾Ð¼Ð°Ð½Ð´Ð° Ð·Ð¼ÑÐ½Ð¸ ÑÐ¾Ð»Ñ.")
+            await query.edit_message_text("\u041d\u0435\u043a\u043e\u0440\u0435\u043a\u0442\u043d\u0430 \u043a\u043e\u043c\u0430\u043d\u0434\u0430 \u0437\u043c\u0456\u043d\u0438 \u0440\u043e\u043b\u0456.")
             return
         enabled = parts[4] == "1"
         emp = _employee_by_sap(sap) if sap.isdigit() else None
         if not emp:
-            await query.edit_message_text("ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° Ð· ÑÐ¸Ð¼ SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾.")
+            await query.edit_message_text("\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430 \u0437 \u0446\u0438\u043c SAP \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e.")
             return
         _set_driver_sap(sap, enabled)
-        status = "ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº + Ð²Ð¾Ð´ÑÐ¹" if enabled else "ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº"
+        status = "\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a + \u0432\u043e\u0434\u0456\u0439" if enabled else "\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a"
         buttons = [
             [InlineKeyboardButton(
-                "ð ÐÐ½ÑÑÐ¸ ÑÐ¾Ð»Ñ Ð²Ð¾Ð´ÑÑ" if enabled else "ð ÐÑÐ¸Ð·Ð½Ð°ÑÐ¸ÑÐ¸ Ð²Ð¾Ð´ÑÑÐ¼",
+                "\U0001f690 \u0417\u043d\u044f\u0442\u0438 \u0440\u043e\u043b\u044c \u0432\u043e\u0434\u0456\u044f" if enabled else "\U0001f690 \u041f\u0440\u0438\u0437\u043d\u0430\u0447\u0438\u0442\u0438 \u0432\u043e\u0434\u0456\u0454\u043c",
                 callback_data=f"emp:role:{sap}:{page}:{0 if enabled else 1}")],
-            [InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data=f"emp:page:{page}")],
+            [InlineKeyboardButton("\u2b05\ufe0f \u0414\u043e \u0441\u043f\u0438\u0441\u043a\u0443", callback_data=f"emp:page:{page}")],
         ]
         await query.edit_message_text(
-            format_employee_card(emp, read_perf(force=True)) + f"\n\nð Ð Ð¾Ð»Ñ: {status}",
+            format_employee_card(emp, read_perf(force=True)) + f"\n\n\U0001f690 \u0420\u043e\u043b\u044c: {status}",
             reply_markup=InlineKeyboardMarkup(buttons))
         return
 
@@ -2056,20 +2056,20 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         page = parts[3] if len(parts) > 3 else "0"
         emp = employee_find_by_callback_key(key)
         if not emp:
-            await query.edit_message_text("â ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾. ÐÐ½Ð¾Ð²Ð¸ ÑÐ¿Ð¸ÑÐ¾Ðº ð¥ ÐÑÑ.")
+            await query.edit_message_text("\u274c \u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e. \u041e\u043d\u043e\u0432\u0438 \u0441\u043f\u0438\u0441\u043e\u043a \U0001f465 \u0412\u0441\u0456.")
             return
         sap = str(emp.get("sap") or "")
         buttons = []
         if sap.isdigit():
             driver = sap in _driver_saps()
             buttons.append([InlineKeyboardButton(
-                "ð ÐÐ½ÑÑÐ¸ ÑÐ¾Ð»Ñ Ð²Ð¾Ð´ÑÑ" if driver else "ð ÐÑÐ¸Ð·Ð½Ð°ÑÐ¸ÑÐ¸ Ð²Ð¾Ð´ÑÑÐ¼",
+                "\U0001f690 \u0417\u043d\u044f\u0442\u0438 \u0440\u043e\u043b\u044c \u0432\u043e\u0434\u0456\u044f" if driver else "\U0001f690 \u041f\u0440\u0438\u0437\u043d\u0430\u0447\u0438\u0442\u0438 \u0432\u043e\u0434\u0456\u0454\u043c",
                 callback_data=f"emp:role:{sap}:{page}:{0 if driver else 1}")])
-        buttons.append([InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data=f"emp:page:{page}")])
+        buttons.append([InlineKeyboardButton("\u2b05\ufe0f \u0414\u043e \u0441\u043f\u0438\u0441\u043a\u0443", callback_data=f"emp:page:{page}")])
         kb = InlineKeyboardMarkup(buttons)
-        status = "ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº + Ð²Ð¾Ð´ÑÐ¹" if sap in _driver_saps() else "ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº"
+        status = "\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a + \u0432\u043e\u0434\u0456\u0439" if sap in _driver_saps() else "\u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a"
         await query.edit_message_text(
-            format_employee_card(emp, read_perf(force=True)) + f"\n\nð Ð Ð¾Ð»Ñ: {status}",
+            format_employee_card(emp, read_perf(force=True)) + f"\n\n\U0001f690 \u0420\u043e\u043b\u044c: {status}",
             reply_markup=kb)
         return
 

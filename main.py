@@ -2027,6 +2027,25 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text, reply_markup=kb)
         return
 
+    if action == "role":
+        sap = parts[2] if len(parts)>2 else ""
+        page = parts[3] if len(parts)>3 else "0"
+        enabled = len(parts)>4 and parts[4] == "1"
+        emp = _employee_by_sap(sap) if sap.isdigit() else None
+        if not emp:
+            await query.edit_message_text("ÐÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ° ÑÐ· ÑÐ¸Ð¼ SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾.")
+            return
+        _set_driver_sap(sap, enabled)
+        status = "ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº + Ð²Ð¾Ð´ÑÐ¹" if enabled else "ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº"
+        buttons = [[InlineKeyboardButton(
+            "ð ÐÐ½ÑÑÐ¸ ÑÐ¾Ð»Ñ Ð²Ð¾Ð´ÑÑ" if enabled else "ð ÐÑÐ¸Ð·Ð½Ð°ÑÐ¸ÑÐ¸ Ð²Ð¾Ð´ÑÑÐ¼",
+            callback_data=f"emp:role:{sap}:{page}:{0 if enabled else 1}")],
+            [InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data=f"emp:page:{page}")]]
+        await query.edit_message_text(
+            format_employee_card(emp, read_perf(force=True)) + f"\n\nð Ð Ð¾Ð»Ñ: {status}",
+            reply_markup=InlineKeyboardMarkup(buttons))
+        return
+
     if action == "card":
         key = parts[2] if len(parts) > 2 else ""
         page = parts[3] if len(parts) > 3 else "0"
@@ -2034,8 +2053,16 @@ async def employee_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not emp:
             await query.edit_message_text("\u274c \u041f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430 \u043d\u0435 \u0437\u043d\u0430\u0439\u0434\u0435\u043d\u043e. \u041e\u043d\u043e\u0432\u0438 \u0441\u043f\u0438\u0441\u043e\u043a \U0001f465 \u0412\u0441\u0456.")
             return
-        kb = InlineKeyboardMarkup([[InlineKeyboardButton("\u2b05\ufe0f \u0414\u043e \u0441\u043f\u0438\u0441\u043a\u0443", callback_data=f"emp:page:{page}")]])
-        await query.edit_message_text(format_employee_card(emp, read_perf(force=True)), reply_markup=kb)
+        sap = str(emp.get("sap") or "")
+        buttons = []
+        if sap.isdigit():
+            driver = sap in _driver_saps()
+            buttons.append([InlineKeyboardButton(
+                "ð ÐÐ½ÑÑÐ¸ ÑÐ¾Ð»Ñ Ð²Ð¾Ð´ÑÑ" if driver else "ð ÐÑÐ¸Ð·Ð½Ð°ÑÐ¸ÑÐ¸ Ð²Ð¾Ð´ÑÑÐ¼",
+                callback_data=f"emp:role:{sap}:{page}:{0 if driver else 1}")])
+        buttons.append([InlineKeyboardButton("â¬ï¸ ÐÐ¾ ÑÐ¿Ð¸ÑÐºÑ", callback_data=f"emp:page:{page}")])
+        kb = InlineKeyboardMarkup(buttons)
+        await query.edit_message_text(format_employee_card(emp, read_perf(force=True)) + ("\n\nð Ð Ð¾Ð»Ñ: ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº + Ð²Ð¾Ð´ÑÐ¹" if sap in _driver_saps() else "\n\nÐ Ð¾Ð»Ñ: ÐÑÐ°ÑÑÐ²Ð½Ð¸Ðº"), reply_markup=kb)
         return
 
 async def inactive_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -3978,6 +4005,7 @@ import json
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 ROLE_FILE = os.path.join(DATA_DIR, "workpuls_drivers.json")
+SAP_ROLE_FILE = os.path.join(DATA_DIR, "workpuls_driver_sap_roles.json")
 REQUESTS_FILE = os.path.join(DATA_DIR, "workpuls_requests.jsonl")
 TRIPS_FILE = os.path.join(DATA_DIR, "workpuls_trips.jsonl")
 VEHICLES_FILE = os.path.join(DATA_DIR, "workpuls_vehicles.json")
@@ -4009,8 +4037,22 @@ def _append_jsonl(path, data):
 def is_admin(update):
     return bool(update.effective_user and update.effective_user.id in ADMIN_USER_IDS)
 
-def is_driver(update):
-    return bool(update.effective_user and update.effective_user.id in _driver_ids())
+def _driver_saps():
+    return set(str(x) for x in _read_json(SAP_ROLE_FILE, []) if str(x).isdigit())
+
+def _set_driver_sap(sap, enabled):
+    roles = _driver_saps()
+    if enabled: roles.add(str(sap))
+    else: roles.discard(str(sap))
+    _write_json(SAP_ROLE_FILE, sorted(roles))
+
+def is_driver(update, context=None):
+    # Preserve the existing Telegram-ID access path; add SAP-based roles.
+    if update.effective_user and update.effective_user.id in _driver_ids():
+        return True
+    if context is None: return False
+    sap = str(context.user_data.get("wp_sap") or "")
+    return bool(sap and sap in _driver_saps() and _employee_by_sap(sap))
 
 def _lang(context, update=None):
     if update and update.effective_user:
@@ -4091,7 +4133,7 @@ def _vehicle_choices(context, update):
     return ReplyKeyboardMarkup([[c] for c in choices] + [["â NEW / ÐÐÐÐ / NUEVO"], [_label("cancel", context, update)]], resize_keyboard=True)
 
 async def driver_photo(update, context):
-    if update.effective_chat.type != "private" or not (is_driver(update) or is_admin(update)):
+    if update.effective_chat.type != "private" or not (is_driver(update, context) or is_admin(update)):
         return
     if context.user_data.get("wp_mode") != "trip_photo":
         return await guarded_admin(on_photo, update, context) if is_admin(update) else None
@@ -4111,7 +4153,7 @@ async def _employee_home(update, context):
     context.user_data.pop("wp_trip",None)
     await update.effective_message.reply_text(
         _tr(context,"\U0001f464 \u041e\u0441\u043e\u0431\u0438\u0441\u0442\u0435 \u043c\u0435\u043d\u044e WorkPuls","\U0001f464 WorkPuls personal menu","\U0001f464 Men\u00fa personal WorkPuls",update),
-        reply_markup=_employee_kb(context,is_driver(update),is_admin(update),update))
+        reply_markup=_employee_kb(context,is_driver(update, context),is_admin(update),update))
 
 async def _group_entry(update, context):
     """Keep one editable entry message per group; never publish private menus."""
@@ -4273,7 +4315,7 @@ async def cmd_driverreport(update,context):
 
 async def cmd_version(update,context):
     if update.effective_chat.type=="private":
-        await update.effective_message.reply_text(f"WorkPuls build: {BOT_BUILD}\nRole: {'admin' if is_admin(update) else 'driver' if is_driver(update) else 'employee'}")
+        await update.effective_message.reply_text(f"WorkPuls build: {BOT_BUILD}\nRole: {'admin' if is_admin(update) else 'driver' if is_driver(update, context) else 'employee'}")
 
 async def cmd_resetkeyboard(update,context):
     if update.effective_chat.type!="private": return
@@ -4312,15 +4354,15 @@ async def employee_private_access(update,context):
         ud.pop("wp_mode",None)
         await message.reply_text("\U0001f6e0 \u0410\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u0438\u0432\u043d\u0435 \u043c\u0435\u043d\u044e",reply_markup=MAIN_KB)
         return
-    if action=="driver" and (is_driver(update) or is_admin(update)):
+    if action=="driver" and (is_driver(update, context) or is_admin(update)):
         ud.pop("wp_mode",None)
         await message.reply_text("\U0001f697 \u041c\u0435\u043d\u044e \u0432\u043e\u0434\u0456\u044f",reply_markup=_driver_kb(context,update))
         return
-    if action=="vehicle" and (is_driver(update) or is_admin(update)):
+    if action=="vehicle" and (is_driver(update, context) or is_admin(update)):
         ud["wp_mode"]="vehicle_model"
         await message.reply_text(_t(context,update,"ÐÐ²ÐµÐ´ÑÑÑ Ð¼Ð°ÑÐºÑ ÑÐ° Ð¼Ð¾Ð´ÐµÐ»Ñ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ (Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ Toyota Bus):","Enter vehicle make and model:","Introduzca marca y modelo del vehÃ­culo:"))
         return
-    if action=="trips" and (is_driver(update) or is_admin(update)):
+    if action=="trips" and (is_driver(update, context) or is_admin(update)):
         try:
             with open(TRIPS_FILE,encoding="utf-8") as f:
                 trips=[x for line in f if line.strip() for x in [json.loads(line)] if x.get("user_id")==update.effective_user.id]
@@ -4333,7 +4375,7 @@ async def employee_private_access(update,context):
             lines=[f"{t.get('date','')} | {t.get('plate',t.get('vehicle',''))} | {t.get('route','')} | {t.get('trip_count',1)} runs | {t.get('start_km',0)}â{t.get('end_km',0)} km" for t in trips[-15:]]
             await message.reply_text("\U0001f4cb \u041e\u0441\u0442\u0430\u043d\u043d\u0456 \u043f\u043e\u0457\u0437\u0434\u043a\u0438:\n"+"\n".join(lines))
         return
-    if action=="trip" and (is_driver(update) or is_admin(update)):
+    if action=="trip" and (is_driver(update, context) or is_admin(update)):
         ud["wp_mode"]="trip_date";ud["wp_trip"]={}
         await message.reply_text("\u0414\u0430\u0442\u0430 \u043f\u043e\u0457\u0437\u0434\u043a\u0438 (\u0420\u0420\u0420\u0420-\u041c\u041c-\u0414\u0414):",reply_markup=ReplyKeyboardMarkup([[_label("cancel",context,update)]],resize_keyboard=True))
         return
@@ -4377,21 +4419,21 @@ async def employee_private_access(update,context):
         await _employee_home(update,context)
         await message.reply_text(f"\u2705 \u0417\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e. \u041f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043e \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0456\u0432: {delivered}/{len(ADMIN_USER_IDS)}")
         return
-    if mode=="vehicle_model" and (is_driver(update) or is_admin(update)):
+    if mode=="vehicle_model" and (is_driver(update, context) or is_admin(update)):
         if not text or len(text)>100: return await message.reply_text("Invalid model / ÐÐµÐ²ÑÑÐ½Ð° Ð¼Ð¾Ð´ÐµÐ»Ñ")
         ud["wp_vehicle_model"]=text; ud["wp_mode"]="vehicle_plate"
         return await message.reply_text(_t(context,update,"ÐÐ²ÐµÐ´ÑÑÑ ÑÐµÑÑÑÑÐ°ÑÑÐ¹Ð½Ð¸Ð¹ Ð½Ð¾Ð¼ÐµÑ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ:","Enter registration plate:","Introduzca matrÃ­cula:"))
-    if mode=="vehicle_plate" and (is_driver(update) or is_admin(update)):
+    if mode=="vehicle_plate" and (is_driver(update, context) or is_admin(update)):
         if not 2<=len(text)<=20: return await message.reply_text("Invalid plate / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð½Ð¾Ð¼ÐµÑ")
         ud["wp_vehicle_plate"]=text.upper(); ud["wp_mode"]="vehicle_private"
-        return await message.reply_text(_t(context,update,"Ð¦Ðµ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¸Ð¹ Ð¿ÐµÑÐµÐ²ÑÐ·Ð½Ð¸Ðº? ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐ°Ðº Ð°Ð±Ð¾ Ð½Ñ.","Private carrier? Type yes or no.","Â¿Transportista privado? Escriba sÃ­ o no."))
-    if mode=="vehicle_private" and (is_driver(update) or is_admin(update)):
+        return await message.reply_text(_t(context,update,"Ð¦Ðµ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¸Ð¹ Ð¿ÐµÑÐµÐ²ÑÐ·Ð½Ð¸Ðº? ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐ°Ðº Ð°Ð±Ð¾ Ð½Ñ.","Private carrier? Type yes or no.","ÃÂ¿Transportista privado? Escriba sÃ­ o no."))
+    if mode=="vehicle_private" and (is_driver(update, context) or is_admin(update)):
         yes={"ÑÐ°Ðº","yes","si","sÃ­","y"}; no={"Ð½Ñ","no","n"}
         if text.casefold() not in yes|no: return await message.reply_text("ÑÐ°Ðº/Ð½Ñ Â· yes/no Â· sÃ­/no")
         _save_vehicle(update.effective_user.id,ud.pop("wp_vehicle_plate"),ud.pop("wp_vehicle_model"),text.casefold() in yes)
         ud.pop("wp_mode",None)
         return await message.reply_text(_t(context,update,"â ÐÐ²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.","â Vehicle saved.","â VehÃ­culo guardado."),reply_markup=_driver_kb(context,update))
-    if mode=="trip_vehicle" and (is_driver(update) or is_admin(update)):
+    if mode=="trip_vehicle" and (is_driver(update, context) or is_admin(update)):
         choices=_vehicles().get(str(update.effective_user.id),[])
         if text=="â NEW / ÐÐÐÐ / NUEVO":
             ud["wp_mode"]="vehicle_model"
@@ -4402,7 +4444,7 @@ async def employee_private_access(update,context):
         ud["wp_trip"].update(vehicle=match["model"],plate=match["plate"],private_carrier=match.get("private",False))
         ud["wp_mode"]="trip_route"
         return await message.reply_text(_t(context,update,"ÐÐ°ÑÑÑÑÑ (Ð·Ð²ÑÐ´ÐºÐ¸ â ÐºÑÐ´Ð¸):","Route (from â to):","Ruta (desde â hasta):"))
-    if mode=="trip_count" and (is_driver(update) or is_admin(update)):
+    if mode=="trip_count" and (is_driver(update, context) or is_admin(update)):
         try:
             count=int(text)
             if not 1<=count<=100: raise ValueError()
@@ -4411,25 +4453,25 @@ async def employee_private_access(update,context):
         ud["wp_trip"]["trip_count"]=count
         ud["wp_mode"]="trip_start"
         return await message.reply_text(_t(context,update,"ÐÐ¾ÐºÐ°Ð·Ð½Ð¸Ðº Ð¾Ð´Ð¾Ð¼ÐµÑÑÐ° Ð½Ð° Ð¿Ð¾ÑÐ°ÑÐºÑ (ÐºÐ¼):","Starting odometer (km):","OdÃ³metro inicial (km):"))
-    if mode=="trip_date" and (is_driver(update) or is_admin(update)):
+    if mode=="trip_date" and (is_driver(update, context) or is_admin(update)):
         try:
             if datetime.strptime(text,"%Y-%m-%d").strftime("%Y-%m-%d")!=text: raise ValueError()
         except ValueError:
             return await message.reply_text("YYYY-MM-DD")
         ud["wp_trip"]["date"]=text;ud["wp_mode"]="trip_vehicle"
         return await message.reply_text(_t(context,update,"ÐÐ±ÐµÑÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ:","Choose vehicle:","Elija vehÃ­culo:"),reply_markup=_vehicle_choices(context,update))
-    if mode=="trip_route" and (is_driver(update) or is_admin(update)):
+    if mode=="trip_route" and (is_driver(update, context) or is_admin(update)):
         if not text or len(text)>250: return await message.reply_text("Invalid route / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð¼Ð°ÑÑÑÑÑ")
         ud["wp_trip"]["route"]=text;ud["wp_mode"]="trip_count"
         return await message.reply_text(_t(context,update,"Ð¡ÐºÑÐ»ÑÐºÐ¸ ÑÐ¾Ð´Ð¾Ðº Ð²Ð¸ÐºÐ¾Ð½Ð°Ð½Ð¾ (ÑÐ¸ÑÐ»Ð¾)?","How many runs (number)?","Â¿CuÃ¡ntos viajes (nÃºmero)?"))
-    if mode=="trip_start" and (is_driver(update) or is_admin(update)):
+    if mode=="trip_start" and (is_driver(update, context) or is_admin(update)):
         try:
             km=int(text)
             if km<0: raise ValueError()
         except ValueError: return await message.reply_text("Invalid odometer / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð¿ÑÐ¾Ð±ÑÐ³")
         ud["wp_trip"]["start_km"]=km;ud["wp_mode"]="trip_end"
         return await message.reply_text(_t(context,update,"ÐÐ¾ÐºÐ°Ð·Ð½Ð¸Ðº Ð¾Ð´Ð¾Ð¼ÐµÑÑÐ° Ð½Ð°Ð¿ÑÐ¸ÐºÑÐ½ÑÑ (ÐºÐ¼):","Ending odometer (km):","OdÃ³metro final (km):"))
-    if mode=="trip_end" and (is_driver(update) or is_admin(update)):
+    if mode=="trip_end" and (is_driver(update, context) or is_admin(update)):
         try:
             end=int(text);start=ud["wp_trip"]["start_km"]
             if end<start or end<0: raise ValueError()
@@ -4451,7 +4493,7 @@ async def _show_personal(update,context,action,sap):
     if action=="card": body=format_employee_card(emp,read_perf())
     elif action=="performance": body=format_employee_card(emp,read_perf())
     else: return
-    await update.effective_message.reply_text(body,reply_markup=_employee_kb(context,is_driver(update),is_admin(update),update))
+    await update.effective_message.reply_text(body,reply_markup=_employee_kb(context,is_driver(update, context),is_admin(update),update))
 
 async def guarded_admin(handler,update,context):
     if not is_admin(update) or update.effective_chat.type!="private":

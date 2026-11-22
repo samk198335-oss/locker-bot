@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-22-driver-menu-v27"
+BOT_BUILD = "2026-11-22-driver-menu-v28"
 import os
 import csv
 import re
@@ -4082,7 +4082,7 @@ LABELS = {
  "driver": ("\U0001f697 \u0412\u043e\u0434\u0456\u0439", "\U0001f697 Driver", "\U0001f697 Conductor"),
  "trip": ("\u2795 \u0417\u0430\u043f\u0438\u0441\u0430\u0442\u0438 \u043f\u043e\u0457\u0437\u0434\u043a\u0443", "\u2795 Record trip", "\u2795 Registrar viaje"),
  "trips": ("\U0001f4cb \u041c\u043e\u0457 \u043f\u043e\u0457\u0437\u0434\u043a\u0438", "\U0001f4cb My trips", "\U0001f4cb Mis viajes"),
- "vehicle": ("\U0001f699 \u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0456\u043b\u0456", "\U0001f699 Vehicles", 'ð VehÃ­culos'),
+ "vehicle": ("\U0001f699 \u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0456\u043b\u0456", "\U0001f699 Vehicles", '\U0001f699 Veh\xedculos'),
  "employee": ("\U0001f464 \u041c\u0435\u043d\u044e \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430", "\U0001f464 Employee menu", "\U0001f464 Men\u00fa empleado"),
  "admin": ("\U0001f6e0 \u0410\u0434\u043c\u0456\u043d-\u043c\u0435\u043d\u044e",)*3,
  "cancel": ("\u274c \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438", "\u274c Cancel", "\u274c Cancelar"),
@@ -4135,10 +4135,30 @@ def _save_vehicle(user_id, plate, model, private=False):
 def _t(context, update, uk, en, es):
     return _tr(context, uk, en, es, update)
 
+def _vehicle_display_text(value):
+    """Repair legacy double-encoded names for display, without rewriting saved data."""
+    if not isinstance(value, str):
+        return str(value)
+    result = value
+    for _ in range(2):
+        if not any(marker in result for marker in ("\u00d0", "\u00d1", "\u00c3", "\u00c2", "\u00e2")):
+            break
+        try:
+            try:
+                candidate = result.encode("cp1252").decode("utf-8")
+            except UnicodeError:
+                candidate = result.encode("latin-1").decode("utf-8")
+        except (UnicodeError, ValueError):
+            break
+        if candidate == result:
+            break
+        result = candidate
+    return result
+
 def _vehicle_choices(context, update):
     vs = _vehicles().get(str(update.effective_user.id), [])
-    choices = [f"{v['plate']} | {v['model']}" for v in vs]
-    return ReplyKeyboardMarkup([[c] for c in choices] + [['â NEW / ÐÐÐÐ / NUEVO'], [_label("cancel", context, update)]], resize_keyboard=True)
+    choices = [f"{_vehicle_display_text(v['plate'])} | {_vehicle_display_text(v['model'])}" for v in vs]
+    return ReplyKeyboardMarkup([[c] for c in choices] + [['\u2795 NEW / \u041d\u041e\u0412\u0415 / NUEVO'], [_label("cancel", context, update)]], resize_keyboard=True)
 
 async def driver_photo(update, context):
     if update.effective_chat.type != "private" or not (is_driver(update, context) or is_admin(update)):
@@ -4147,18 +4167,18 @@ async def driver_photo(update, context):
         return await guarded_admin(on_photo, update, context) if is_admin(update) else None
     item = context.user_data.get("wp_trip", {})
     if not item.get("end_km") and item.get("end_km") != 0:
-        return await update.effective_message.reply_text('Missing odometer / ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ¾Ð±ÑÐ³Ñ / Falta kilometraje')
+        return await update.effective_message.reply_text('Missing odometer / \u041d\u0435\u043c\u0430\u0454 \u043f\u0440\u043e\u0431\u0456\u0433\u0443 / Falta kilometraje')
     if not all(k in item for k in ("date", "vehicle", "plate", "route", "trip_count", "start_km", "end_km")):
         context.user_data.pop("wp_mode", None)
         context.user_data.pop("wp_trip", None)
-        return await update.effective_message.reply_text('ÐÐ°Ð¿Ð¸Ñ Ð½ÐµÐ¿Ð¾Ð²Ð½Ð¸Ð¹. ÐÐ¾ÑÐ½ÑÑÑ Ð¿Ð¾ÑÐ·Ð´ÐºÑ Ð·Ð°Ð½Ð¾Ð²Ð¾ / Incomplete trip / Viaje incompleto.', reply_markup=_driver_kb(context, update))
+        return await update.effective_message.reply_text('\u0417\u0430\u043f\u0438\u0441 \u043d\u0435\u043f\u043e\u0432\u043d\u0438\u0439. \u041f\u043e\u0447\u043d\u0456\u0442\u044c \u043f\u043e\u0457\u0437\u0434\u043a\u0443 \u0437\u0430\u043d\u043e\u0432\u043e / Incomplete trip / Viaje incompleto.', reply_markup=_driver_kb(context, update))
     item.update(photo_file_id=update.effective_message.photo[-1].file_id,
                 user_id=update.effective_user.id, driver=update.effective_user.full_name,
                 created_at=datetime.now().isoformat(timespec="seconds"))
     _append_jsonl(TRIPS_FILE, item)
     context.user_data.pop("wp_trip", None)
     context.user_data.pop("wp_mode", None)
-    await update.effective_message.reply_text(_t(context,update,'â ÐÐ°Ð¿Ð¸Ñ Ñ ÑÐ¾ÑÐ¾ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.','â Entry and photo saved.','â Registro y foto guardados.'), reply_markup=_driver_kb(context,update))
+    await update.effective_message.reply_text(_t(context,update,'\u2705 \u0417\u0430\u043f\u0438\u0441 \u0456 \u0444\u043e\u0442\u043e \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e.','\u2705 Entry and photo saved.','\u2705 Registro y foto guardados.'), reply_markup=_driver_kb(context,update))
 
 async def _employee_home(update, context):
     context.user_data.pop("wp_mode",None)
@@ -4375,7 +4395,7 @@ async def employee_private_access(update,context):
         return
     if action=="vehicle" and (is_driver(update, context) or is_admin(update)):
         ud["wp_mode"]="vehicle_model"
-        await message.reply_text(_t(context,update,'ÐÐ²ÐµÐ´ÑÑÑ Ð¼Ð°ÑÐºÑ ÑÐ° Ð¼Ð¾Ð´ÐµÐ»Ñ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ (Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ Toyota Bus):',"Enter vehicle make and model:",'Introduzca marca y modelo del vehÃ­culo:'))
+        await message.reply_text(_t(context,update,'\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043c\u0430\u0440\u043a\u0443 \u0442\u0430 \u043c\u043e\u0434\u0435\u043b\u044c \u0430\u0432\u0442\u043e\u043c\u043e\u0431\u0456\u043b\u044f (\u043d\u0430\u043f\u0440\u0438\u043a\u043b\u0430\u0434 Toyota Bus):',"Enter vehicle make and model:",'Introduzca marca y modelo del veh\xedculo:'))
         return
     if action=="trips" and (is_driver(update, context) or is_admin(update)):
         try:
@@ -4435,59 +4455,59 @@ async def employee_private_access(update,context):
         await message.reply_text(f"\u2705 \u0417\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e. \u041f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043e \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0456\u0432: {delivered}/{len(ADMIN_USER_IDS)}")
         return
     if mode=="vehicle_model" and (is_driver(update, context) or is_admin(update)):
-        if not text or len(text)>100: return await message.reply_text('Invalid model / ÐÐµÐ²ÑÑÐ½Ð° Ð¼Ð¾Ð´ÐµÐ»Ñ')
+        if not text or len(text)>100: return await message.reply_text('Invalid model / \u041d\u0435\u0432\u0456\u0440\u043d\u0430 \u043c\u043e\u0434\u0435\u043b\u044c')
         ud["wp_vehicle_model"]=text; ud["wp_mode"]="vehicle_plate"
-        return await message.reply_text(_t(context,update,'ÐÐ²ÐµÐ´ÑÑÑ ÑÐµÑÑÑÑÐ°ÑÑÐ¹Ð½Ð¸Ð¹ Ð½Ð¾Ð¼ÐµÑ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ:',"Enter registration plate:",'Introduzca matrÃ­cula:'))
+        return await message.reply_text(_t(context,update,'\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0440\u0435\u0454\u0441\u0442\u0440\u0430\u0446\u0456\u0439\u043d\u0438\u0439 \u043d\u043e\u043c\u0435\u0440 \u0430\u0432\u0442\u043e\u043c\u043e\u0431\u0456\u043b\u044f:',"Enter registration plate:",'Introduzca matr\xedcula:'))
     if mode=="vehicle_plate" and (is_driver(update, context) or is_admin(update)):
-        if not 2<=len(text)<=20: return await message.reply_text('Invalid plate / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð½Ð¾Ð¼ÐµÑ')
+        if not 2<=len(text)<=20: return await message.reply_text('Invalid plate / \u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 \u043d\u043e\u043c\u0435\u0440')
         ud["wp_vehicle_plate"]=text.upper(); ud["wp_mode"]="vehicle_private"
-        return await message.reply_text(_t(context,update,'Ð¦Ðµ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¸Ð¹ Ð¿ÐµÑÐµÐ²ÑÐ·Ð½Ð¸Ðº? ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐ°Ðº Ð°Ð±Ð¾ Ð½Ñ.',"Private carrier? Type yes or no.",'Â¿Transportista privado? Escriba sÃ­ o no.'))
+        return await message.reply_text(_t(context,update,'\u0426\u0435 \u043f\u0440\u0438\u0432\u0430\u0442\u043d\u0438\u0439 \u043f\u0435\u0440\u0435\u0432\u0456\u0437\u043d\u0438\u043a? \u041d\u0430\u043f\u0438\u0448\u0456\u0442\u044c \u0442\u0430\u043a \u0430\u0431\u043e \u043d\u0456.',"Private carrier? Type yes or no.",'\xbfTransportista privado? Escriba s\xed o no.'))
     if mode=="vehicle_private" and (is_driver(update, context) or is_admin(update)):
-        yes={'ÑÐ°Ðº',"yes","si",'sÃ­',"y"}; no={'Ð½Ñ',"no","n"}
-        if text.casefold() not in yes|no: return await message.reply_text('ÑÐ°Ðº/Ð½Ñ Â· yes/no Â· sÃ­/no')
+        yes={'\u0442\u0430\u043a',"yes","si",'s\xed',"y"}; no={'\u043d\u0456',"no","n"}
+        if text.casefold() not in yes|no: return await message.reply_text('\u0442\u0430\u043a/\u043d\u0456 \xb7 yes/no \xb7 s\xed/no')
         _save_vehicle(update.effective_user.id,ud.pop("wp_vehicle_plate"),ud.pop("wp_vehicle_model"),text.casefold() in yes)
         pending_trip = isinstance(ud.get("wp_trip"), dict) and bool(ud.get("wp_trip"))
         ud["wp_mode"] = "trip_vehicle" if pending_trip else None
         if not pending_trip: ud.pop("wp_mode", None)
-        return await message.reply_text(_t(context,update,'â ÐÐ²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾. ÐÐ±ÐµÑÑÑÑ Ð¹Ð¾Ð³Ð¾ Ð´Ð»Ñ Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸.' if pending_trip else 'â ÐÐ²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.','â Vehicle saved. Select it for the trip.' if pending_trip else 'â Vehicle saved.','â VehÃ­culo guardado. SelecciÃ³nelo para el viaje.' if pending_trip else 'â VehÃ­culo guardado.'),reply_markup=_vehicle_choices(context,update) if pending_trip else _driver_kb(context,update))
+        return await message.reply_text(_t(context,update,'\u2705 \u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0456\u043b\u044c \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e. \u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0439\u043e\u0433\u043e \u0434\u043b\u044f \u043f\u043e\u0457\u0437\u0434\u043a\u0438.' if pending_trip else '\u2705 \u0410\u0432\u0442\u043e\u043c\u043e\u0431\u0456\u043b\u044c \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e.','\u2705 Vehicle saved. Select it for the trip.' if pending_trip else '\u2705 Vehicle saved.','\u2705 Veh\xedculo guardado. Selecci\xf3nelo para el viaje.' if pending_trip else '\u2705 Veh\xedculo guardado.'),reply_markup=_vehicle_choices(context,update) if pending_trip else _driver_kb(context,update))
     if mode=="trip_vehicle" and (is_driver(update, context) or is_admin(update)):
         choices=_vehicles().get(str(update.effective_user.id),[])
-        if text=='â NEW / ÐÐÐÐ / NUEVO':
+        if text=='\u2795 NEW / \u041d\u041e\u0412\u0415 / NUEVO':
             ud["wp_mode"]="vehicle_model"
-            return await message.reply_text(_t(context,update,'ÐÐ²ÐµÐ´ÑÑÑ Ð¼Ð°ÑÐºÑ ÑÐ° Ð¼Ð¾Ð´ÐµÐ»Ñ. ÐÑÑÐ»Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð½Ñ Ð¿Ð¾Ð²ÑÐ¾ÑÐ½Ð¾ Ð½Ð°ÑÐ¸ÑÐ½ÑÑÑ Â«ÐÐ°Ð¿Ð¸ÑÐ°ÑÐ¸ Ð¿Ð¾ÑÐ·Ð´ÐºÑÂ».',"Enter make and model; then restart Record trip.",'Introduzca marca y modelo; despuÃ©s reinicie Registrar viaje.'))
-        match=next((v for v in choices if text==f"{v['plate']} | {v['model']}"),None)
+            return await message.reply_text(_t(context,update,'\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043c\u0430\u0440\u043a\u0443 \u0442\u0430 \u043c\u043e\u0434\u0435\u043b\u044c. \u041f\u0456\u0441\u043b\u044f \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043d\u044f \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e \u043d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c \xab\u0417\u0430\u043f\u0438\u0441\u0430\u0442\u0438 \u043f\u043e\u0457\u0437\u0434\u043a\u0443\xbb.',"Enter make and model; then restart Record trip.",'Introduzca marca y modelo; despu\xe9s reinicie Registrar viaje.'))
+        match=next((v for v in choices if text==f"{_vehicle_display_text(v['plate'])} | {_vehicle_display_text(v['model'])}"),None)
         if not match:
-            return await message.reply_text(_t(context,update,'ÐÐ¸Ð±ÐµÑÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ Ð·Ñ ÑÐ¿Ð¸ÑÐºÑ Ð°Ð±Ð¾ Ð´Ð¾Ð´Ð°Ð¹ÑÐµ Ð½Ð¾Ð²Ð¸Ð¹.',"Choose a saved vehicle or add one.",'Elija un vehÃ­culo guardado o aÃ±ada uno.'),reply_markup=_vehicle_choices(context,update))
+            return await message.reply_text(_t(context,update,'\u0412\u0438\u0431\u0435\u0440\u0456\u0442\u044c \u0430\u0432\u0442\u043e\u043c\u043e\u0431\u0456\u043b\u044c \u0437\u0456 \u0441\u043f\u0438\u0441\u043a\u0443 \u0430\u0431\u043e \u0434\u043e\u0434\u0430\u0439\u0442\u0435 \u043d\u043e\u0432\u0438\u0439.',"Choose a saved vehicle or add one.",'Elija un veh\xedculo guardado o a\xf1ada uno.'),reply_markup=_vehicle_choices(context,update))
         ud["wp_trip"].update(vehicle=match["model"],plate=match["plate"],private_carrier=match.get("private",False))
         ud["wp_mode"]="trip_route"
-        return await message.reply_text(_t(context,update,'ÐÐ°ÑÑÑÑÑ (Ð·Ð²ÑÐ´ÐºÐ¸ â ÐºÑÐ´Ð¸):','Route (from â to):','Ruta (desde â hasta):'))
+        return await message.reply_text(_t(context,update,'\u041c\u0430\u0440\u0448\u0440\u0443\u0442 (\u0437\u0432\u0456\u0434\u043a\u0438 \u2192 \u043a\u0443\u0434\u0438):','Route (from \u2192 to):','Ruta (desde \u2192 hasta):'))
     if mode=="trip_count" and (is_driver(update, context) or is_admin(update)):
         try:
             count=int(text)
             if not 1<=count<=100: raise ValueError()
         except ValueError:
-            return await message.reply_text('1â100')
+            return await message.reply_text('1\u2013100')
         ud["wp_trip"]["trip_count"]=count
         ud["wp_mode"]="trip_start"
-        return await message.reply_text(_t(context,update,'ÐÐ¾ÐºÐ°Ð·Ð½Ð¸Ðº Ð¾Ð´Ð¾Ð¼ÐµÑÑÐ° Ð½Ð° Ð¿Ð¾ÑÐ°ÑÐºÑ (ÐºÐ¼):',"Starting odometer (km):",'OdÃ³metro inicial (km):'))
+        return await message.reply_text(_t(context,update,'\u041f\u043e\u043a\u0430\u0437\u043d\u0438\u043a \u043e\u0434\u043e\u043c\u0435\u0442\u0440\u0430 \u043d\u0430 \u043f\u043e\u0447\u0430\u0442\u043a\u0443 (\u043a\u043c):',"Starting odometer (km):",'Od\xf3metro inicial (km):'))
     if mode=="trip_date" and (is_driver(update, context) or is_admin(update)):
         try:
             if datetime.strptime(text,"%Y-%m-%d").strftime("%Y-%m-%d")!=text: raise ValueError()
         except ValueError:
             return await message.reply_text("YYYY-MM-DD")
         ud["wp_trip"]["date"]=text;ud["wp_mode"]="trip_vehicle"
-        return await message.reply_text(_t(context,update,'ÐÐ±ÐµÑÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ:',"Choose vehicle:",'Elija vehÃ­culo:'),reply_markup=_vehicle_choices(context,update))
+        return await message.reply_text(_t(context,update,'\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0430\u0432\u0442\u043e\u043c\u043e\u0431\u0456\u043b\u044c:',"Choose vehicle:",'Elija veh\xedculo:'),reply_markup=_vehicle_choices(context,update))
     if mode=="trip_route" and (is_driver(update, context) or is_admin(update)):
-        if not text or len(text)>250: return await message.reply_text('Invalid route / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð¼Ð°ÑÑÑÑÑ')
+        if not text or len(text)>250: return await message.reply_text('Invalid route / \u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 \u043c\u0430\u0440\u0448\u0440\u0443\u0442')
         ud["wp_trip"]["route"]=text;ud["wp_mode"]="trip_count"
-        return await message.reply_text(_t(context,update,'Ð¡ÐºÑÐ»ÑÐºÐ¸ ÑÐ¾Ð´Ð¾Ðº Ð²Ð¸ÐºÐ¾Ð½Ð°Ð½Ð¾ (ÑÐ¸ÑÐ»Ð¾)?',"How many runs (number)?",'Â¿CuÃ¡ntos viajes (nÃºmero)?'))
+        return await message.reply_text(_t(context,update,'\u0421\u043a\u0456\u043b\u044c\u043a\u0438 \u0445\u043e\u0434\u043e\u043a \u0432\u0438\u043a\u043e\u043d\u0430\u043d\u043e (\u0447\u0438\u0441\u043b\u043e)?',"How many runs (number)?",'\xbfCu\xe1ntos viajes (n\xfamero)?'))
     if mode=="trip_start" and (is_driver(update, context) or is_admin(update)):
         try:
             km=int(text)
             if km<0: raise ValueError()
-        except ValueError: return await message.reply_text('Invalid odometer / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð¿ÑÐ¾Ð±ÑÐ³')
+        except ValueError: return await message.reply_text('Invalid odometer / \u041d\u0435\u0432\u0456\u0440\u043d\u0438\u0439 \u043f\u0440\u043e\u0431\u0456\u0433')
         ud["wp_trip"]["start_km"]=km;ud["wp_mode"]="trip_end"
-        return await message.reply_text(_t(context,update,'ÐÐ¾ÐºÐ°Ð·Ð½Ð¸Ðº Ð¾Ð´Ð¾Ð¼ÐµÑÑÐ° Ð½Ð°Ð¿ÑÐ¸ÐºÑÐ½ÑÑ (ÐºÐ¼):',"Ending odometer (km):",'OdÃ³metro final (km):'))
+        return await message.reply_text(_t(context,update,'\u041f\u043e\u043a\u0430\u0437\u043d\u0438\u043a \u043e\u0434\u043e\u043c\u0435\u0442\u0440\u0430 \u043d\u0430\u043f\u0440\u0438\u043a\u0456\u043d\u0446\u0456 (\u043a\u043c):',"Ending odometer (km):",'Od\xf3metro final (km):'))
     if mode=="trip_end" and (is_driver(update, context) or is_admin(update)):
         try:
             end=int(text);start=ud["wp_trip"]["start_km"]
@@ -4497,7 +4517,7 @@ async def employee_private_access(update,context):
             return
         ud["wp_trip"]["end_km"]=end
         ud["wp_mode"]="trip_photo"
-        await message.reply_text(_t(context,update,'ÐÐ°Ð´ÑÑÐ»ÑÑÑ ÑÐ¾ÑÐ¾ Ð¾Ð´Ð¾Ð¼ÐµÑÑÐ° Ð´Ð»Ñ Ð·Ð°Ð²ÐµÑÑÐµÐ½Ð½Ñ Ð·Ð°Ð¿Ð¸ÑÑ.',"Send an odometer photo to save the entry.",'EnvÃ­e una foto del odÃ³metro para guardar el registro.'))
+        await message.reply_text(_t(context,update,'\u041d\u0430\u0434\u0456\u0448\u043b\u0456\u0442\u044c \u0444\u043e\u0442\u043e \u043e\u0434\u043e\u043c\u0435\u0442\u0440\u0430 \u0434\u043b\u044f \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u043d\u044f \u0437\u0430\u043f\u0438\u0441\u0443.',"Send an odometer photo to save the entry.",'Env\xede una foto del od\xf3metro para guardar el registro.'))
         return
     await _employee_home(update,context)
 

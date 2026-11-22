@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-21-workpuls-reviewed-v16"
+BOT_BUILD = "2026-11-22-workpuls-v17"
 import os
 import csv
 import re
@@ -3972,7 +3972,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"\u274c \u041f\u043e\u043c\u0438\u043b\u043a\u0430 OCR: {e}\n\n\u041c\u043e\u0436\u0435\u0448 \u0432\u0441\u0442\u0430\u0432\u0438\u0442\u0438 \u0446\u0456 \u0434\u0430\u043d\u0456 \u0442\u0435\u043a\u0441\u0442\u043e\u043c \u0447\u0435\u0440\u0435\u0437 \U0001f4e5 \u0406\u043c\u043f\u043e\u0440\u0442 % \u0437\u0430 \u0434\u0430\u0442\u043e\u044e.")
 
 # ==============================
-# WORKPULS ROLE MENUS / REQUESTS / DRIVER LOG
+# WORKPULS ROLE MENUS / REQUESTS / DRIVER LOG â v17
 # ==============================
 import json
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -3980,396 +3980,354 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 ROLE_FILE = os.path.join(DATA_DIR, "workpuls_drivers.json")
 REQUESTS_FILE = os.path.join(DATA_DIR, "workpuls_requests.jsonl")
 TRIPS_FILE = os.path.join(DATA_DIR, "workpuls_trips.jsonl")
+LANG_FILE = os.path.join(DATA_DIR, "workpuls_languages.json")
+GROUP_ENTRY_FILE = os.path.join(DATA_DIR, "workpuls_group_entry.json")
 
+def _read_json(path, default):
+    try:
+        with open(path, encoding="utf-8") as f: return json.load(f)
+    except (OSError, ValueError, TypeError): return default
+
+def _write_json(path, data):
+    with WRITE_LOCK:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False)
+        os.replace(tmp, path)
 
 def _driver_ids():
-    try:
-        with open(ROLE_FILE, encoding="utf-8") as f:
-            return set(map(int, json.load(f)))
-    except (FileNotFoundError, ValueError, TypeError):
-        return set()
+    return {int(x) for x in _read_json(ROLE_FILE, []) if str(x).isdigit()}
 
-
-def _save_driver_ids(ids):
-    with WRITE_LOCK:
-        temp = ROLE_FILE + ".tmp"
-        with open(temp, "w", encoding="utf-8") as f:
-            json.dump(sorted(ids), f)
-        os.replace(temp, ROLE_FILE)
-
+def _save_driver_ids(ids): _write_json(ROLE_FILE, sorted(ids))
 
 def _append_jsonl(path, data):
     with WRITE_LOCK:
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(data, ensure_ascii=False) + "\n")
 
-
 def is_admin(update):
     return bool(update.effective_user and update.effective_user.id in ADMIN_USER_IDS)
-
 
 def is_driver(update):
     return bool(update.effective_user and update.effective_user.id in _driver_ids())
 
-
-def _lang(context):
+def _lang(context, update=None):
+    if update and update.effective_user:
+        return _read_json(LANG_FILE, {}).get(str(update.effective_user.id), "uk")
     return context.user_data.get("wp_lang", "uk")
 
+def _tr(context, uk, en, es=None, update=None):
+    language = _lang(context, update)
+    return {"uk":uk, "en":en, "es":es or en}.get(language, uk)
 
-def _tr(context, uk, en):
-    return en if _lang(context) == "en" else uk
+LABELS = {
+ "card": ("ð¤ ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°", "ð¤ My card", "ð¤ Mi ficha"),
+ "performance": ("ð ÐÑÐ¾Ð´ÑÐºÑÐ¸Ð²Ð½ÑÑÑÑ", "ð Performance", "ð Productividad"),
+ "schedule": ("ð ÐÑÐ¹ Ð³ÑÐ°ÑÑÐº", "ð My schedule", "ð Mi horario"),
+ "complaint": ("ð¨ Ð¡ÐºÐ°ÑÐ³Ð°", "ð¨ Complaint", "ð¨ Queja"),
+ "suggestion": ("ð¡ ÐÑÐ¾Ð¿Ð¾Ð·Ð¸ÑÑÑ", "ð¡ Suggestion", "ð¡ Sugerencia"),
+ "dayoff": ("ð ÐÐ°Ð¿Ð¸Ñ Ð²Ð¸ÑÑÐ´Ð½Ð¾Ð³Ð¾", "ð Day off request", "ð Solicitar dÃ­a libre"),
+ "language": ("ð ÐÐ¾Ð²Ð° / Language / Idioma",)*3,
+ "driver": ("ð ÐÐ¾Ð´ÑÐ¹", "ð Driver", "ð Conductor"),
+ "trip": ("â ÐÐ°Ð¿Ð¸ÑÐ°ÑÐ¸ Ð¿Ð¾ÑÐ·Ð´ÐºÑ", "â Record trip", "â Registrar viaje"),
+ "trips": ("ð ÐÐ¾Ñ Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸", "ð My trips", "ð Mis viajes"),
+ "employee": ("ð¤ ÐÐµÐ½Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°", "ð¤ Employee menu", "ð¤ MenÃº empleado"),
+ "admin": ("ð  ÐÐ´Ð¼ÑÐ½-Ð¼ÐµÐ½Ñ",)*3,
+ "cancel": ("â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸", "â Cancel", "â Cancelar"),
+}
+BTN_MY_CARD=LABELS["card"][0]
+BTN_COMPLAINT=LABELS["complaint"][0]
+BTN_SUGGESTION=LABELS["suggestion"][0]
+BTN_DAYOFF=LABELS["dayoff"][0]
+BTN_LANGUAGE=LABELS["language"][0]
+BTN_DRIVER=LABELS["driver"][0]
+BTN_TRIP=LABELS["trip"][0]
+BTN_MY_TRIPS=LABELS["trips"][0]
+BTN_EMP_MENU=LABELS["employee"][0]
+BTN_ADMIN_MENU=LABELS["admin"][0]
+BTN_CANCEL_WP=LABELS["cancel"][0]
 
+def _label(key, context, update):
+    return LABELS[key][{"uk":0,"en":1,"es":2}.get(_lang(context, update),0)]
 
-BTN_MY_CARD = "ð¤ ÐÐ¾Ñ ÐºÐ°ÑÑÐºÐ°"
-BTN_COMPLAINT = "ð¨ Ð¡ÐºÐ°ÑÐ³Ð°"
-BTN_SUGGESTION = "ð¡ ÐÑÐ¾Ð¿Ð¾Ð·Ð¸ÑÑÑ"
-BTN_DAYOFF = "ð ÐÐ°Ð¿Ð¸Ñ Ð²Ð¸ÑÑÐ´Ð½Ð¾Ð³Ð¾"
-BTN_LANGUAGE = "ð Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ° / English"
-BTN_DRIVER = "ð ÐÐ¾Ð´ÑÐ¹"
-BTN_TRIP = "â ÐÐ°Ð¿Ð¸ÑÐ°ÑÐ¸ Ð¿Ð¾ÑÐ·Ð´ÐºÑ"
-BTN_MY_TRIPS = "ð ÐÐ¾Ñ Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸"
-BTN_EMP_MENU = "ð¤ ÐÐµÐ½Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°"
-BTN_ADMIN_MENU = "ð  ÐÐ´Ð¼ÑÐ½-Ð¼ÐµÐ½Ñ"
-BTN_CANCEL_WP = "â Ð¡ÐºÐ°ÑÑÐ²Ð°ÑÐ¸"
+def _action(text):
+    for key, values in LABELS.items():
+        if text in values: return key
+    return None
 
-
-def _employee_kb(context, driver=False, admin=False):
-    en = _lang(context) == "en"
-    rows = [
-        [["ð¤ My card", BTN_MY_CARD][not en]],
-        [["ð¨ Complaint", BTN_COMPLAINT][not en], ["ð¡ Suggestion", BTN_SUGGESTION][not en]],
-        [["ð Day off request", BTN_DAYOFF][not en]],
-    ]
-    if driver:
-        rows.append([["ð Driver", BTN_DRIVER][not en]])
-    if admin:
-        rows.append([BTN_ADMIN_MENU])
-    rows.append([BTN_LANGUAGE])
+def _employee_kb(context, driver=False, admin=False, update=None):
+    def l(k): return _label(k,context,update)
+    rows=[[l("card"),l("performance")],[l("schedule"),l("dayoff")],
+          [l("complaint"),l("suggestion")]]
+    if driver: rows.append([l("driver")])
+    if admin: rows.append([l("admin")])
+    rows.append([l("language")])
     return ReplyKeyboardMarkup(rows, resize_keyboard=True, is_persistent=True)
 
-
-def _driver_kb(context):
-    return ReplyKeyboardMarkup([[BTN_TRIP], [BTN_MY_TRIPS], [BTN_EMP_MENU], [BTN_LANGUAGE]], resize_keyboard=True)
-
-
-def _button_match(text, uk, en):
-    return text in (uk, en)
-
+def _driver_kb(context, update=None):
+    def l(k): return _label(k,context,update)
+    return ReplyKeyboardMarkup([[l("trip"),l("trips")],[l("employee")],[l("language")]],resize_keyboard=True)
 
 async def _employee_home(update, context):
-    context.user_data.pop("wp_mode", None)
-    context.user_data.pop("wp_trip", None)
+    context.user_data.pop("wp_mode",None)
+    context.user_data.pop("wp_trip",None)
     await update.effective_message.reply_text(
-        _tr(context, "ð¤ ÐÑÐ¾Ð±Ð¸ÑÑÐµ Ð¼ÐµÐ½Ñ WorkPuls", "ð¤ WorkPuls personal menu"),
-        reply_markup=_employee_kb(context, is_driver(update), is_admin(update)),
-    )
-
+        _tr(context,"ð¤ ÐÑÐ¾Ð±Ð¸ÑÑÐµ Ð¼ÐµÐ½Ñ WorkPuls","ð¤ WorkPuls personal menu","ð¤ MenÃº personal WorkPuls",update),
+        reply_markup=_employee_kb(context,is_driver(update),is_admin(update),update))
 
 async def _group_entry(update, context):
-    """Create one reusable group entry; edit the existing message on subsequent /open."""
-    me = await context.bot.get_me()
-    url = f"https://t.me/{me.username}?start=workpuls"
-    chat_id = update.effective_chat.id
-    registry_path = os.path.join(DATA_DIR, "workpuls_group_entry.json")
-    try:
-        with open(registry_path, encoding="utf-8") as f:
-            registry = json.load(f)
-    except (OSError, ValueError, TypeError):
-        registry = {}
-    message_text = ("WorkPuls | Personal account\n"
-                    "ÐÑÐ´ÐºÑÐ¸Ð¹ÑÐµ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ ÐºÐ½Ð¾Ð¿ÐºÐ¾Ñ Ð½Ð¸Ð¶ÑÐµ.\n"
-                    "Open your private account using the button below.")
-    markup = InlineKeyboardMarkup([[
-        InlineKeyboardButton("WorkPuls | Open", url=url)
-    ]])
-    previous_id = registry.get(str(chat_id))
-    if previous_id:
+    me=await context.bot.get_me()
+    url=f"https://t.me/{me.username}?start=workpuls"
+    chat_id=update.effective_chat.id
+    registry=_read_json(GROUP_ENTRY_FILE,{})
+    body="WorkPuls\nÐÑÐ´ÐºÑÐ¸Ð¹ÑÐµ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ / Open your personal account / Abra su cuenta personal."
+    markup=InlineKeyboardMarkup([[InlineKeyboardButton("ÐÑÐ´ÐºÑÐ¸ÑÐ¸ WorkPuls",url=url)]])
+    previous=registry.get(str(chat_id))
+    if previous:
         try:
-            await context.bot.edit_message_text(
-                chat_id=chat_id, message_id=int(previous_id),
-                text=message_text, reply_markup=markup)
+            await context.bot.edit_message_text(chat_id=chat_id,message_id=int(previous),text=body,reply_markup=markup)
             return
         except Exception as exc:
-            # 'Message is not modified' is a successful no-op.
-            if "not modified" in str(exc).lower():
-                return
-            print(f"Group entry edit failed: {exc}")
-    sent = await context.bot.send_message(chat_id, message_text, reply_markup=markup)
-    registry[str(chat_id)] = sent.message_id
-    with WRITE_LOCK:
-        temp = registry_path + ".tmp"
-        with open(temp, "w", encoding="utf-8") as f:
-            json.dump(registry, f)
-        os.replace(temp, registry_path)
+            if "not modified" in str(exc).lower(): return
+            print(f"Group entry edit failed: {exc}",flush=True)
+    sent=await context.bot.send_message(chat_id,body,reply_markup=markup)
+    registry[str(chat_id)]=sent.message_id
+    _write_json(GROUP_ENTRY_FILE,registry)
 
+async def _delete_group_command(update,context):
+    try: await update.effective_message.delete()
+    except Exception as exc: print(f"Group command delete failed: {exc}",flush=True)
 
-async def _delete_group_command(update, context):
-    """Delete command messages if the bot is a group admin with delete rights."""
-    try:
-        await update.effective_message.delete()
-    except Exception as exc:
-        print(f"Group command could not be deleted: {exc}", flush=True)
-
-
-async def cmd_group_open(update, context):
-    if update.effective_chat.type != "private":
-        await _delete_group_command(update, context)
-        if is_admin(update):
-            await _group_entry(update, context)
+async def cmd_group_open(update,context):
+    if update.effective_chat.type!="private":
+        await _delete_group_command(update,context)
+        if is_admin(update): await _group_entry(update,context)
         return
-    return await safe_start(update, context)
+    await safe_start(update,context)
 
-
-async def safe_start(update, context):
-    if update.effective_chat.type != "private":
-        await _delete_group_command(update, context)
+async def safe_start(update,context):
+    if update.effective_chat.type!="private":
+        await _delete_group_command(update,context)
         return
     if is_admin(update):
-        context.user_data.pop("wp_mode", None)
-        await update.effective_message.reply_text(
-            "ð  WorkPuls: Ð°Ð´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ. ÐÐ»Ñ Ð¼ÐµÐ½Ñ Ð¿ÑÐ°ÑÑÐ²Ð½Ð¸ÐºÐ°: /employee",
-            reply_markup=MAIN_KB,
-        )
-        return
-    await _employee_home(update, context)
+        context.user_data.pop("wp_mode",None)
+        await update.effective_message.reply_text("ð  WorkPuls â Ð°Ð´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ. /employee â Ð¾ÑÐ¾Ð±Ð¸ÑÑÐµ Ð¼ÐµÐ½Ñ.",reply_markup=MAIN_KB)
+    else: await _employee_home(update,context)
 
+async def cmd_employee(update,context):
+    if update.effective_chat.type=="private": await _employee_home(update,context)
 
-async def cmd_employee(update, context):
-    if update.effective_chat.type != "private":
-        return
-    await _employee_home(update, context)
-
-
-async def cmd_driver_admin(update, context):
-    if update.effective_chat.type != "private" or not is_admin(update):
-        return
-    args = context.args
-    if len(args) != 2 or args[0] not in ("add", "remove") or not args[1].isdigit():
+async def cmd_driver_admin(update,context):
+    if update.effective_chat.type!="private" or not is_admin(update): return
+    args=context.args
+    if len(args)!=2 or args[0] not in ("add","remove") or not args[1].isdigit():
         await update.message.reply_text("ÐÐ¸ÐºÐ¾ÑÐ¸ÑÑÐ°Ð½Ð½Ñ: /driver add TELEGRAM_ID Ð°Ð±Ð¾ /driver remove TELEGRAM_ID")
         return
-    uid = int(args[1])
+    uid=int(args[1])
     if uid in ADMIN_USER_IDS:
-        await update.message.reply_text("ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¾Ñ ÑÐ¶Ðµ Ð¼Ð°Ñ Ð¿Ð¾Ð²Ð½Ð¸Ð¹ Ð´Ð¾ÑÑÑÐ¿; Ð¾ÐºÑÐµÐ¼Ðµ Ð¿ÑÐ¸Ð·Ð½Ð°ÑÐµÐ½Ð½Ñ Ð½Ðµ Ð¿Ð¾ÑÑÑÐ±Ð½Ðµ.")
+        await update.message.reply_text("ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¾Ñ ÑÐ¶Ðµ Ð¼Ð°Ñ Ð´Ð¾ÑÑÑÐ¿ Ð´Ð¾ ÑÑÐ½ÐºÑÑÐ¹ Ð²Ð¾Ð´ÑÑ.")
         return
-    ids = _driver_ids()
-    if args[0] == "add":
-        ids.add(uid)
-    else:
-        ids.discard(uid)
+    ids=_driver_ids()
+    if args[0]=="add": ids.add(uid)
+    else: ids.discard(uid)
     _save_driver_ids(ids)
-    await update.message.reply_text(f"ÐÐ¾Ð´ÑÐ¹ {uid}: {'Ð´Ð¾Ð´Ð°Ð½Ð¾' if args[0] == 'add' else 'Ð²Ð¸Ð´Ð°Ð»ÐµÐ½Ð¾'}.")
+    await update.message.reply_text(f"ÐÐ¾Ð´ÑÐ¹ {uid}: {'Ð´Ð¾Ð´Ð°Ð½Ð¾' if args[0]=='add' else 'Ð²Ð¸Ð´Ð°Ð»ÐµÐ½Ð¾'}.")
 
-
-async def cmd_driverreport(update, context):
-    if update.effective_chat.type != "private" or not is_admin(update):
-        return
-    month = context.args[0] if context.args else datetime.now().strftime("%Y-%m")
-    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month):
+async def cmd_driverreport(update,context):
+    if update.effective_chat.type!="private" or not is_admin(update): return
+    month=context.args[0] if context.args else datetime.now().strftime("%Y-%m")
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])",month):
         await update.message.reply_text("Ð¤Ð¾ÑÐ¼Ð°Ñ: /driverreport 2026-11")
         return
-    rows = []
     try:
-        with open(TRIPS_FILE, encoding="utf-8") as f:
-            rows = [json.loads(line) for line in f if line.strip()]
-    except (FileNotFoundError, ValueError, TypeError) as e:
-        if not isinstance(e, FileNotFoundError):
-            await update.message.reply_text("ÐÐ¾Ð¼Ð¸Ð»ÐºÐ° ÑÐ¸ÑÐ°Ð½Ð½Ñ Ð¶ÑÑÐ½Ð°Ð»Ñ Ð¿Ð¾ÑÐ·Ð´Ð¾Ðº. ÐÐµÑÐµÐ²ÑÑÑÐµ ÑÐ°Ð¹Ð» Ð´Ð°Ð½Ð¸Ñ.")
-            return
-    rows = [r for r in rows if isinstance(r, dict) and str(r.get("date", "")).startswith(month)]
+        with open(TRIPS_FILE,encoding="utf-8") as f:
+            rows=[json.loads(line) for line in f if line.strip()]
+    except FileNotFoundError: rows=[]
+    except (ValueError,TypeError):
+        await update.message.reply_text("ÐÐ¾Ð¼Ð¸Ð»ÐºÐ° ÑÐ¸ÑÐ°Ð½Ð½Ñ Ð¶ÑÑÐ½Ð°Ð»Ñ Ð¿Ð¾ÑÐ·Ð´Ð¾Ðº.")
+        return
+    rows=[r for r in rows if isinstance(r,dict) and str(r.get("date","")).startswith(month)]
     if not rows:
         await update.message.reply_text("ÐÐ¾ÑÐ·Ð´Ð¾Ðº Ð·Ð° ÑÐµÐ¹ Ð¼ÑÑÑÑÑ Ð½ÐµÐ¼Ð°Ñ.")
         return
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Date", "Telegram ID", "Driver", "Vehicle", "Route", "Start km", "End km", "Distance km"])
-    for r in sorted(rows, key=lambda x: (x.get("user_id", 0), x.get("date", ""))):
-        writer.writerow([r.get("date"), r.get("user_id"), r.get("driver"), r.get("vehicle"), r.get("route"),
-                         r.get("start_km"), r.get("end_km"), int(r.get("end_km", 0))-int(r.get("start_km", 0))])
-    data = io.BytesIO(("\ufeff" + output.getvalue()).encode("utf-8"))
-    data.name = f"workpuls_drivers_{month}.csv"
-    await update.message.reply_document(document=data, filename=data.name)
+    output=io.StringIO(); writer=csv.writer(output)
+    writer.writerow(["Date","Telegram ID","Driver","Vehicle","Route","Start km","End km","Distance km"])
+    for r in sorted(rows,key=lambda x:(x.get("user_id",0),x.get("date",""))):
+        writer.writerow([r.get("date"),r.get("user_id"),r.get("driver"),r.get("vehicle"),r.get("route"),r.get("start_km"),r.get("end_km"),int(r.get("end_km",0))-int(r.get("start_km",0))])
+    data=io.BytesIO(("\ufeff"+output.getvalue()).encode("utf-8"))
+    data.name=f"workpuls_drivers_{month}.csv"
+    await update.message.reply_document(document=data,filename=data.name)
 
-
-async def cmd_version(update, context):
-    if update.effective_chat.type == "private":
+async def cmd_version(update,context):
+    if update.effective_chat.type=="private":
         await update.effective_message.reply_text(f"WorkPuls build: {BOT_BUILD}\nRole: {'admin' if is_admin(update) else 'driver' if is_driver(update) else 'employee'}")
 
+async def cmd_resetkeyboard(update,context):
+    if update.effective_chat.type!="private": return
+    await update.effective_message.reply_text("Ð¡ÑÐ°ÑÑ ÐºÐ»Ð°Ð²ÑÐ°ÑÑÑÑ Ð¿ÑÐ¸Ð±ÑÐ°Ð½Ð¾.",reply_markup=ReplyKeyboardRemove())
+    await safe_start(update,context)
 
-async def cmd_resetkeyboard(update, context):
-    """Clear a stale Telegram reply keyboard in the current private chat."""
-    if update.effective_chat.type != "private":
-        return
-    await update.effective_message.reply_text(
-        "Ð¡ÑÐ°ÑÑ ÐºÐ»Ð°Ð²ÑÐ°ÑÑÑÑ Ð¿ÑÐ¸Ð±ÑÐ°Ð½Ð¾. / Old keyboard cleared.",
-        reply_markup=ReplyKeyboardRemove(),
-    )
-    await safe_start(update, context)
-
-
-async def cmd_myid(update, context):
-    if update.effective_chat.type == "private":
+async def cmd_myid(update,context):
+    if update.effective_chat.type=="private":
         await update.message.reply_text(f"Telegram ID: {update.effective_user.id}")
 
+def _employee_by_sap(sap):
+    matches=[e for e in read_employees() if normalize_text(e.get("sap",""))==sap]
+    return matches[0] if len(matches)==1 else None
 
-async def employee_private_access(update, context):
-    message = update.effective_message
-    text = (message.text or "").strip()
-    ud = context.user_data
-    mode = ud.get("wp_mode")
-    if text in (BTN_CANCEL_WP, "â Cancel", "/cancel"):
-        return await _employee_home(update, context)
-    if text == BTN_LANGUAGE:
-        ud["wp_lang"] = "en" if _lang(context) == "uk" else "uk"
-        return await _employee_home(update, context)
-    if text == BTN_EMP_MENU:
-        return await _employee_home(update, context)
-    if text == BTN_ADMIN_MENU and is_admin(update):
-        ud.pop("wp_mode", None)
-        ud.pop("wp_trip", None)
-        await message.reply_text("ð  ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ", reply_markup=MAIN_KB)
+def _personal_sap(context): return context.user_data.get("wp_sap")
+
+async def employee_private_access(update,context):
+    message=update.effective_message
+    text=(message.text or "").strip()
+    ud=context.user_data
+    mode=ud.get("wp_mode")
+    action=_action(text)
+    if action=="cancel" or text=="/cancel": return await _employee_home(update,context)
+    if action=="language":
+        await message.reply_text("ÐÐ±ÐµÑÑÑÑ Ð¼Ð¾Ð²Ñ / Choose language / Elija idioma:",reply_markup=ReplyKeyboardMarkup([["ðºð¦ Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ°","ð¬ð§ English","ðªð¸ EspaÃ±ol"]],resize_keyboard=True))
         return
-    if _button_match(text, BTN_DRIVER, "ð Driver") and (is_driver(update) or is_admin(update)):
-        ud.pop("wp_mode", None)
-        ud.pop("wp_trip", None)
-        await message.reply_text("ð ÐÐµÐ½Ñ Ð²Ð¾Ð´ÑÑ", reply_markup=_driver_kb(context))
+    langs={"ðºð¦ Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ°":"uk","ð¬ð§ English":"en","ðªð¸ EspaÃ±ol":"es"}
+    if text in langs:
+        language=langs[text]
+        all_langs=_read_json(LANG_FILE,{})
+        all_langs[str(update.effective_user.id)]=language
+        _write_json(LANG_FILE,all_langs)
+        ud["wp_lang"]=language
+        return await _employee_home(update,context)
+    if action=="employee": return await _employee_home(update,context)
+    if action=="admin" and is_admin(update):
+        ud.pop("wp_mode",None)
+        await message.reply_text("ð  ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ",reply_markup=MAIN_KB)
         return
-    if text == BTN_MY_TRIPS and (is_driver(update) or is_admin(update)):
-        trips = []
+    if action=="driver" and (is_driver(update) or is_admin(update)):
+        ud.pop("wp_mode",None)
+        await message.reply_text("ð ÐÐµÐ½Ñ Ð²Ð¾Ð´ÑÑ",reply_markup=_driver_kb(context,update))
+        return
+    if action=="trips" and (is_driver(update) or is_admin(update)):
         try:
-            with open(TRIPS_FILE, encoding="utf-8") as f:
-                for line in f:
-                    item = json.loads(line)
-                    if item.get("user_id") == update.effective_user.id:
-                        trips.append(item)
-        except FileNotFoundError:
-            pass
-        if not trips:
-            await message.reply_text("ÐÐ°Ð¿Ð¸ÑÑÐ² Ð¿Ð¾ÐºÐ¸ Ð½ÐµÐ¼Ð°Ñ. / No trips yet.")
-        else:
-            lines = [f"{t['date']} | {t['vehicle']} | {t['route']} | {t['start_km']}â{t['end_km']} ÐºÐ¼" for t in trips[-15:]]
-            await message.reply_text("ð ÐÑÑÐ°Ð½Ð½Ñ Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸:\n" + "\n".join(lines))
-        return
-    if text == BTN_TRIP and (is_driver(update) or is_admin(update)):
-        ud["wp_mode"] = "trip_date"
-        ud["wp_trip"] = {}
-        await message.reply_text("ÐÐ°ÑÐ° Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸ (Ð Ð Ð Ð -ÐÐ-ÐÐ):", reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL_WP]], resize_keyboard=True))
-        return
-    request_types = {
-        BTN_COMPLAINT: ("complaint", "ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐµÐºÑÑ ÑÐºÐ°ÑÐ³Ð¸:", "Write your complaint:"),
-        "ð¨ Complaint": ("complaint", "ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐµÐºÑÑ ÑÐºÐ°ÑÐ³Ð¸:", "Write your complaint:"),
-        BTN_SUGGESTION: ("suggestion", "ÐÐ°Ð¿Ð¸ÑÑÑÑ Ð¿ÑÐ¾Ð¿Ð¾Ð·Ð¸ÑÑÑ:", "Write your suggestion:"),
-        "ð¡ Suggestion": ("suggestion", "ÐÐ°Ð¿Ð¸ÑÑÑÑ Ð¿ÑÐ¾Ð¿Ð¾Ð·Ð¸ÑÑÑ:", "Write your suggestion:"),
-        BTN_DAYOFF: ("dayoff", "ÐÐºÐ°Ð¶ÑÑÑ Ð´Ð°ÑÑ Ð²Ð¸ÑÑÐ´Ð½Ð¾Ð³Ð¾ (Ð Ð Ð Ð -ÐÐ-ÐÐ) ÑÐ° Ð¿ÑÐ¸ÑÐ¸Ð½Ñ:", "Enter requested day off (YYYY-MM-DD) and reason:"),
-        "ð Day off request": ("dayoff", "ÐÐºÐ°Ð¶ÑÑÑ Ð´Ð°ÑÑ Ð²Ð¸ÑÑÐ´Ð½Ð¾Ð³Ð¾ (Ð Ð Ð Ð -ÐÐ-ÐÐ) ÑÐ° Ð¿ÑÐ¸ÑÐ¸Ð½Ñ:", "Enter requested day off (YYYY-MM-DD) and reason:"),
-    }
-    if text in request_types:
-        typ, uk, en = request_types[text]
-        ud["wp_mode"] = "request_" + typ
-        await message.reply_text(_tr(context, uk, en), reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL_WP]], resize_keyboard=True))
-        return
-    if text in (BTN_MY_CARD, "ð¤ My card"):
-        ud["wp_mode"] = "sap"
-        await message.reply_text(_tr(context, "ÐÐ²ÐµÐ´ÑÑÑ ÑÐ²ÑÐ¹ SAP-Ð½Ð¾Ð¼ÐµÑ:", "Enter your SAP number:"), reply_markup=ReplyKeyboardMarkup([[BTN_CANCEL_WP]], resize_keyboard=True))
-        return
-    if mode and mode.startswith("request_"):
-        if not text:
+            with open(TRIPS_FILE,encoding="utf-8") as f:
+                trips=[x for line in f if line.strip() for x in [json.loads(line)] if x.get("user_id")==update.effective_user.id]
+        except FileNotFoundError: trips=[]
+        except (ValueError,TypeError):
+            await message.reply_text("ÐÐ¾Ð¼Ð¸Ð»ÐºÐ° ÑÐ¸ÑÐ°Ð½Ð½Ñ Ð¶ÑÑÐ½Ð°Ð»Ñ Ð¿Ð¾ÑÐ·Ð´Ð¾Ðº.")
             return
-        item = {"created_at": datetime.now().isoformat(timespec="seconds"), "user_id": update.effective_user.id,
-                "name": update.effective_user.full_name, "type": mode[8:], "text": text}
-        _append_jsonl(REQUESTS_FILE, item)
-        delivered = 0
+        if not trips: await message.reply_text("ÐÐ°Ð¿Ð¸ÑÑÐ² Ð¿Ð¾ÐºÐ¸ Ð½ÐµÐ¼Ð°Ñ. / No trips yet. / No hay viajes.")
+        else:
+            lines=[f"{t['date']} | {t['vehicle']} | {t['route']} | {t['start_km']}â{t['end_km']} ÐºÐ¼" for t in trips[-15:]]
+            await message.reply_text("ð ÐÑÑÐ°Ð½Ð½Ñ Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸:\n"+"\n".join(lines))
+        return
+    if action=="trip" and (is_driver(update) or is_admin(update)):
+        ud["wp_mode"]="trip_date";ud["wp_trip"]={}
+        await message.reply_text("ÐÐ°ÑÐ° Ð¿Ð¾ÑÐ·Ð´ÐºÐ¸ (Ð Ð Ð Ð -ÐÐ-ÐÐ):",reply_markup=ReplyKeyboardMarkup([[_label("cancel",context,update)]],resize_keyboard=True))
+        return
+    request_types={"complaint":("ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐºÐ°ÑÐ³Ñ:","Write your complaint:","Escriba su queja:"),
+                   "suggestion":("ÐÐ°Ð¿Ð¸ÑÑÑÑ Ð¿ÑÐ¾Ð¿Ð¾Ð·Ð¸ÑÑÑ:","Write your suggestion:","Escriba su sugerencia:"),
+                   "dayoff":("ÐÐºÐ°Ð¶ÑÑÑ Ð´Ð°ÑÑ Ð²Ð¸ÑÑÐ´Ð½Ð¾Ð³Ð¾ (Ð Ð Ð Ð -ÐÐ-ÐÐ) Ñ Ð¿ÑÐ¸ÑÐ¸Ð½Ñ:","Enter day off (YYYY-MM-DD) and reason:","Indique fecha libre (AAAA-MM-DD) y motivo:")}
+    if action in request_types:
+        ud["wp_mode"]="request_"+action
+        await message.reply_text(_tr(context,*request_types[action],update=update),reply_markup=ReplyKeyboardMarkup([[_label("cancel",context,update)]],resize_keyboard=True))
+        return
+    if action in ("card","performance","schedule"):
+        sap=_personal_sap(context)
+        if not sap:
+            ud["wp_mode"]="sap_"+action
+            await message.reply_text(_tr(context,"ÐÐ²ÐµÐ´ÑÑÑ ÑÐ²ÑÐ¹ SAP-Ð½Ð¾Ð¼ÐµÑ:","Enter your SAP number:","Introduzca su nÃºmero SAP:",update),reply_markup=ReplyKeyboardMarkup([[_label("cancel",context,update)]],resize_keyboard=True))
+            return
+        return await _show_personal(update,context,action,sap)
+    if mode and mode.startswith("sap_"):
+        if not text.isascii() or not text.isdigit() or not 8<=len(text)<=12:
+            await message.reply_text("SAP: 8â12 ÑÐ¸ÑÑ / digits / dÃ­gitos.")
+            return
+        if not _employee_by_sap(text):
+            await message.reply_text("SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾. / SAP not found. / SAP no encontrado.")
+            return
+        ud["wp_sap"]=text
+        action=mode[4:]
+        ud.pop("wp_mode",None)
+        return await _show_personal(update,context,action,text)
+    if mode and mode.startswith("request_"):
+        if not text: return
+        item={"created_at":datetime.now().isoformat(timespec="seconds"),"user_id":update.effective_user.id,"name":update.effective_user.full_name,"type":mode[8:],"text":text}
+        _append_jsonl(REQUESTS_FILE,item)
+        delivered=0
         for admin_id in ADMIN_USER_IDS:
             try:
-                await context.bot.send_message(admin_id, f"ð© WorkPuls: {item['type']}\nÐÑÐ´: {item['name']} (ID {item['user_id']})\n{text}")
-                delivered += 1
-            except Exception as e:
-                print(f"Admin notification failed {admin_id}: {e}")
-        await _employee_home(update, context)
-        await message.reply_text(_tr(context, "â ÐÐ²ÐµÑÐ½ÐµÐ½Ð½Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾. ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¾ÑÑÐ² Ð¿Ð¾Ð²ÑÐ´Ð¾Ð¼Ð»ÐµÐ½Ð¾: " + str(delivered) + "/" + str(len(ADMIN_USER_IDS)),
-                                            "â Request saved. Administrators notified: " + str(delivered) + "/" + str(len(ADMIN_USER_IDS))))
+                await context.bot.send_message(admin_id,f"ð© WorkPuls: {item['type']}\nÐÑÐ´: {item['name']} (ID {item['user_id']})\n{text}")
+                delivered+=1
+            except Exception as exc: print(f"Admin notification failed {admin_id}: {exc}",flush=True)
+        await _employee_home(update,context)
+        await message.reply_text(f"â ÐÐ²ÐµÑÐ½ÐµÐ½Ð½Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾. ÐÐ¾Ð²ÑÐ´Ð¾Ð¼Ð»ÐµÐ½Ð¾ Ð°Ð´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¾ÑÑÐ²: {delivered}/{len(ADMIN_USER_IDS)}")
         return
-    fields = [("trip_date", "date", "ÐÐ°ÑÐºÐ°, Ð¼Ð¾Ð´ÐµÐ»Ñ ÑÐ° Ð½Ð¾Ð¼ÐµÑ Ð°Ð²ÑÐ¾:"),
-              ("trip_vehicle", "vehicle", "ÐÐ°ÑÑÑÑÑ (Ð·Ð²ÑÐ´ÐºÐ¸ â ÐºÑÐ´Ð¸):"),
-              ("trip_route", "route", "ÐÑÐ¾Ð±ÑÐ³ Ð½Ð° Ð¿Ð¾ÑÐ°ÑÐºÑ (ÐºÐ¼):"),
-              ("trip_start", "start_km", "ÐÑÐ¾Ð±ÑÐ³ Ñ ÐºÑÐ½ÑÑ (ÐºÐ¼):")]
-    for current, key, next_prompt in fields:
-        if mode == current and (is_driver(update) or is_admin(update)):
-            if current == "trip_date":
+    fields=[("trip_date","date","ÐÐ°ÑÐºÐ°, Ð¼Ð¾Ð´ÐµÐ»Ñ ÑÐ° Ð½Ð¾Ð¼ÐµÑ Ð°Ð²ÑÐ¾:"),("trip_vehicle","vehicle","ÐÐ°ÑÑÑÑÑ (Ð·Ð²ÑÐ´ÐºÐ¸ â ÐºÑÐ´Ð¸):"),
+            ("trip_route","route","ÐÑÐ¾Ð±ÑÐ³ Ð½Ð° Ð¿Ð¾ÑÐ°ÑÐºÑ (ÐºÐ¼):"),("trip_start","start_km","ÐÑÐ¾Ð±ÑÐ³ Ñ ÐºÑÐ½ÑÑ (ÐºÐ¼):")]
+    for current,key,next_prompt in fields:
+        if mode==current and (is_driver(update) or is_admin(update)):
+            if current=="trip_date":
                 try:
-                    if datetime.strptime(text, "%Y-%m-%d").strftime("%Y-%m-%d") != text:
-                        raise ValueError()
+                    if datetime.strptime(text,"%Y-%m-%d").strftime("%Y-%m-%d")!=text: raise ValueError()
                 except ValueError:
-                    await message.reply_text("ÐÐµÐ¿ÑÐ°Ð²Ð¸Ð»ÑÐ½Ð° Ð´Ð°ÑÐ°. ÐÑÐ¸ÐºÐ»Ð°Ð´: 2026-11-21")
+                    await message.reply_text("ÐÐµÐ¿ÑÐ°Ð²Ð¸Ð»ÑÐ½Ð° Ð´Ð°ÑÐ°. ÐÑÐ¸ÐºÐ»Ð°Ð´: 2026-11-22")
                     return
-            if current == "trip_start":
+            if current=="trip_start":
                 try:
-                    value = int(text)
-                    if value < 0: raise ValueError()
+                    value=int(text)
+                    if value<0: raise ValueError()
                 except ValueError:
                     await message.reply_text("ÐÐ²ÐµÐ´ÑÑÑ ÑÑÐ»Ðµ Ð½ÐµÐ²ÑÐ´âÑÐ¼Ð½Ðµ ÑÐ¸ÑÐ»Ð¾.")
                     return
-                text = value
-            ud["wp_trip"][key] = text
-            ud["wp_mode"] = {"trip_date":"trip_vehicle", "trip_vehicle":"trip_route", "trip_route":"trip_start", "trip_start":"trip_end"}[current]
+                text=value
+            if not str(text).strip():
+                await message.reply_text("ÐÐ¾Ð»Ðµ Ð½Ðµ Ð¼Ð¾Ð¶Ðµ Ð±ÑÑÐ¸ Ð¿Ð¾ÑÐ¾Ð¶Ð½ÑÐ¼.")
+                return
+            ud.setdefault("wp_trip",{})[key]=text
+            ud["wp_mode"]={"trip_date":"trip_vehicle","trip_vehicle":"trip_route","trip_route":"trip_start","trip_start":"trip_end"}[current]
             await message.reply_text(next_prompt)
             return
-    if mode == "trip_end" and (is_driver(update) or is_admin(update)):
+    if mode=="trip_end" and (is_driver(update) or is_admin(update)):
         try:
-            end = int(text)
-            start = ud["wp_trip"]["start_km"]
-            if end < start or end < 0: raise ValueError()
-        except (ValueError, KeyError, TypeError):
-            await message.reply_text("ÐÑÐ½ÑÐµÐ²Ð¸Ð¹ Ð¿ÑÐ¾Ð±ÑÐ³ Ð¼Ð°Ñ Ð±ÑÑÐ¸ ÑÐ¸ÑÐ»Ð¾Ð¼ Ð½Ðµ Ð¼ÐµÐ½ÑÐ¸Ð¼ Ð·Ð° Ð¿Ð¾ÑÐ°ÑÐºÐ¾Ð²Ð¸Ð¹.")
+            end=int(text);start=ud["wp_trip"]["start_km"]
+            if end<start or end<0: raise ValueError()
+        except (ValueError,KeyError,TypeError):
+            await message.reply_text("ÐÑÐ½ÑÐµÐ²Ð¸Ð¹ Ð¿ÑÐ¾Ð±ÑÐ³ Ð¼Ð°Ñ Ð±ÑÑÐ¸ Ð½Ðµ Ð¼ÐµÐ½ÑÐ¸Ð¼ Ð·Ð° Ð¿Ð¾ÑÐ°ÑÐºÐ¾Ð²Ð¸Ð¹.")
             return
-        item = dict(ud["wp_trip"], end_km=end, user_id=update.effective_user.id,
-                    driver=update.effective_user.full_name, created_at=datetime.now().isoformat(timespec="seconds"))
-        _append_jsonl(TRIPS_FILE, item)
-        ud.pop("wp_mode", None)
-        ud.pop("wp_trip", None)
-        await message.reply_text(f"â ÐÐ¾ÑÐ·Ð´ÐºÑ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾: {end-start} ÐºÐ¼", reply_markup=_driver_kb(context))
+        item=dict(ud["wp_trip"],end_km=end,user_id=update.effective_user.id,driver=update.effective_user.full_name,created_at=datetime.now().isoformat(timespec="seconds"))
+        _append_jsonl(TRIPS_FILE,item)
+        ud.pop("wp_mode",None);ud.pop("wp_trip",None)
+        await message.reply_text(f"â ÐÐ¾ÑÐ·Ð´ÐºÑ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾: {end-start} ÐºÐ¼",reply_markup=_driver_kb(context,update))
         return
-    if mode == "sap":
-        if not text.isascii() or not text.isdigit() or not (8 <= len(text) <= 12):
-            await message.reply_text("SAP: 8â12 ÑÐ¸ÑÑ.")
-            return
-        matches = [e for e in read_employees() if normalize_text(e.get("sap", "")) == text]
-        if len(matches) != 1:
-            await message.reply_text("SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾. / SAP not found.")
-            return
-        ud.pop("wp_mode", None)
-        await message.reply_text(format_employee_card(matches[0], read_perf()), reply_markup=_employee_kb(context, is_driver(update), is_admin(update)))
+    await _employee_home(update,context)
+
+async def _show_personal(update,context,action,sap):
+    emp=_employee_by_sap(sap)
+    if not emp:
+        context.user_data.pop("wp_sap",None)
+        await update.effective_message.reply_text("SAP Ð½Ðµ Ð·Ð½Ð°Ð¹Ð´ÐµÐ½Ð¾. ÐÑÐ´ÐºÑÐ¸Ð¹ÑÐµ Ð¼ÐµÐ½Ñ Ñ Ð²Ð²ÐµÐ´ÑÑÑ Ð½Ð¾Ð¼ÐµÑ Ð·Ð½Ð¾Ð²Ñ.")
         return
-    await _employee_home(update, context)
+    if action=="card": body=format_employee_card(emp,read_perf())
+    elif action=="performance": body=format_employee_card(emp,read_perf())
+    elif action=="schedule":
+        shifts=[r for r in read_shifts(True) if normalize_text(r.get("sap",""))==sap]
+        shifts.sort(key=lambda r:(r.get("date",""),r.get("shift_type","")),reverse=True)
+        body="ð ÐÑÑÐ°Ð½Ð½Ñ Ð·Ð¼ÑÐ½Ð¸ / Recent shifts / Ãltimos turnos:\n"+("\n".join(f"{r.get('date','')} | {r.get('shift_type','')} | {r.get('hala','')} {r.get('group','')}" for r in shifts[:20]) or "ÐÐ°Ð¿Ð¸ÑÑÐ² Ð½ÐµÐ¼Ð°Ñ / No records / Sin registros")
+    else: return
+    await update.effective_message.reply_text(body,reply_markup=_employee_kb(context,is_driver(update),is_admin(update),update))
 
-
-async def guarded_admin(handler, update, context):
-    if not is_admin(update) or update.effective_chat.type != "private":
-        if update.effective_chat.type == "private" and update.effective_message:
+async def guarded_admin(handler,update,context):
+    if not is_admin(update) or update.effective_chat.type!="private":
+        if update.effective_chat.type=="private" and update.effective_message:
             await update.effective_message.reply_text("â ÐÐ¾ÑÑÑÐ¿ Ð»Ð¸ÑÐµ Ð´Ð»Ñ Ð°Ð´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¾ÑÐ°.")
-        elif update.callback_query:
-            await update.callback_query.answer("ÐÐ¾ÑÑÑÐ¿ Ð·Ð°Ð±Ð¾ÑÐ¾Ð½ÐµÐ½Ð¾", show_alert=True)
+        elif update.callback_query: await update.callback_query.answer("ÐÐ¾ÑÑÑÐ¿ Ð·Ð°Ð±Ð¾ÑÐ¾Ð½ÐµÐ½Ð¾",show_alert=True)
         return
-    return await handler(update, context)
+    return await handler(update,context)
 
-
-async def safe_text(update, context):
-    # Never show private data or role keyboards in a group.
-    if update.effective_chat.type != "private":
-        return
-    text = (update.effective_message.text or "").strip()
-    ud = context.user_data
-    personal_buttons = {
-        BTN_EMP_MENU, BTN_ADMIN_MENU, BTN_MY_CARD, "ð¤ My card",
-        BTN_LANGUAGE, BTN_DRIVER, "ð Driver", BTN_TRIP, BTN_MY_TRIPS,
-        BTN_COMPLAINT, "ð¨ Complaint", BTN_SUGGESTION, "ð¡ Suggestion",
-        BTN_DAYOFF, "ð Day off request", BTN_CANCEL_WP, "â Cancel",
-    }
-    # An active personal flow takes priority over the legacy admin workflow.
-    if ud.get("wp_mode") or text in personal_buttons:
-        return await employee_private_access(update, context)
-    if is_admin(update):
-        return await on_text(update, context)
-    return await employee_private_access(update, context)
+async def safe_text(update,context):
+    if update.effective_chat.type!="private": return
+    text=(update.effective_message.text or "").strip()
+        ud=context.user_data
+    if ud.get("wp_mode") or _action(text) or text in ("ðºð¦ Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ°","ð¬ð§ English","ðªð¸ EspaÃ±ol"):
+        return await employee_private_access(update,context)
+    if is_admin(update): return await on_text(update,context)
+    return await employee_private_access(update,context)
 
 # ==============================
 # MAIN
@@ -4425,3 +4383,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

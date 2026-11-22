@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-22-workpuls-v21-driver-log"
+BOT_BUILD = "2026-11-22-workpuls-v22-utf8-group-entry"
 import os
 import csv
 import re

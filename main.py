@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-22-driver-menu-v26"
+BOT_BUILD = "2026-11-22-driver-menu-v27"
 import os
 import csv
 import re

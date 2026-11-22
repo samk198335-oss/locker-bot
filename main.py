@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-22-workpuls-v17"
+BOT_BUILD = "2026-11-22-workpuls-v19-navigation-language"
 import os
 import csv
 import re
@@ -3982,6 +3982,7 @@ REQUESTS_FILE = os.path.join(DATA_DIR, "workpuls_requests.jsonl")
 TRIPS_FILE = os.path.join(DATA_DIR, "workpuls_trips.jsonl")
 LANG_FILE = os.path.join(DATA_DIR, "workpuls_languages.json")
 GROUP_ENTRY_FILE = os.path.join(DATA_DIR, "workpuls_group_entry.json")
+GROUP_CLEANUP_FILE = os.path.join(DATA_DIR, "workpuls_group_cleanup.json")
 
 def _read_json(path, default):
     try:
@@ -4075,43 +4076,97 @@ async def _employee_home(update, context):
         reply_markup=_employee_kb(context,is_driver(update),is_admin(update),update))
 
 async def _group_entry(update, context):
-    me=await context.bot.get_me()
-    url=f"https://t.me/{me.username}?start=workpuls"
-    chat_id=update.effective_chat.id
-    registry=_read_json(GROUP_ENTRY_FILE,{})
-    body="WorkPuls\nÐÑÐ´ÐºÑÐ¸Ð¹ÑÐµ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ / Open your personal account / Abra su cuenta personal."
-    markup=InlineKeyboardMarkup([[InlineKeyboardButton("ÐÑÐ´ÐºÑÐ¸ÑÐ¸ WorkPuls",url=url)]])
-    previous=registry.get(str(chat_id))
+    """Keep one editable entry message per group; never publish private menus."""
+    me = await context.bot.get_me()
+    url = f"https://t.me/{me.username}?start=workpuls"
+    chat_id = update.effective_chat.id
+    registry = _read_json(GROUP_ENTRY_FILE, {})
+    body = ("WorkPuls\\n"
+            "ðºð¦ ÐÑÐ´ÐºÑÐ¸ÑÐ¸ Ð¾ÑÐ¾Ð±Ð¸ÑÑÐ¸Ð¹ ÐºÐ°Ð±ÑÐ½ÐµÑ\\n"
+            "ð¬ð§ Open your personal account\\n"
+            "ðªð¸ Abrir su cuenta personal")
+    markup = InlineKeyboardMarkup([[
+        InlineKeyboardButton("ÐÑÐ´ÐºÑÐ¸ÑÐ¸ WorkPuls", url=url)
+    ]])
+    previous = registry.get(str(chat_id))
     if previous:
         try:
-            await context.bot.edit_message_text(chat_id=chat_id,message_id=int(previous),text=body,reply_markup=markup)
+            await context.bot.edit_message_text(
+                chat_id=chat_id, message_id=int(previous),
+                text=body, reply_markup=markup
+            )
             return
         except Exception as exc:
-            if "not modified" in str(exc).lower(): return
-            print(f"Group entry edit failed: {exc}",flush=True)
-    sent=await context.bot.send_message(chat_id,body,reply_markup=markup)
-    registry[str(chat_id)]=sent.message_id
-    _write_json(GROUP_ENTRY_FILE,registry)
+            if "not modified" in str(exc).lower():
+                return
+            print(f"Group entry edit failed: {exc}", flush=True)
+    sent = await context.bot.send_message(chat_id=chat_id, text=body, reply_markup=markup)
+    registry[str(chat_id)] = sent.message_id
+    _write_json(GROUP_ENTRY_FILE, registry)
 
-async def _delete_group_command(update,context):
-    try: await update.effective_message.delete()
-    except Exception as exc: print(f"Group command delete failed: {exc}",flush=True)
-
-async def cmd_group_open(update,context):
-    if update.effective_chat.type!="private":
-        await _delete_group_command(update,context)
-        if is_admin(update): await _group_entry(update,context)
+async def _clear_group_keyboard_once(update, context):
+    """Telegram reply keyboards need an explicit removal message in the group."""
+    chat_id = update.effective_chat.id
+    cleaned = _read_json(GROUP_CLEANUP_FILE, {})
+    if cleaned.get(str(chat_id)):
         return
-    await safe_start(update,context)
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="WorkPuls: ÑÑÐ°ÑÐµ Ð¼ÐµÐ½Ñ Ð¿ÑÐ¸Ð±ÑÐ°Ð½Ð¾ / Old menu cleared / MenÃº anterior eliminado.",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    cleaned[str(chat_id)] = True
+    _write_json(GROUP_CLEANUP_FILE, cleaned)
 
-async def safe_start(update,context):
-    if update.effective_chat.type!="private":
-        await _delete_group_command(update,context)
-        return
+async def _delete_group_command(update, context):
+    try:
+        await update.effective_message.delete()
+    except Exception as exc:
+        print(f"Group command delete failed: {exc}", flush=True)
+
+async def _group_command(update, context):
+    await _delete_group_command(update, context)
     if is_admin(update):
-        context.user_data.pop("wp_mode",None)
-        await update.effective_message.reply_text("ð  WorkPuls â Ð°Ð´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ. /employee â Ð¾ÑÐ¾Ð±Ð¸ÑÑÐµ Ð¼ÐµÐ½Ñ.",reply_markup=MAIN_KB)
-    else: await _employee_home(update,context)
+        await _clear_group_keyboard_once(update, context)
+        await _group_entry(update, context)
+
+async def cmd_group_open(update, context):
+    if update.effective_chat.type != "private":
+        return await _group_command(update, context)
+    return await safe_start(update, context)
+
+async def _language_prompt(update, context):
+    await update.effective_message.reply_text(
+        "ð ÐÐ±ÐµÑÑÑÑ Ð¼Ð¾Ð²Ñ / Choose your language / Elija su idioma:",
+        reply_markup=ReplyKeyboardMarkup(
+            [["ðºð¦ Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ°", "ð¬ð§ English", "ðªð¸ EspaÃ±ol"]],
+            resize_keyboard=True
+        )
+    )
+
+async def _private_home(update, context):
+    if is_admin(update):
+        context.user_data.pop("wp_mode", None)
+        await update.effective_message.reply_text(
+            _tr(context, "ð  ÐÐ´Ð¼ÑÐ½ÑÑÑÑÐ°ÑÐ¸Ð²Ð½Ðµ Ð¼ÐµÐ½Ñ WorkPuls. /employee â Ð¾ÑÐ¾Ð±Ð¸ÑÑÐµ Ð¼ÐµÐ½Ñ.",
+                "ð  WorkPuls admin menu. /employee â personal menu.",
+                "ð  MenÃº de administraciÃ³n WorkPuls. /employee â menÃº personal.",
+                update),
+            reply_markup=MAIN_KB
+        )
+    else:
+        await _employee_home(update, context)
+
+async def safe_start(update, context):
+    if update.effective_chat.type != "private":
+        return await _group_command(update, context)
+    if str(update.effective_user.id) not in _read_json(LANG_FILE, {}):
+        return await _language_prompt(update, context)
+    return await _private_home(update, context)
+
+async def cmd_language(update, context):
+    if update.effective_chat.type == "private":
+        await _language_prompt(update, context)
 
 async def cmd_employee(update,context):
     if update.effective_chat.type=="private": await _employee_home(update,context)
@@ -4184,8 +4239,7 @@ async def employee_private_access(update,context):
     action=_action(text)
     if action=="cancel" or text=="/cancel": return await _employee_home(update,context)
     if action=="language":
-        await message.reply_text("ÐÐ±ÐµÑÑÑÑ Ð¼Ð¾Ð²Ñ / Choose language / Elija idioma:",reply_markup=ReplyKeyboardMarkup([["ðºð¦ Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ°","ð¬ð§ English","ðªð¸ EspaÃ±ol"]],resize_keyboard=True))
-        return
+        return await _language_prompt(update, context)
     langs={"ðºð¦ Ð£ÐºÑÐ°ÑÐ½ÑÑÐºÐ°":"uk","ð¬ð§ English":"en","ðªð¸ EspaÃ±ol":"es"}
     if text in langs:
         language=langs[text]
@@ -4193,7 +4247,7 @@ async def employee_private_access(update,context):
         all_langs[str(update.effective_user.id)]=language
         _write_json(LANG_FILE,all_langs)
         ud["wp_lang"]=language
-        return await _employee_home(update,context)
+        return await _private_home(update,context)
     if action=="employee": return await _employee_home(update,context)
     if action=="admin" and is_admin(update):
         ud.pop("wp_mode",None)
@@ -4354,6 +4408,7 @@ def main():
                 BotCommand("start", "Open WorkPuls"),
                 BotCommand("version", "Bot version"),
                 BotCommand("employee", "Personal menu"),
+                BotCommand("language", "Choose language"),
             ], scope=BotCommandScopeAllPrivateChats())
         except Exception as exc:
             print(f"Command menu setup failed: {exc}", flush=True)
@@ -4362,6 +4417,7 @@ def main():
     app.add_handler(CommandHandler("start", safe_start))
     app.add_handler(CommandHandler("open", cmd_group_open))
     app.add_handler(CommandHandler("employee", cmd_employee))
+    app.add_handler(CommandHandler("language", cmd_language))
     app.add_handler(CommandHandler("menu", safe_start))
     app.add_handler(CommandHandler("myid", cmd_myid))
     app.add_handler(CommandHandler("version", cmd_version))

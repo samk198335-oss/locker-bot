@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-BOT_BUILD = "2026-11-22-workpuls-v20-ascii-safe-pinned-entry"
+BOT_BUILD = "2026-11-22-workpuls-v21-driver-log"
 import os
 import csv
 import re
@@ -3980,6 +3980,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 ROLE_FILE = os.path.join(DATA_DIR, "workpuls_drivers.json")
 REQUESTS_FILE = os.path.join(DATA_DIR, "workpuls_requests.jsonl")
 TRIPS_FILE = os.path.join(DATA_DIR, "workpuls_trips.jsonl")
+VEHICLES_FILE = os.path.join(DATA_DIR, "workpuls_vehicles.json")
 LANG_FILE = os.path.join(DATA_DIR, "workpuls_languages.json")
 GROUP_ENTRY_FILE = os.path.join(DATA_DIR, "workpuls_group_entry.json")
 GROUP_CLEANUP_FILE = os.path.join(DATA_DIR, "workpuls_group_cleanup.json")
@@ -4031,6 +4032,7 @@ LABELS = {
  "driver": ("\U0001f697 \u0412\u043e\u0434\u0456\u0439", "\U0001f697 Driver", "\U0001f697 Conductor"),
  "trip": ("\u2795 \u0417\u0430\u043f\u0438\u0441\u0430\u0442\u0438 \u043f\u043e\u0457\u0437\u0434\u043a\u0443", "\u2795 Record trip", "\u2795 Registrar viaje"),
  "trips": ("\U0001f4cb \u041c\u043e\u0457 \u043f\u043e\u0457\u0437\u0434\u043a\u0438", "\U0001f4cb My trips", "\U0001f4cb Mis viajes"),
+ "vehicle": ("ð ÐÐ²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ", "ð Vehicles", "ð VehÃ­culos"),
  "employee": ("\U0001f464 \u041c\u0435\u043d\u044e \u043f\u0440\u0430\u0446\u0456\u0432\u043d\u0438\u043a\u0430", "\U0001f464 Employee menu", "\U0001f464 Men\u00fa empleado"),
  "admin": ("\U0001f6e0 \u0410\u0434\u043c\u0456\u043d-\u043c\u0435\u043d\u044e",)*3,
  "cancel": ("\u274c \u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438", "\u274c Cancel", "\u274c Cancelar"),
@@ -4057,7 +4059,7 @@ def _action(text):
 
 def _employee_kb(context, driver=False, admin=False, update=None):
     def l(k): return _label(k,context,update)
-    rows=[[l("card"),l("performance")],[l("schedule"),l("dayoff")],
+    rows=[[l("card"),l("performance")],[l("dayoff")],
           [l("complaint"),l("suggestion")]]
     if driver: rows.append([l("driver")])
     if admin: rows.append([l("admin")])
@@ -4066,7 +4068,43 @@ def _employee_kb(context, driver=False, admin=False, update=None):
 
 def _driver_kb(context, update=None):
     def l(k): return _label(k,context,update)
-    return ReplyKeyboardMarkup([[l("trip"),l("trips")],[l("employee")],[l("language")]],resize_keyboard=True)
+    return ReplyKeyboardMarkup([[l("trip"),l("trips")],[l("vehicle")],[l("employee")],[l("language")]],resize_keyboard=True)
+
+def _vehicles():
+    return _read_json(VEHICLES_FILE, {})
+
+def _save_vehicle(user_id, plate, model, private=False):
+    vehicles = _vehicles()
+    key = str(user_id)
+    existing = vehicles.get(key, [])
+    existing = [v for v in existing if v.get("plate", "").casefold() != plate.casefold()]
+    existing.append({"plate": plate, "model": model, "private": private})
+    vehicles[key] = existing
+    _write_json(VEHICLES_FILE, vehicles)
+
+def _t(context, update, uk, en, es):
+    return _tr(context, uk, en, es, update)
+
+def _vehicle_choices(context, update):
+    vs = _vehicles().get(str(update.effective_user.id), [])
+    choices = [f"{v['plate']} | {v['model']}" for v in vs]
+    return ReplyKeyboardMarkup([[c] for c in choices] + [["â NEW / ÐÐÐÐ / NUEVO"], [_label("cancel", context, update)]], resize_keyboard=True)
+
+async def driver_photo(update, context):
+    if update.effective_chat.type != "private" or not (is_driver(update) or is_admin(update)):
+        return
+    if context.user_data.get("wp_mode") != "trip_photo":
+        return await guarded_admin(on_photo, update, context) if is_admin(update) else None
+    item = context.user_data.get("wp_trip", {})
+    if not item.get("end_km") and item.get("end_km") != 0:
+        return await update.effective_message.reply_text("Missing odometer / ÐÐµÐ¼Ð°Ñ Ð¿ÑÐ¾Ð±ÑÐ³Ñ / Falta kilometraje")
+    item.update(photo_file_id=update.effective_message.photo[-1].file_id,
+                user_id=update.effective_user.id, driver=update.effective_user.full_name,
+                created_at=datetime.now().isoformat(timespec="seconds"))
+    _append_jsonl(TRIPS_FILE, item)
+    context.user_data.pop("wp_trip", None)
+    context.user_data.pop("wp_mode", None)
+    await update.effective_message.reply_text(_t(context,update,"â ÐÐ°Ð¿Ð¸Ñ Ñ ÑÐ¾ÑÐ¾ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.","â Entry and photo saved.","â Registro y foto guardados."), reply_markup=_driver_kb(context,update))
 
 async def _employee_home(update, context):
     context.user_data.pop("wp_mode",None)
@@ -4213,12 +4251,25 @@ async def cmd_driverreport(update,context):
         await update.message.reply_text("\u041f\u043e\u0457\u0437\u0434\u043e\u043a \u0437\u0430 \u0446\u0435\u0439 \u043c\u0456\u0441\u044f\u0446\u044c \u043d\u0435\u043c\u0430\u0454.")
         return
     output=io.StringIO(); writer=csv.writer(output)
-    writer.writerow(["Date","Telegram ID","Driver","Vehicle","Route","Start km","End km","Distance km"])
+    writer.writerow(["Date","Telegram ID","Driver","Vehicle","Route","Start km","End km","Distance km","Plate","Runs","Private carrier","Odometer photo file ID"])
     for r in sorted(rows,key=lambda x:(x.get("user_id",0),x.get("date",""))):
-        writer.writerow([r.get("date"),r.get("user_id"),r.get("driver"),r.get("vehicle"),r.get("route"),r.get("start_km"),r.get("end_km"),int(r.get("end_km",0))-int(r.get("start_km",0))])
+        writer.writerow([r.get("date"),r.get("user_id"),r.get("driver"),r.get("vehicle"),r.get("route"),r.get("start_km"),r.get("end_km"),int(r.get("end_km",0))-int(r.get("start_km",0)),r.get("plate",""),r.get("trip_count",1),r.get("private_carrier",False),r.get("photo_file_id","")])
     data=io.BytesIO(("\ufeff"+output.getvalue()).encode("utf-8"))
     data.name=f"workpuls_drivers_{month}.csv"
     await update.message.reply_document(document=data,filename=data.name)
+    totals={}
+    for r in rows:
+        key=(r.get("user_id"),r.get("driver"),r.get("plate",r.get("vehicle","")),bool(r.get("private_carrier",False)))
+        t=totals.setdefault(key,{"records":0,"runs":0,"km":0})
+        t["records"]+=1;t["runs"]+=int(r.get("trip_count",1) or 1)
+        t["km"]+=int(r.get("end_km",0))-int(r.get("start_km",0))
+    summary=io.StringIO();w=csv.writer(summary)
+    w.writerow(["Telegram ID","Driver","Plate / vehicle","Private carrier","Daily records","Runs","Distance km"])
+    for key,t in sorted(totals.items(),key=lambda x:(str(x[0][1]),str(x[0][2]))):
+        w.writerow([*key,t["records"],t["runs"],t["km"]])
+    result=io.BytesIO(("\ufeff"+summary.getvalue()).encode("utf-8"))
+    result.name=f"workpuls_drivers_summary_{month}.csv"
+    await update.message.reply_document(document=result,filename=result.name)
 
 async def cmd_version(update,context):
     if update.effective_chat.type=="private":
@@ -4265,6 +4316,10 @@ async def employee_private_access(update,context):
         ud.pop("wp_mode",None)
         await message.reply_text("\U0001f697 \u041c\u0435\u043d\u044e \u0432\u043e\u0434\u0456\u044f",reply_markup=_driver_kb(context,update))
         return
+    if action=="vehicle" and (is_driver(update) or is_admin(update)):
+        ud["wp_mode"]="vehicle_model"
+        await message.reply_text(_t(context,update,"ÐÐ²ÐµÐ´ÑÑÑ Ð¼Ð°ÑÐºÑ ÑÐ° Ð¼Ð¾Ð´ÐµÐ»Ñ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ (Ð½Ð°Ð¿ÑÐ¸ÐºÐ»Ð°Ð´ Toyota Bus):","Enter vehicle make and model:","Introduzca marca y modelo del vehÃ­culo:"))
+        return
     if action=="trips" and (is_driver(update) or is_admin(update)):
         try:
             with open(TRIPS_FILE,encoding="utf-8") as f:
@@ -4275,7 +4330,7 @@ async def employee_private_access(update,context):
             return
         if not trips: await message.reply_text("\u0417\u0430\u043f\u0438\u0441\u0456\u0432 \u043f\u043e\u043a\u0438 \u043d\u0435\u043c\u0430\u0454. / No trips yet. / No hay viajes.")
         else:
-            lines=[f"{t['date']} | {t['vehicle']} | {t['route']} | {t['start_km']}\u2013{t['end_km']} \u043a\u043c" for t in trips[-15:]]
+            lines=[f"{t.get('date','')} | {t.get('plate',t.get('vehicle',''))} | {t.get('route','')} | {t.get('trip_count',1)} runs | {t.get('start_km',0)}â{t.get('end_km',0)} km" for t in trips[-15:]]
             await message.reply_text("\U0001f4cb \u041e\u0441\u0442\u0430\u043d\u043d\u0456 \u043f\u043e\u0457\u0437\u0434\u043a\u0438:\n"+"\n".join(lines))
         return
     if action=="trip" and (is_driver(update) or is_admin(update)):
@@ -4289,7 +4344,9 @@ async def employee_private_access(update,context):
         ud["wp_mode"]="request_"+action
         await message.reply_text(_tr(context,*request_types[action],update=update),reply_markup=ReplyKeyboardMarkup([[_label("cancel",context,update)]],resize_keyboard=True))
         return
-    if action in ("card","performance","schedule"):
+    if action=="schedule":
+        return await _employee_home(update,context)
+    if action in ("card","performance"):
         sap=_personal_sap(context)
         if not sap:
             ud["wp_mode"]="sap_"+action
@@ -4320,31 +4377,58 @@ async def employee_private_access(update,context):
         await _employee_home(update,context)
         await message.reply_text(f"\u2705 \u0417\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e. \u041f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043e \u0430\u0434\u043c\u0456\u043d\u0456\u0441\u0442\u0440\u0430\u0442\u043e\u0440\u0456\u0432: {delivered}/{len(ADMIN_USER_IDS)}")
         return
-    fields=[("trip_date","date","\u041c\u0430\u0440\u043a\u0430, \u043c\u043e\u0434\u0435\u043b\u044c \u0442\u0430 \u043d\u043e\u043c\u0435\u0440 \u0430\u0432\u0442\u043e:"),("trip_vehicle","vehicle","\u041c\u0430\u0440\u0448\u0440\u0443\u0442 (\u0437\u0432\u0456\u0434\u043a\u0438 \u2192 \u043a\u0443\u0434\u0438):"),
-            ("trip_route","route","\u041f\u0440\u043e\u0431\u0456\u0433 \u043d\u0430 \u043f\u043e\u0447\u0430\u0442\u043a\u0443 (\u043a\u043c):"),("trip_start","start_km","\u041f\u0440\u043e\u0431\u0456\u0433 \u0443 \u043a\u0456\u043d\u0446\u0456 (\u043a\u043c):")]
-    for current,key,next_prompt in fields:
-        if mode==current and (is_driver(update) or is_admin(update)):
-            if current=="trip_date":
-                try:
-                    if datetime.strptime(text,"%Y-%m-%d").strftime("%Y-%m-%d")!=text: raise ValueError()
-                except ValueError:
-                    await message.reply_text("\u041d\u0435\u043f\u0440\u0430\u0432\u0438\u043b\u044c\u043d\u0430 \u0434\u0430\u0442\u0430. \u041f\u0440\u0438\u043a\u043b\u0430\u0434: 2026-11-22")
-                    return
-            if current=="trip_start":
-                try:
-                    value=int(text)
-                    if value<0: raise ValueError()
-                except ValueError:
-                    await message.reply_text("\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0446\u0456\u043b\u0435 \u043d\u0435\u0432\u0456\u0434\u2019\u0454\u043c\u043d\u0435 \u0447\u0438\u0441\u043b\u043e.")
-                    return
-                text=value
-            if not str(text).strip():
-                await message.reply_text("\u041f\u043e\u043b\u0435 \u043d\u0435 \u043c\u043e\u0436\u0435 \u0431\u0443\u0442\u0438 \u043f\u043e\u0440\u043e\u0436\u043d\u0456\u043c.")
-                return
-            ud.setdefault("wp_trip",{})[key]=text
-            ud["wp_mode"]={"trip_date":"trip_vehicle","trip_vehicle":"trip_route","trip_route":"trip_start","trip_start":"trip_end"}[current]
-            await message.reply_text(next_prompt)
-            return
+    if mode=="vehicle_model" and (is_driver(update) or is_admin(update)):
+        if not text or len(text)>100: return await message.reply_text("Invalid model / ÐÐµÐ²ÑÑÐ½Ð° Ð¼Ð¾Ð´ÐµÐ»Ñ")
+        ud["wp_vehicle_model"]=text; ud["wp_mode"]="vehicle_plate"
+        return await message.reply_text(_t(context,update,"ÐÐ²ÐµÐ´ÑÑÑ ÑÐµÑÑÑÑÐ°ÑÑÐ¹Ð½Ð¸Ð¹ Ð½Ð¾Ð¼ÐµÑ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ:","Enter registration plate:","Introduzca matrÃ­cula:"))
+    if mode=="vehicle_plate" and (is_driver(update) or is_admin(update)):
+        if not 2<=len(text)<=20: return await message.reply_text("Invalid plate / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð½Ð¾Ð¼ÐµÑ")
+        ud["wp_vehicle_plate"]=text.upper(); ud["wp_mode"]="vehicle_private"
+        return await message.reply_text(_t(context,update,"Ð¦Ðµ Ð¿ÑÐ¸Ð²Ð°ÑÐ½Ð¸Ð¹ Ð¿ÐµÑÐµÐ²ÑÐ·Ð½Ð¸Ðº? ÐÐ°Ð¿Ð¸ÑÑÑÑ ÑÐ°Ðº Ð°Ð±Ð¾ Ð½Ñ.","Private carrier? Type yes or no.","Â¿Transportista privado? Escriba sÃ­ o no."))
+    if mode=="vehicle_private" and (is_driver(update) or is_admin(update)):
+        yes={"ÑÐ°Ðº","yes","si","sÃ­","y"}; no={"Ð½Ñ","no","n"}
+        if text.casefold() not in yes|no: return await message.reply_text("ÑÐ°Ðº/Ð½Ñ Â· yes/no Â· sÃ­/no")
+        _save_vehicle(update.effective_user.id,ud.pop("wp_vehicle_plate"),ud.pop("wp_vehicle_model"),text.casefold() in yes)
+        ud.pop("wp_mode",None)
+        return await message.reply_text(_t(context,update,"â ÐÐ²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð¾.","â Vehicle saved.","â VehÃ­culo guardado."),reply_markup=_driver_kb(context,update))
+    if mode=="trip_vehicle" and (is_driver(update) or is_admin(update)):
+        choices=_vehicles().get(str(update.effective_user.id),[])
+        if text=="â NEW / ÐÐÐÐ / NUEVO":
+            ud["wp_mode"]="vehicle_model"
+            return await message.reply_text(_t(context,update,"ÐÐ²ÐµÐ´ÑÑÑ Ð¼Ð°ÑÐºÑ ÑÐ° Ð¼Ð¾Ð´ÐµÐ»Ñ. ÐÑÑÐ»Ñ Ð·Ð±ÐµÑÐµÐ¶ÐµÐ½Ð½Ñ Ð¿Ð¾Ð²ÑÐ¾ÑÐ½Ð¾ Ð½Ð°ÑÐ¸ÑÐ½ÑÑÑ Â«ÐÐ°Ð¿Ð¸ÑÐ°ÑÐ¸ Ð¿Ð¾ÑÐ·Ð´ÐºÑÂ».","Enter make and model; then restart Record trip.","Introduzca marca y modelo; despuÃ©s reinicie Registrar viaje."))
+        match=next((v for v in choices if text==f"{v['plate']} | {v['model']}"),None)
+        if not match:
+            return await message.reply_text(_t(context,update,"ÐÐ¸Ð±ÐµÑÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ Ð·Ñ ÑÐ¿Ð¸ÑÐºÑ Ð°Ð±Ð¾ Ð´Ð¾Ð´Ð°Ð¹ÑÐµ Ð½Ð¾Ð²Ð¸Ð¹.","Choose a saved vehicle or add one.","Elija un vehÃ­culo guardado o aÃ±ada uno."),reply_markup=_vehicle_choices(context,update))
+        ud["wp_trip"].update(vehicle=match["model"],plate=match["plate"],private_carrier=match.get("private",False))
+        ud["wp_mode"]="trip_route"
+        return await message.reply_text(_t(context,update,"ÐÐ°ÑÑÑÑÑ (Ð·Ð²ÑÐ´ÐºÐ¸ â ÐºÑÐ´Ð¸):","Route (from â to):","Ruta (desde â hasta):"))
+    if mode=="trip_count" and (is_driver(update) or is_admin(update)):
+        try:
+            count=int(text)
+            if not 1<=count<=100: raise ValueError()
+        except ValueError:
+            return await message.reply_text("1â100")
+        ud["wp_trip"]["trip_count"]=count
+        ud["wp_mode"]="trip_start"
+        return await message.reply_text(_t(context,update,"ÐÐ¾ÐºÐ°Ð·Ð½Ð¸Ðº Ð¾Ð´Ð¾Ð¼ÐµÑÑÐ° Ð½Ð° Ð¿Ð¾ÑÐ°ÑÐºÑ (ÐºÐ¼):","Starting odometer (km):","OdÃ³metro inicial (km):"))
+    if mode=="trip_date" and (is_driver(update) or is_admin(update)):
+        try:
+            if datetime.strptime(text,"%Y-%m-%d").strftime("%Y-%m-%d")!=text: raise ValueError()
+        except ValueError:
+            return await message.reply_text("YYYY-MM-DD")
+        ud["wp_trip"]["date"]=text;ud["wp_mode"]="trip_vehicle"
+        return await message.reply_text(_t(context,update,"ÐÐ±ÐµÑÑÑÑ Ð°Ð²ÑÐ¾Ð¼Ð¾Ð±ÑÐ»Ñ:","Choose vehicle:","Elija vehÃ­culo:"),reply_markup=_vehicle_choices(context,update))
+    if mode=="trip_route" and (is_driver(update) or is_admin(update)):
+        if not text or len(text)>250: return await message.reply_text("Invalid route / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð¼Ð°ÑÑÑÑÑ")
+        ud["wp_trip"]["route"]=text;ud["wp_mode"]="trip_count"
+        return await message.reply_text(_t(context,update,"Ð¡ÐºÑÐ»ÑÐºÐ¸ ÑÐ¾Ð´Ð¾Ðº Ð²Ð¸ÐºÐ¾Ð½Ð°Ð½Ð¾ (ÑÐ¸ÑÐ»Ð¾)?","How many runs (number)?","Â¿CuÃ¡ntos viajes (nÃºmero)?"))
+    if mode=="trip_start" and (is_driver(update) or is_admin(update)):
+        try:
+            km=int(text)
+            if km<0: raise ValueError()
+        except ValueError: return await message.reply_text("Invalid odometer / ÐÐµÐ²ÑÑÐ½Ð¸Ð¹ Ð¿ÑÐ¾Ð±ÑÐ³")
+        ud["wp_trip"]["start_km"]=km;ud["wp_mode"]="trip_end"
+        return await message.reply_text(_t(context,update,"ÐÐ¾ÐºÐ°Ð·Ð½Ð¸Ðº Ð¾Ð´Ð¾Ð¼ÐµÑÑÐ° Ð½Ð°Ð¿ÑÐ¸ÐºÑÐ½ÑÑ (ÐºÐ¼):","Ending odometer (km):","OdÃ³metro final (km):"))
     if mode=="trip_end" and (is_driver(update) or is_admin(update)):
         try:
             end=int(text);start=ud["wp_trip"]["start_km"]
@@ -4352,10 +4436,9 @@ async def employee_private_access(update,context):
         except (ValueError,KeyError,TypeError):
             await message.reply_text("\u041a\u0456\u043d\u0446\u0435\u0432\u0438\u0439 \u043f\u0440\u043e\u0431\u0456\u0433 \u043c\u0430\u0454 \u0431\u0443\u0442\u0438 \u043d\u0435 \u043c\u0435\u043d\u0448\u0438\u043c \u0437\u0430 \u043f\u043e\u0447\u0430\u0442\u043a\u043e\u0432\u0438\u0439.")
             return
-        item=dict(ud["wp_trip"],end_km=end,user_id=update.effective_user.id,driver=update.effective_user.full_name,created_at=datetime.now().isoformat(timespec="seconds"))
-        _append_jsonl(TRIPS_FILE,item)
-        ud.pop("wp_mode",None);ud.pop("wp_trip",None)
-        await message.reply_text(f"\u2705 \u041f\u043e\u0457\u0437\u0434\u043a\u0443 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e: {end-start} \u043a\u043c",reply_markup=_driver_kb(context,update))
+        ud["wp_trip"]["end_km"]=end
+        ud["wp_mode"]="trip_photo"
+        await message.reply_text(_t(context,update,"ÐÐ°Ð´ÑÑÐ»ÑÑÑ ÑÐ¾ÑÐ¾ Ð¾Ð´Ð¾Ð¼ÐµÑÑÐ° Ð´Ð»Ñ Ð·Ð°Ð²ÐµÑÑÐµÐ½Ð½Ñ Ð·Ð°Ð¿Ð¸ÑÑ.","Send an odometer photo to save the entry.","EnvÃ­e una foto del odÃ³metro para guardar el registro."))
         return
     await _employee_home(update,context)
 
@@ -4367,10 +4450,6 @@ async def _show_personal(update,context,action,sap):
         return
     if action=="card": body=format_employee_card(emp,read_perf())
     elif action=="performance": body=format_employee_card(emp,read_perf())
-    elif action=="schedule":
-        shifts=[r for r in read_shifts(True) if normalize_text(r.get("sap",""))==sap]
-        shifts.sort(key=lambda r:(r.get("date",""),r.get("shift_type","")),reverse=True)
-        body="\U0001f4c5 \u041e\u0441\u0442\u0430\u043d\u043d\u0456 \u0437\u043c\u0456\u043d\u0438 / Recent shifts / \u00daltimos turnos:\n"+("\n".join(f"{r.get('date','')} | {r.get('shift_type','')} | {r.get('hala','')} {r.get('group','')}" for r in shifts[:20]) or "\u0417\u0430\u043f\u0438\u0441\u0456\u0432 \u043d\u0435\u043c\u0430\u0454 / No records / Sin registros")
     else: return
     await update.effective_message.reply_text(body,reply_markup=_employee_kb(context,is_driver(update),is_admin(update),update))
 
@@ -4441,7 +4520,7 @@ def main():
     app.add_handler(CallbackQueryHandler(lambda u, c: guarded_admin(roster_callback, u, c), pattern=r"^roster:"))
     app.add_handler(CallbackQueryHandler(lambda u, c: guarded_admin(workplace_callback, u, c), pattern=r"^wp:"))
     app.add_handler(MessageHandler(filters.Document.ALL, lambda u, c: guarded_admin(on_document, u, c)))
-    app.add_handler(MessageHandler(filters.PHOTO, lambda u, c: guarded_admin(on_photo, u, c)))
+    app.add_handler(MessageHandler(filters.PHOTO, driver_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, safe_text))
     app.run_polling(close_loop=False, drop_pending_updates=True)
 
